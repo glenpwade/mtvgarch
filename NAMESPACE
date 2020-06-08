@@ -1,0 +1,5 @@
+exportPattern("^[[:alpha:]]+")
+importFrom("graphics", "plot.default")
+importFrom("methods", ".valueClassTest", "callNextMethod", "new")
+importFrom("stats", "na.omit", "optim", "optimHess", "pnorm", "sd","var")
+importFrom("utils", "head", "tail", "timestamp")
