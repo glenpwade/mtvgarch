@@ -10,3 +10,4 @@ License: file LICENSE
 Encoding: UTF-8
 LazyData: True
 Depends: methods
+Imports: foreach,parallel,doParallel

@@ -33,16 +33,11 @@
     # tv$Estimated$optimoutput  -- list: the full returned value from optim().  Only set if the verbose param = True
 
 
-#library(numDeriv)
-require(foreach)
-require(parallel)
-require(doParallel)
+## --- TV_CLASS Definition --- ####
 
 tvshape = list(delta0only=0,single=1,double=2,double1loc=3)
 speedopt = list(none=0,gamma=1,gamma_std=2,eta=3,lamda2_inv=4)
 
-
-## --- TV_CLASS Definition --- ####
 tv <- setClass(Class = "tv_class",
                slots = c(st="numeric",g="numeric",delta0free="logical",nr.pars="integer", nr.transitions="integer",Tobs="integer",taylor.order="integer"),
                contains = c("namedList")
@@ -95,7 +90,7 @@ setGeneric(name="tv",
                this$speedopt <- speedopt$eta
                this@nr.transitions <- length(shape)
                # Create the starting Pars matrix
-               this  <- setInitialPars(this)
+               this  <- .setInitialPars(this)
                rownames(this$pars) <- c("deltaN","speedN","locN1","locN2")
                this@nr.pars <- as.integer(length(this$pars[!is.na(this$pars)]) + 1)  # +1 for delta0
                this$optimcontrol$ndeps <- rep(1e-5,this@nr.pars)
@@ -110,19 +105,15 @@ setGeneric(name="tv",
            }
 )
 
-setMethod("tv",signature = c("numeric","numeric"),
-          function(st,shape){tv(st,shape)}
-)
-
 ## --- Public Methods --- ####
 
 ## -- estimateTV(e,tv,ctrl) ####
 
 setGeneric(name="estimateTV",
           valueClass = "tv_class",
-          signature = c("e","tv","estimationControl"),
-          def=function(e,tv,estimationControl){
-            this <- tv
+          signature = c("e","tvObj","estimationControl"),
+          def=function(e,tvObj,estimationControl){
+            this <- tvObj
             this$Estimated <- list()
 
             if(!is.null(estimationControl$calcSE)) calcSE <- estimationControl$calcSE else calcSE <- FALSE
@@ -163,19 +154,19 @@ setGeneric(name="estimateTV",
 
             # Now call optim:
             tmp <- NULL
-            try(tmp <- optim(optimpars,.loglik.tv.univar,gr=NULL,e,this,method="BFGS",control=this$optimcontrol,hessian=calcSE))
+            try(tmp <- optim(optimpars,loglik.tv.univar,gr=NULL,e,this,method="BFGS",control=this$optimcontrol,hessian=calcSE))
 
             ## --- Attach results of estimation to the object --- ##
 
             # An unhandled error could result in a NULL being returned by optim()
             if (is.null(tmp)) {
-              this$Estimated$value <- -1e10
+              this$Estimated$value <- -Inf
               this$Estimated$error <- TRUE
               warning("estimateTV() - optim failed and returned NULL. Check the optim controls & starting params")
               return(this)
             }
             if (tmp$convergence != 0) {
-              this$Estimated$value <- -1e10
+              this$Estimated$value <- -Inf
               this$Estimated$error <- TRUE
               this$Estimated$optimoutput <- tmp
               warning("estimateTV() - failed to converge. Check the optim controls & starting params")
@@ -188,10 +179,10 @@ setGeneric(name="estimateTV",
             #Update the TV object parameters using optimised pars:
             if (this@delta0free){
               this$Estimated$delta0 <- as.numeric(tmp$par[1])
-              this <- .EstimatedParsToMatrix(this,tail(tmp$par,-1))
+              this <- .estimatedParsToMatrix(this,tail(tmp$par,-1))
             } else{
               if (is.null(this$Estimated$delta0)) this$Estimated$delta0 <- this$delta0
-              this <- .EstimatedParsToMatrix(this,tmp$par)
+              this <- .estimatedParsToMatrix(this,tmp$par)
             }
             colnames(this$Estimated$pars) <- paste("st" ,1:this@nr.transitions,sep = "")
 
@@ -230,26 +221,21 @@ setGeneric(name="estimateTV",
             return(this)
           })
 
-setMethod("estimateTV",signature = c("numeric","tv_class","list"),
-          function(e,tv,estimationControl){
-            estimateTV(e,tv,estimationControl)
-          })
-
 setMethod("estimateTV",signature = c("numeric","tv_class","missing"),
-          function(e,tv){
+          function(e,tvObj){
             estimationControl <- list()
             estimationControl$calcSE <- FALSE
             estimationControl$verbose <- FALSE
             estimationControl$taylor.order <- as.integer(0)
-            estimateTV(e,tv,estimationControl)
+            estimateTV(e,tvObj,estimationControl)
           })
 
 ## -- LM.TR2(e,tv) ####
 setGeneric(name="LM.TR2",
            valueClass = "numeric",
-           signature = c("e","tvobj"),
-           def=function(e,tvobj){
-             this <- tvobj
+           signature = c("e","tvObj"),
+           def=function(e,tvObj){
+             this <- tvObj
 
              if(this@taylor.order == 0){
                message("Cannot execute test with no alternate hypothesis. Please set a valid taylor.order")
@@ -293,16 +279,13 @@ setGeneric(name="LM.TR2",
 
            }
 )
-setMethod("LM.TR2",signature = c("numeric","tv_class"),
-          function(e,tvobj){LM.TR2(e,tvobj)})
-
 
 ## -- LM.Robust(e,tv) ####
 setGeneric(name="LM.Robust",
            valueClass = "numeric",
-           signature = c("e","tvobj"),
-           def = function(e,tvobj){
-             this <- tvobj
+           signature = c("e","tvObj"),
+           def = function(e,tvObj){
+             this <- tvObj
 
              if(this@taylor.order == 0){
                message("Cannot execute test with no alternate hypothesis. Please set a valid taylor.order")
@@ -355,15 +338,13 @@ setGeneric(name="LM.Robust",
 
            }
 )
-setMethod("LM.Robust",signature = c("numeric","tv_class"),
-          function(e,tvobj){LM.Robust(e,tvobj)})
 
 ## -- SetTaylorOrder(tv) ####
 setGeneric(name="setTaylorOrder",
            valueClass = "tv_class",
-           signature = c("taylor.order","tvobj"),
-           def = function(taylor.order,tvobj){
-             this <- tvobj
+           signature = c("taylor.order","tvObj"),
+           def = function(taylor.order,tvObj){
+             this <- tvObj
 
              if(taylor.order > 0 && taylor.order < 5){
                this@taylor.order <- as.integer(taylor.order)
@@ -373,15 +354,16 @@ setGeneric(name="setTaylorOrder",
              return(this)
            }
 )
-setMethod("setTaylorOrder",signature = c("numeric","tv_class"),
-          function(taylor.order,tvobj){setTaylorOrder(taylor.order,tvobj)})
 
-## -- testStatDist ####
-setGeneric(name="testStatDist",
+
+## --- PRIVATE METHODS --- ####
+
+## -- .testStatDist ####
+setGeneric(name=".testStatDist",
            valueClass = "list",
-           signature = c("tvobj","refdata","reftests","simcontrol"),
-           def = function(tvobj,refdata,reftests,simcontrol){
-             this <- tvobj
+           signature = c("tvObj","refdata","reftests","simcontrol"),
+           def = function(tvObj,refdata,reftests,simcontrol){
+             this <- tvObj
 
              # 1. Setup the default params & timer
              if(!is.null(simcontrol$saveAs)) {
@@ -459,30 +441,22 @@ setGeneric(name="testStatDist",
            }
 )
 
-setMethod("testStatDist",signature = c("tv_class","matrix","list","list"),
-          function(tvobj,refdata,reftests,simcontrol){
-            testStatDist(tvobj,refdata,reftests,simcontrol)
-          }
-)
-
-setMethod("testStatDist",signature = c("tv_class","matrix","list","missing"),
-          function(tvobj,refdata,reftests){
+setMethod(".testStatDist",signature = c("tv_class","matrix","list","missing"),
+          function(tvObj,refdata,reftests){
             simcontrol <- list()
             simcontrol$saveAs <- paste("SimDist-",strftime(Sys.time(),format="%Y%m%d-%H%M%S",usetz = FALSE))
             simcontrol$numLoops <- 1100
             simcontrol$numCores <- parallel::detectCores() - 1
-            testStatDist(tvobj,refdata,reftests,simcontrol)
+            .testStatDist(tvObj,refdata,reftests,simcontrol)
           })
-
-## --- PRIVATE METHODS --- ####
 
 
 ## Set the initial parameters ####
-setGeneric(name="setInitialPars",
+setGeneric(name=".setInitialPars",
            valueClass = "tv_class",
-           signature = c("tv"),
-           def = function(tv){
-             this <- tv
+           signature = c("tvObj"),
+           def = function(tvObj){
+             this <- tvObj
 
              nrLoc <- this@nr.transitions + length(this$shape[this$shape==tvshape$double])
              locNum <- 1
@@ -505,15 +479,12 @@ setGeneric(name="setInitialPars",
            }
 )
 
-setMethod("setInitialPars",signature = c("tv_class"),
-          function(tv){setInitialPars(tv)})
-
 ## Estimated Pars to Matrix ####
-setGeneric(name="estimatedParsToMatrix",
+setGeneric(name=".estimatedParsToMatrix",
            valueClass = "tv_class",
-           signature = c("tv","optimpars"),
-           def = function(tv,optimpars){
-             this <- tv
+           signature = c("tvObj","optimpars"),
+           def = function(tvObj,optimpars){
+             this <- tvObj
 
              if(this@nr.transitions == 0) stop("There are no parameters on this tv object")
 
@@ -535,18 +506,13 @@ setGeneric(name="estimatedParsToMatrix",
            }
 )
 
-setMethod("estimatedParsToMatrix",signature = c("tv_class","numeric"),
-          function(tv,optimpars){estimatedParsToMatrix(tv,optimpars)}
-)
-
-
-## -- dg_dt(tv) ####
-setGeneric(name="dg_dt",
+## -- .dg_dt(tv) ####
+setGeneric(name=".dg_dt",
            valueClass = "matrix",
-           signature = c("tvobj"),
-           def =  function(tvobj){
+           signature = c("tvObj"),
+           def =  function(tvObj){
 
-             this <- tvobj
+             this <- tvObj
 
              rtn <- matrix(nrow=this@Tobs,ncol=this@nr.pars)
              col_idx <- 0
@@ -610,12 +576,10 @@ setGeneric(name="dg_dt",
 
            }
 )
-setMethod("dg_dt",signature = c("tv_class"),
-          function(tvobj){dg_dt(tvobj)})
 
 
-## -- dg_dt2(tv@st) ####
-setGeneric(name="dg_dt2",
+## -- .dg_dt2(tv@st) ####
+setGeneric(name=".dg_dt2",
            valueClass = "matrix",
            signature = c("st"),
            def =  function(st){
@@ -630,16 +594,14 @@ setGeneric(name="dg_dt2",
 
            }
 )
-setMethod("dg_dt2",signature = c("numeric"),
-          function(st){dg_dt2(st)})
 
-## -- calculate_g(tv) ####
-setGeneric(name="calculate_g",
+## -- .calculate_g(tv) ####
+setGeneric(name=".calculate_g",
            valueClass = "numeric",
-           signature = c("tvobj"),
-           def = function(tvobj){
+           signature = c("tvObj"),
+           def = function(tvObj){
 
-             this <- tvobj
+             this <- tvObj
              # 1. Initialise g to a constant variance = delta0
              if(is.null(this$Estimated$delta0)){
                # Set defaults if the TV object has not been estimated yet
@@ -671,25 +633,23 @@ setGeneric(name="calculate_g",
              g
            }
 )
-setMethod("calculate_g",signature = c("tv_class"),
-          function(tvobj){calculate_g(tvobj)})
 
 ## -- loglik.tv.univar() ####
 setGeneric(name="loglik.tv.univar",
            valueClass = "numeric",
-           signature = c("optimpars","e","tvobj"),
-           def = function(optimpars,e,tvobj){
+           signature = c("optimpars","e","tvObj"),
+           def = function(optimpars,e,tvObj){
 
-             this <- tvobj
+             this <- tvObj
              error <- -1e10
 
              # Copy the optimpars into a local tv_object
              if (this@delta0free) {
                this$Estimated$delta0 <- optimpars[1]
-               this <- .EstimatedParsToMatrix(this,tail(optimpars,-1))
+               this <- .estimatedParsToMatrix(this,tail(optimpars,-1))
              } else{
                if(is.null(this$Estimated$delta0)) this$Estimated$delta0 <- this$delta0
-               this <- .EstimatedParsToMatrix(this,optimpars)
+               this <- .estimatedParsToMatrix(this,optimpars)
              }
 
              # Do paramater boundary checks:
@@ -744,10 +704,6 @@ setGeneric(name="loglik.tv.univar",
 
            }
 )
-
-setMethod("loglik.tv.univar",signature = c("numeric","numeric","tv_class"),
-          function(optimpars,e,tvobj){loglik.tv.univar(optimpars,e,tvobj)})
-
 
 ## --- Override Methods --- ####
 

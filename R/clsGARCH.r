@@ -32,7 +32,6 @@ garch <- setClass(Class = "garch_class",
                contains = c("namedList")
                )
 
-## Initialise with no params
 setMethod("initialize","garch_class",
           function(.Object,...){
             .Object <- callNextMethod(.Object,...)
@@ -66,13 +65,8 @@ setMethod("garch",signature = c("numeric","missing"),
             garch(type,c(1,1))
           })
 
-## Constructor with 2 params
-setMethod("garch",signature = c("numeric","numeric"),
-          function(type,order){garch(type,order)})
-
 
 ## --- Public Methods --- ####
-
 
 ## -- estimateGARCH() ####
 setGeneric(name="estimateGARCH",
@@ -102,20 +96,20 @@ setGeneric(name="estimateGARCH",
 
                # Now call optim:
                tmp <- NULL
-               try(tmp <- optim(optimpars,.loglik.garch.univar,gr=NULL,e,this,method="BFGS",control=this$optimcontrol,hessian=calcSE))
+               try(tmp <- optim(optimpars,loglik.garch.univar,gr=NULL,e,this,method="BFGS",control=this$optimcontrol,hessian=calcSE))
 
                ## --- Attach results of estimation to the object --- ##
                this$Estimated <- list()
 
                # An unhandled error could result in a NULL being returned by optim()
                if (is.null(tmp)) {
-                   this$Estimated$value <- -1e10
+                   this$Estimated$value <- -Inf
                    this$Estimated$error <- TRUE
                    warning("estimateGARCH() - optim failed and returned NULL. Check the optim controls & starting params")
                    return(this)
                }
                if (tmp$convergence!=0) {
-                   this$Estimated$value <- -1e10
+                   this$Estimated$value <- -Inf
                    this$Estimated$error <- TRUE
                    this$Estimated$optimoutput <- tmp
                    warning("estimateGARCH() - failed to converge. Check the optim controls & starting params")
@@ -148,23 +142,22 @@ setGeneric(name="estimateGARCH",
                return(this)
            }
 )
-setMethod("estimateGARCH",signature = c("numeric","garch_class","list"),
-          function(e,garchObj,estimationControl){estimateGARCH(e,garchObj,estimationControl)}
-)
+
 setMethod("estimateGARCH",signature = c("numeric","garch_class","missing"),
           function(e,garchObj){
             estimationControl <- list()
             estimationControl$calcSE <- FALSE
             estimationControl$verbose <- FALSE
             estimateGARCH(e,garchObj,estimationControl)
-          })
+          }
+)
 
 
 ## --- PRIVATE METHODS --- ####
 
-## -- setInitPars() -- ####
+## -- .setInitPars() -- ####
 
-setGeneric(name="setInitPars",
+setGeneric(name=".setInitPars",
            valueClass = "garch_class",
            signature = c("garchObj"),
            def = function(garchObj){
@@ -220,12 +213,9 @@ setGeneric(name="setInitPars",
                return(this)
            }
 )
-setMethod("setInitPars",signature = c("garch_class"),
-          function(garchObj){setInitPars(garchObj)}
-)
 
-## -- parsVecToMatrix() ####
-setGeneric(name="parsVecToMatrix",
+## -- .parsVecToMatrix() ####
+setGeneric(name=".parsVecToMatrix",
            valueClass = "matrix",
            signature = c("garchObj","pars"),
            function(garchObj,pars){
@@ -245,18 +235,14 @@ setGeneric(name="parsVecToMatrix",
 
            }
 )
-setMethod("parsVecToMatrix",signature = c("garch_class","numeric"),
-          function(garchObj,pars){parsVecToMatrix(garchObj,pars)}
-)
 
-
-## -- calculate_h() ####
-setGeneric(name="calculate_h",
+## -- .calculate_h() ####
+setGeneric(name=".calculate_h",
            valueClass = "garch_class",
-           signature = c("garchobj","e"),
-           def = function(garchobj,e){
+           signature = c("garchObj","e"),
+           def = function(garchObj,e){
 
-               this <- garchobj
+               this <- garchObj
 
                if(this$type == garchtype$noGarch) {
                    message("Cannot calculate h(t) for type: NoGarch")
@@ -277,8 +263,6 @@ setGeneric(name="calculate_h",
                return(this)
            }
 )
-setMethod("calculate_h",signature = c("garch_class","numeric"),
-          function(garchobj,e){calculate_h(garchobj,e)})
 
 ## -- loglik.garch.univar() ####
 setGeneric(name="loglik.garch.univar",
@@ -306,8 +290,6 @@ setGeneric(name="loglik.garch.univar",
            }
 )
 
-setMethod("loglik.garch.univar",signature = c("numeric","numeric","garch_class"),
-          function(optimpars,e,garchObj){loglik.garch.univar(optimpars,e,garchObj)})
 
 ## --- Override Methods --- ####
 
@@ -315,7 +297,8 @@ setMethod("loglik.garch.univar",signature = c("numeric","numeric","garch_class")
 setMethod("plot",signature = c(x="garch_class",y="missing"),
           function(x, y, ...){
             plot.default(x=x@h, type='l', ylab = "Cond.Variance", ...)
-          })
+          }
+)
 
 ## -- summary() ####
 setMethod("summary",signature="garch_class",
@@ -377,6 +360,7 @@ setMethod("summary",signature="garch_class",
             print(results[,-1])
             cat("\nLog-liklihood value: ",this$Estimated$value)
 
-          })
+          }
+)
 
 
