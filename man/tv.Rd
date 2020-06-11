@@ -6,7 +6,9 @@ creates a new tv object of type 'tv_class'
 %%  ~~function to do ... ~~
 }
 \description{
-By default the tv object will be...
+The tv object will be created with general default values for all the required parameters, e.g. detla0, pars, shape, speedopt
+Once the object is created the user can overwrite these defaults as needed.
+
 %%  ~~ A concise (1-5 lines) description of what the function does. ~~
 }
 \usage{
