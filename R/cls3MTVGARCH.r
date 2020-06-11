@@ -16,15 +16,7 @@
 # mtvgarch$Estimated$garch
 # mtvgarch$results[[1..n]]        -- "list" - contains a tv,garch & ll_value for each estimation iteration
 
-## --- tv & garch class definitions are needed to create mtvgarch --- ####
-tv <- setClass(Class = "tv_class",
-               slots = c(st="numeric",g="numeric",delta0free="logical",nr.pars="integer", nr.transitions="integer",Tobs="integer",taylor.order="integer"),
-               contains = c("namedList")
-)
-garch <- setClass(Class = "garch_class",
-                  slots = c(h="numeric",nr.pars="integer",order="numeric"),
-                  contains = c("namedList")
-)
+
 ## --- MTVGARCH_CLASS Definition --- ####
 mtvgarch <- setClass(Class = "mtvgarch_class",
                slots = c(tvObj="tv_class",garchObj="garch_class",value="numeric",e="numeric"),
@@ -129,13 +121,13 @@ setGeneric(name="calcLoglik",
            def = function(mtvgarchObj,tvObj,garchObj){
              this <- mtvgarchObj
 
-             NextResult <- length(this$results) + 1
-             this$results[[NextResult]] <- list()
-             this$results[[NextResult]]$tv <- tvObj
-             this$results[[NextResult]]$garch <- garchObj
+             nextResult <- length(this$results) + 1
+             this$results[[nextResult]] <- list()
+             this$results[[nextResult]]$tv <- tvObj
+             this$results[[nextResult]]$garch <- garchObj
 
              ll_val <- loglik.mtvgarch.univar(this@e,tvObj@g,garchObj@h)
-             this$results[[NextResult]]$value <- ll_val
+             this$results[[nextResult]]$value <- ll_val
 
              cat("\nThe LogLik value is:",ll_val)
              cat("\n\nIf this is better than any previous estimate then do another iteration,")
