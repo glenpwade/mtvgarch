@@ -15,7 +15,7 @@ estimateTV(e = "numeric", tvObj = "tv_class", estimationControl = "list")
 %- maybe also 'usage' for other objects documented here.
 \arguments{
   \item{e}{
-  a numeric vector containing a univariate time series
+  a numeric vector representing a univariate time series
 %%     ~~Describe \code{e} here~~
 }
   \item{tvObj}{
