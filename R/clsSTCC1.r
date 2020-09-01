@@ -1,15 +1,11 @@
 ## --- Correlation Structures --- ####
 ##
 ## -- We have a number of Correlation objects, with many common properties
-## -- This class file maintains Structures for STCC1 (STCC with One transition)
+## -- This class file maintains Structures for STCC1 (STCC with One Transition)
 
 
-CORRshape = list(single=1,double=2,double1loc=3)
-CORRspeedopt = list(gamma=1,gamma_std=2,eta=3)
 
-## --- Utiltiy Functions & Constants --- ####
-#### ===============  Anna's Matrix Functions  ================== ####
-
+## ===============  Anna's Matrix Functions  ================== ####
 
 myUnVecl <- function(vM){
   ## Returns a square matrix constructed using a vector of it's lower triangle.
@@ -101,12 +97,17 @@ myVecd <- function(M){
 
 }
 
-#### ===============  End: Anna's Tricky Functions  ================== ###
+## ===============  End: Anna's Tricky Functions  ================== ###
 
 
 ## --- stcc1_class Definition --- ####
+
+CORRtype = "STCC1"
+CORRshape = list(single=1,double=2,double1loc=3)
+CORRspeedopt = list(gamma=1,gamma_std=2,eta=3)
+
 stcc1 <- setClass(Class = "stcc1_class",
-               slots = c(N="integer",st="numeric",shape="integer",nr.covPars="integer",nr.trPars="integer",Tobs="integer"),
+               slots = c(st="numeric",shape="numeric",nr.covPars="integer",nr.trPars="integer",Tobs="integer"),
                contains = c("namedList")
                )
 
@@ -114,44 +115,51 @@ stcc1 <- setClass(Class = "stcc1_class",
 setMethod("initialize","stcc1_class",
           function(.Object,...){
             .Object <- callNextMethod(.Object,...)
-            .Object@N <- as.integer(2)
+            .Object@shape <- CORRshape$single
+            .Object$speedopt <- CORRspeedopt$eta
+            .Object$P1 <- .Object$P2 <- matrix()
+            .Object$optimcontrol <- list(fnscale = -1, maxit = 1000, reltol = 1e-5)
             # Return:
             .Object
           })
 
 setGeneric(name="stcc1",
            valueClass = "stcc1_class",
-           signature = c("N","st","shape"),
-           def = function(N,st,shape){
+           signature = c("st","shape"),
+           def = function(st,shape){
              this <- new("stcc1_class")
-             this@N <- as.integer(N)
-             this@nr.covPars <- as.integer(N + (N^2-N)/2)
-             this@shape <- as.integer(shape)
-             if(shape==CORRshape$double) this@nr.trPars <- as.integer(3) else this@nr.trPars <- as.integer(2)
-             this@st <- st
-             this@Tobs <- as.integer(NROW(st))
-
              # Do validation checks:
+             # Validate shape:
+             if(length(shape) != 1){
+               stop("Invalid shape: STCC1 requires just 1 transition")
+             }
 
              # End validation
 
-             this@st <- st
-             this@shape <- shape
              # Set Default Values:
-             this$speedopt <- CORRspeedopt$eta
-             if(shape==CORRshape$double) this$pars <- c(2.5,0.3,0.7) else this$pars <- c(2.5,0.5,NA)
+             this@st <- st
+             this@Tobs <- as.integer(NROW(st))
+             this@shape <- shape
+             if(shape==CORRshape$double) {
+               this@nr.trPars <- as.integer(3)
+               this$pars <- c(2.5,0.3,0.7)
+             }else {
+               this@nr.trPars <- as.integer(2)
+               this$pars <- c(2.5,0.5,NA)
+             }
              names(this$pars) <- c("speed","loc1","loc2")
-             this$P1 <- matrix(0.2,N,N)
-             diag(this$P1) <- 1
-             this$P2 <- matrix(0.7,N,N)
-             diag(this$P2) <- 1
-             this$optimcontrol <- list(fnscale = -1, maxit = 1000, reltol = 1e-5)
+
+             #this@nr.covPars <- as.integer(N + (N^2-N)/2)
+             #this$P1 <- matrix(0.2,N,N)
+             #diag(this$P1) <- 1
+             #this$P2 <- matrix(0.7,N,N)
+             #diag(this$P2) <- 1
 
              return(this)
            }
 )
 
-setGeneric(name=".calc.st_c",
+setGeneric(name="calc.st_c",
            valueClass = "numeric",
            signature = c("stcc1Obj"),
            def = function(stcc1Obj){
@@ -164,7 +172,7 @@ setGeneric(name=".calc.st_c",
            }
 )
 
-setGeneric(name=".calc.Gt",
+setGeneric(name="calc.Gt",
            valueClass = "numeric",
            signature = c("stcc1Obj","st_c"),
            def = function(stcc1Obj,st_c){
@@ -178,8 +186,8 @@ setGeneric(name=".calc.Gt",
            }
 )
 
-## === .calc_Pt1() === ####
-setGeneric(name=".calc_Pt1",
+## === .calc_Pt() === ####
+setGeneric(name="calc_Pt",
            valueClass = "matrix",
            signature = c("stcc1Obj"),
            def =   function(stcc1Obj){
