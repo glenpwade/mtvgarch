@@ -1,24 +1,12 @@
 ## --- Correlation Structures --- ####
 ##
 ## -- We have a number of Correlation objects, with many common properties
-## -- This class file maintains Structures for STCC1 (STCC with One Transition)
-
+## -- This class file maintains the Structure for STCC1 (STCC with One Transition)
 
 
 ## ===============  Anna's Matrix Functions  ================== ####
 
-myUnVecl <- function(vM){
-  ## Returns a square matrix constructed using a vector of it's lower triangle.
-  ## Note: This operation can be reversed using myVecl()
-  k <- length(vM)
-  N <- (1+sqrt(1+8*k))/2
-  M <- matrix(0,N,N)
-  M[lower.tri(M)] <- vM
-  M <- M + t(M) + diag(N)
-  #Return:
-  M
-}
-setGeneric(name=".unVecl",
+setGeneric(name="unVecl",
            valueClass = "matrix",
            signature = c("lowerTri"),
            def = function(lowerTri){
@@ -102,63 +90,75 @@ myVecd <- function(M){
 
 ## --- stcc1_class Definition --- ####
 
-CORRtype = "STCC1"
+CORRtype = CORRtype = list(CCC=1,CEC=2,STCC1=3,STEC1=4)
 CORRshape = list(single=1,double=2,double1loc=3)
 CORRspeedopt = list(gamma=1,gamma_std=2,eta=3)
 
 stcc1 <- setClass(Class = "stcc1_class",
-               slots = c(st="numeric",shape="numeric",nr.covPars="integer",nr.trPars="integer",Tobs="integer"),
+               slots = c(st="numeric",shape="numeric",type="integer",nr.covPars="integer",nr.trPars="integer",Tobs="integer",N="integer"),
                contains = c("namedList")
                )
 
-## Initialise with no params
+## --- Initialise --- ####
 setMethod("initialize","stcc1_class",
           function(.Object,...){
             .Object <- callNextMethod(.Object,...)
+            # By definition of STCC1:
+            .Object@type <- CORRtype$STCC1
+
+            # Default initial values
             .Object@shape <- CORRshape$single
+            .Object@N <- as.integer(2)
             .Object$speedopt <- CORRspeedopt$eta
-            .Object$P1 <- .Object$P2 <- matrix()
             .Object$optimcontrol <- list(fnscale = -1, maxit = 1000, reltol = 1e-5)
+
             # Return:
             .Object
           })
 
+## -- Constructor:stcc1 -- ####
 setGeneric(name="stcc1",
            valueClass = "stcc1_class",
-           signature = c("st","shape"),
-           def = function(st,shape){
+           signature = c("st","shape","N"),
+           def = function(st,shape,N){
              this <- new("stcc1_class")
-             # Do validation checks:
+
+             ## -- Do validation checks -- ####
              # Validate shape:
              if(length(shape) != 1){
                stop("Invalid shape: STCC1 requires just 1 transition")
+             }
+             # Validate N (number of series):
+             if(N < 2){
+               stop("Invalid N (number of series): STCC1 requires at least 2 data series")
              }
 
              # End validation
 
              # Set Default Values:
+             this@N <- as.integer(N)
              this@st <- st
              this@Tobs <- as.integer(NROW(st))
              this@shape <- shape
              if(shape==CORRshape$double) {
                this@nr.trPars <- as.integer(3)
-               this$pars <- c(2.5,0.3,0.7)
+               this$pars <- c(2.5,0.33,0.66)
              }else {
                this@nr.trPars <- as.integer(2)
                this$pars <- c(2.5,0.5,NA)
              }
              names(this$pars) <- c("speed","loc1","loc2")
 
-             #this@nr.covPars <- as.integer(N + (N^2-N)/2)
-             #this$P1 <- matrix(0.2,N,N)
-             #diag(this$P1) <- 1
-             #this$P2 <- matrix(0.7,N,N)
-             #diag(this$P2) <- 1
+             this@nr.covPars <- as.integer(N + (N^2-N)/2)
+             this$P1 <- matrix(0.2,N,N)
+             diag(this$P1) <- 1
+             this$P2 <- matrix(0.7,N,N)
+             diag(this$P2) <- 1
 
              return(this)
            }
 )
-
+## -- calc.st_c -- ####
 setGeneric(name="calc.st_c",
            valueClass = "numeric",
            signature = c("stcc1Obj"),
@@ -172,6 +172,7 @@ setGeneric(name="calc.st_c",
            }
 )
 
+## -- calc.Gt -- ####
 setGeneric(name="calc.Gt",
            valueClass = "numeric",
            signature = c("stcc1Obj","st_c"),
@@ -186,8 +187,8 @@ setGeneric(name="calc.Gt",
            }
 )
 
-## === .calc_Pt() === ####
-setGeneric(name="calc_Pt",
+## -- calc.Pt -- ####
+setGeneric(name="calc.Pt",
            valueClass = "matrix",
            signature = c("stcc1Obj"),
            def =   function(stcc1Obj){
@@ -198,26 +199,19 @@ setGeneric(name="calc_Pt",
              mP2 <- this$Estimated$P2
              vP2 <- mP2[lower.tri(mP2)]
 
-             st_c <- .calc.st_c(this)
-             Gt <- .calc.Gt(this,st_c)
+             st_c <- calc.st_c(this)
+             Gt <- calc.Gt(this,st_c)
              Pt <- t(apply(Gt,MARGIN = 1,FUN = function(X,P1,P2) ((1-X)*P1 + X*P2), P1=vP1, P2=vP2))
 
              return(Pt)
 
            }
 )
-
-## --- Public Methods --- ####
-
-## -- loglik.stcc1() ####
+## -- loglik.stcc1() --####
 setGeneric(name="loglik.stcc1",
            valueClass = "numeric",
            signature = c("optimpars","z","stcc1Obj"),
            def = function(optimpars,z,stcc1Obj){
-
-             # input: optimpars   -- c(speed,loc1,[loc2])
-             #        z           -- volatility standardised returns (matrix TxN)
-             #        stcc        -- object containing all the other parameters
 
              err_output <- -1e10
              this <- stcc1Obj
@@ -248,7 +242,7 @@ setGeneric(name="loglik.stcc1",
              tmp.par <- optimpars
 
              vP1 <- tmp.par[1:this@nr.covPars]
-             mP <- myUnVecl(vP1)
+             mP <- unVecl(vP1)
              eig <- eigen(mP,symmetric=TRUE,only.values=TRUE)
              # Check for SPD - positive-definite check:
              if (min(eig$values) <= 0) return(err_output)
@@ -256,19 +250,19 @@ setGeneric(name="loglik.stcc1",
              #Remove the P1 covPars, then extract the P2 covPars
              tmp.par <- tail(tmp.par,-this@nr.covPars)
              vP2 <- tmp.par[1:this@nr.covPars]
-             mP <- myUnVecl(vP2)
+             mP <- unVecl(vP2)
              eig <- eigen(mP,symmetric=TRUE,only.values=TRUE)
              # Check for SPD - positive-definite check:
              if (min(eig$values) <= 0) return(err_output)
 
-             st_c <- .calc.st_c(this)
-             Gt <- .calc.Gt(this,st_c)
+             st_c <- calc.st_c(this)
+             Gt <- calc.Gt(this,st_c)
 
              Pt <- t(apply(Gt,MARGIN = 1,FUN = function(X,P1,P2) ((1-X)*P1 + X*P2), P1=vP1, P2=vP2))
 
              llt <- vector("numeric")
              for(t in 1:this@Tobs) {
-               mPt <- myUnVecl(Pt[t,])
+               mPt <- unVecl(Pt[t,])
                llt[t] <- -0.5*log(det(mPt)) -0.5*( t(z[t,])%*%(qr.solve(mPt))%*%z[t,])
              }
              # Return:
@@ -276,7 +270,7 @@ setGeneric(name="loglik.stcc1",
 
            }
 )
-
+## --- estimateSTCC1 --- ####
 setGeneric(name="estimateSTCC1",
            valueClass = "stcc1_class",
            signature = c("z","stcc1Obj","estimationCtrl"),
@@ -310,9 +304,9 @@ setGeneric(name="estimateSTCC1",
                this$Estimated$value <- tmp$value
 
                tmp.par <- tmp$par
-               this$Estimated$P1 <- myUnVecl(tmp.par[1:this@nr.covPars])
+               this$Estimated$P1 <- unVecl(tmp.par[1:this@nr.covPars])
                tmp.par <- tail(tmp.par,-this@nr.covPars)
-               this$Estimated$P2 <- myUnVecl(tmp.par[1:this@nr.covPars])
+               this$Estimated$P2 <- unVecl(tmp.par[1:this@nr.covPars])
                tmp.par <- tail(tmp.par,-this@nr.covPars)
                this$Estimated$pars <- tmp.par
                if(this@shape != CORRshape$double) this$Estimated$pars <- c(this$Estimated$pars,NA)
@@ -324,9 +318,9 @@ setGeneric(name="estimateSTCC1",
                  try(vecSE <- sqrt(-diag(qr.solve(tmp$hessian))))
 
                  if(length(vecSE) > 0) {
-                   this$Estimated$P1.se <- myUnVecl(vecSE[1:this@nr.covPars])
+                   this$Estimated$P1.se <- unVecl(vecSE[1:this@nr.covPars])
                    vecSE <- tail(vecSE,-this@nr.covPars)
-                   this$Estimated$P2.se <- myUnVecl(vecSE[1:this@nr.covPars])
+                   this$Estimated$P2.se <- unVecl(vecSE[1:this@nr.covPars])
                    vecSE <- tail(vecSE,-this@nr.covPars)
 
                    this$Estimated$pars.se <- vecSE
@@ -334,7 +328,7 @@ setGeneric(name="estimateSTCC1",
                    names(this$Estimated$pars.se) <- names(this$pars)
                  }
                }
-               this$Estimated$Pt <- .calc_Pt1(this)
+               this$Estimated$Pt <- calc.Pt(this)
 
              } else {
                #Failed to converge
@@ -348,7 +342,13 @@ setGeneric(name="estimateSTCC1",
              return(this)
            }
 )
-
+setMethod("estimateSTCC1",signature = c("matrix","stcc1_class","missing"),
+          function(z,stcc1Obj){
+            estimationControl <- list()
+            estimationControl$calcSE <- FALSE
+            estimationControl$verbose <- FALSE
+            estimateSTCC1(z,stcc1Obj,estimationControl)
+          })
 
 ## --- PRIVATE METHODS --- ####
 
