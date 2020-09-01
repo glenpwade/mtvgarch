@@ -4,8 +4,9 @@
 ## -- This class file maintains the Structure for STCC1 (STCC with One Transition)
 
 
-## ===============  Anna's Matrix Functions  ================== ####
+## ===============  Anna's Matrix Functions  ================== ##
 
+## -- unVecl -- ####
 setGeneric(name="unVecl",
            valueClass = "matrix",
            signature = c("lowerTri"),
@@ -19,73 +20,66 @@ setGeneric(name="unVecl",
              return(M + t(M) + diag(N))
            }
 )
+## -- eigVec.EC -- ####
+setGeneric(name="eigVec.EC",
+           valueClass = "matrix",
+           signature = c("N"),
+           def = function(N){
+             # compute matrix of eigenvectors (columns of Q) for an EQUI-correlation model
+             # N = number of series
+             Q <- matrix(0,N,N)
+             for (i in 1:N)
+             {
+               if (i==1) Q[,i] <- (1/sqrt(N))*matrix(1,N,1)
+               else
+               {
+                 tmp <- 1/(sqrt((N-i+2)*(N-i+1)))
+                 for (j in seq((i-1),N))
+                 {
+                   if (j==(i-1)) Q[j,i] <- tmp*(N-i+1)
+                   else Q[j,i] <- tmp*(-1)
+                 }
+               }
+             }
+             return(Q) # NxN matrix
+          }
+)
+## -- eigVal.EC -- ####
+setGeneric(name="eigVal.EC",
+           valueClass = "numeric",
+           signature = c("N","rho"),
+           def = function(N,rho){
+             # compute matrix of eigenvvalues for an EQUI-correlation model
+             # N = number of series
+             # rho = equicorrelation parameter (scalar)
+             L <- rep((1-rho),N)
+             L[1] <- L[1]+rho*N
+             return(L) # Nx1
+           }
+)
+## -- ar1.Filter -- ####
+setGeneric(name="ar1.Filter",
+           valueClass = "matrix",
+           signature = c("mX","vB"),
+           def = function(mX,vB){
+             # mX -- T x s matrix
+             # vB -- 1 x s vector of coefficients
+             # does AR type filtering with lag 1 only
+             # output -- mY -- T x s matrix
+             # mY[1,] = 0...0
+             # mY[t,s] = mX[t,s]+vB[s]*mY[t-1,s]
+             s <- length(vB)
+             Tobs <- NROW(mX)
+             if (NCOL(mX) != s) stop("Error in ar1.Filter: Number of columns in mX must equal the length of vB")
+             mY <- matrix(mX[1,],1,s)
+             for (t in 2:Tobs){
+               mY <- rbind(mY,mX[t,]+vB*mY[(t-1),])
+             }
+             return(mY)
+           }
+)
 
-myQ.EC <- function(N){
-  # compute matrix of eigenvectors (columns of Q) for an EQUI-correlation model
-  # N = number of series
-  Q <- matrix(0,N,N)
-  for (i in 1:N)
-  {
-    if (i==1) Q[,i] <- (1/sqrt(N))*matrix(1,N,1)
-    else
-    {
-      tmp <- 1/(sqrt((N-i+2)*(N-i+1)))
-      for (j in seq((i-1),N))
-      {
-        if (j==(i-1)) Q[j,i] <- tmp*(N-i+1)
-        else Q[j,i] <- tmp*(-1)
-      }
-    }
-  }
-  #Return
-  Q # NXN
-}  #End: myQ.EC(N)
-
-
-myL.EC <- function(N,rho){
-  # compute matrix of eigenvvalues for an EQUI-correlation model
-  # N = number of series
-  # rho = equicorrelation parameter (scalar)
-  L <- rep((1-rho),N)
-  L[1] <- L[1]+rho*N
-  #Return vector:
-  L # Nx1
-}
-
-myFilter <- function(mX,vB){
-  # mX -- T x s matrix
-  # vB -- 1 x s vector of coefficients
-  # does AR type filtering with lag 1 only
-  # output -- mY -- T x s matrix
-  # mY[1,] = 0...0
-  # mY[t,s] = mX[t,s]+vB[s]*mY[t-1,s]
-  s <- length(vB)
-  Tobs <- NROW(mX)
-  # GLEN: add error check, NCOL(mX)=s
-  mY <- matrix(mX[1,],1,s)
-  for (t in 2:Tobs){
-    mY <- rbind(mY,mX[t,]+vB*mY[(t-1),])
-  }
-  # Return:
-  mY
-}
-
-myVecd <- function(M){
-  # vectorises main diagonal and off diagonal
-  N <- NCOL(M)
-  if (N==3){
-    vM <- matrix(0,nrow=N*(N+1)/2,ncol=1)
-    vM[1:3] <- diag(M)^2
-    vM[4] <- sqrt(2)*M[3,2]
-    vM[5] <- sqrt(2)*M[3,1]
-    vM[6] <- sqrt(2)*M[2,1]
-    return(vM)
-  }
-  else return(NULL)
-
-}
-
-## ===============  End: Anna's Tricky Functions  ================== ###
+## ===============  End: Anna's Tricky Functions  ================== ##
 
 
 ## --- stcc1_class Definition --- ####
