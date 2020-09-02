@@ -1140,6 +1140,9 @@ setGeneric(name="tvgarch",
              this@Results[[1]]$tv <- tvObj
              this@Results[[1]]$garch <- garchObj
              this@Results[[1]]$value <- loglik.tvgarch.univar(e,tvObj@g,garchObj@h)
+             this@Results[[1]]$tvParamChange <- 1
+             this@Results[[1]]$garchParamChange <- 1
+             this@Results[[1]]$valueChange <- 1
 
 
              cat("\ntvgarch object created successfully!\n")
@@ -1164,7 +1167,9 @@ setGeneric(name="loglik.tvgarch.univar",
            valueClass = "numeric",
            signature = c("e","g","h"),
            def = function(e,g,h){
-             sum( -0.5*log(2*pi) - 0.5*log(g) - 0.5*log(h) - 0.5*(e^2/(h*g) ) )
+             ll <- sum( -0.5*log(2*pi) - 0.5*log(g) - 0.5*log(h) - 0.5*(e^2/(h*g) ) )
+             names(ll) <- "Loglik.Value"
+             return(ll)
            }
 )
 
@@ -1225,11 +1230,11 @@ setGeneric(name="showResults",
              this <- tvgarchObj
 
              nr.Results <- length(this@Results)
-             for(n in 1:nr.Results){
-               cat("\nIteration: ",n)
-               print(this@Results[[n]]@tvParamChange)
-               print(this@Results[[n]]@garchParamChange)
-               print(this@Results[[n]]@valueChange)
+             for(n in 2:nr.Results){
+               cat("\nIteration:",(n-1), " % Change")
+               print(this@Results[[n]]$tvParamChange)
+               print(this@Results[[n]]$garchParamChange)
+               print(this@Results[[n]]$valueChange)
              }
 
            return(1)
