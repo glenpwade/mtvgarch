@@ -1092,8 +1092,6 @@ setMethod("summary",signature="garch_class",
 )
 
 
-
-
 ## --- tvgarch_CLASS Definition --- ####
 tvgarch <- setClass(Class = "tvgarch_class",
                slots = c(tvObj="tv_class",garchObj="garch_class",Results="list"),
@@ -1102,8 +1100,7 @@ tvgarch <- setClass(Class = "tvgarch_class",
 
 ## -- Initialise -- ####
 setMethod("initialize","tvgarch_class",
-          function(.Object,...){
-            .Object <- callNextMethod(.Object,...)
+          function(.Object){
             .Object@Results <- list()
             # Return:
             .Object
@@ -1120,20 +1117,23 @@ setGeneric(name="tvgarch",
              # Validate: Spit dummy if TV & GARCH are not estimated
              if(is.null(tvObj$Estimated) || is.null(garchObj$Estimated)) {
                message("tvgarch-class objects require the tv & garch components to be estimated before initialising.")
-               this$tv <- this$garch <- NULL
+               #this$tv <- this$garch <- NULL
                return(this)
              }
 
              this@tvObj <- tvObj
              this@garchObj <- garchObj
 
-             # Configure the tv object, based on Garch type
-             if(this@garchObj$type != garchtype$noGarch){
-               this@tvObj@delta0free <- FALSE
-               this@tvObj@nr.pars <- this@tvObj@nr.pars - as.integer(1)
-               this@tvObj$optimcontrol$ndeps <- tail(this@tvObj$optimcontrol$ndeps,-1)
-               this@tvObj$optimcontrol$parscale <- tail(this@tvObj$optimcontrol$parscale,-1)
+             # # Configure the tv object, based on Garch type
+             if(isTRUE(this@tvObj@delta0free)){
+               if(this@garchObj$type != garchtype$noGarch){
+                 this@tvObj@delta0free <- FALSE
+                 this@tvObj$optimcontrol$ndeps <- this@tvObj$optimcontrol$ndeps[2:this@tvObj@nr.pars]
+                 this@tvObj$optimcontrol$parscale <- this@tvObj$optimcontrol$parscale[2:this@tvObj@nr.pars]
+                 this@tvObj@nr.pars <- this@tvObj@nr.pars - as.integer(1)
+               }
              }
+
 
              # Initialise the Results list with the starting values:
              this@Results[[1]] <- list()
@@ -1144,18 +1144,7 @@ setGeneric(name="tvgarch",
              this@Results[[1]]$garchParamChange <- 1
              this@Results[[1]]$valueChange <- 1
 
-
              cat("\ntvgarch object created successfully!\n")
-             cat("\nNext Steps:\n")
-             cat("\n1. Copy the TV component from this object into a local TV variable, TV <- tvgarch@tvObj")
-             cat("\n2. Copy the GARCH component from this object into a local GARCH variable, GARCH <- tvgarch@garchObj")
-             cat("\n3. Filter the original data by dividing it by 'h',  e <- e/sqrt(GARCH@h) ")
-             cat("\n4. Estimate the local TV using the filtered data, TV <- estimateTV(e,TV) ")
-             cat("\n5. Filter the original data by dividing it by 'g' obtained in step 4.  e <- e/sqrt(TV@g) ")
-             cat("\n6. Estimate the local GARCH using this filtered data, GARCH <- estimateGARCH(e,GARCH) ")
-             cat("\n7. Make sure the estimated results have valid std errors.")
-             cat("\n8. Calculate the Log-liklihood of the updated model: tvgarch <- calcLogLik(tvgarch,TV,GARCH) ")
-             cat("\n9. Keep estimating TV & GARCH in pairs until the LogLiklihood is maximized ")
 
              return(this)
            }
@@ -1181,7 +1170,7 @@ setGeneric(name="estimateTVGARCH",
            def = function(e,tvgarchObj,iter){
              this <- tvgarchObj
 
-             estCtrl <- list(calcSE = TRUE, verbose = FALSE)
+             #estCtrl <- list(calcSE = TRUE, verbose = FALSE)
              TV <- this@tvObj
              GARCH <- this@garchObj
 
@@ -1190,9 +1179,9 @@ setGeneric(name="estimateTVGARCH",
 
              # 2. Do requested number of iterations
              for(n in 1:iter){
-               TV <- estimateTV(w,TV,estCtrl)
+               TV <- estimateTV(w,TV) #,estCtrl)
                z <- w/sqrt(TV@g)
-               GARCH <- estimateGARCH(z,GARCH,estCtrl)
+               GARCH <- estimateGARCH(z,GARCH) #,estCtrl)
                w <- z/sqrt(GARCH@h)
 
                nextResult <- length(this@Results) + 1
