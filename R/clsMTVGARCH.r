@@ -4,7 +4,7 @@
 
 ## --- mtvgarch_class Definition --- ####
 
-CORRtype = list(CCC=1,CEC=2,DCC=3,STCC1=4,STCC2=5,STEC=6)
+CORRtype = list(CCC=1,CEC=2,STCC1=3,STEC1=4)
 CORRshape = list(single=1,double=2,double1loc=3)
 CORRspeedopt = list(gamma=1,gamma_std=2,eta=3)
 

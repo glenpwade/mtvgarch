@@ -1096,39 +1096,36 @@ setMethod("summary",signature="garch_class",
 
 ## --- tvgarch_CLASS Definition --- ####
 tvgarch <- setClass(Class = "tvgarch_class",
-               slots = c(tvObj="tv_class",garchObj="garch_class",value="numeric",e="numeric"),
+               slots = c(tvObj="tv_class",garchObj="garch_class",Results="list"),
                contains = c("namedList")
 )
 
-## Initialise with no params
+## -- Initialise -- ####
 setMethod("initialize","tvgarch_class",
           function(.Object,...){
             .Object <- callNextMethod(.Object,...)
-            .Object$results <- list()
-            .Object$Estimated <- list()
+            .Object@Results <- list()
             # Return:
             .Object
           })
 
+## -- Constructor: tvgarch -- ####
 setGeneric(name="tvgarch",
            valueClass = "tvgarch_class",
-           signature = c("e","tvObj","garchObj"),
-           def = function(e,tvObj,garchObj){
+           signature = c("tvObj","garchObj"),
+           def = function(tvObj,garchObj){
 
              this <- new("tvgarch_class")
 
-             # Validate: Spit dummy if TV is not estimated
+             # Validate: Spit dummy if TV & GARCH are not estimated
              if(is.null(tvObj$Estimated) || is.null(garchObj$Estimated)) {
                message("tvgarch-class objects require the tv & garch components to be estimated before initialising.")
                this$tv <- this$garch <- NULL
                return(this)
              }
 
-             this@e <- e
              this@tvObj <- tvObj
              this@garchObj <- garchObj
-             this@value <- loglik.tvgarch.univar(e,garchObj@h,tvObj@g)
-             this$initial_value <-  this@value
 
              # Configure the tv object, based on Garch type
              if(this@garchObj$type != garchtype$noGarch){
@@ -1137,6 +1134,14 @@ setGeneric(name="tvgarch",
                this@tvObj$optimcontrol$ndeps <- tail(this@tvObj$optimcontrol$ndeps,-1)
                this@tvObj$optimcontrol$parscale <- tail(this@tvObj$optimcontrol$parscale,-1)
              }
+
+             # Initialise the Results list with the starting values:
+             this@Results[[1]] <- list()
+             this@Results[[1]]$tv <- tvObj
+             this@Results[[1]]$garch <- garchObj
+             this@Results[[1]]$value <- loglik.tvgarch.univar(e,tvObj@g,garchObj@h)
+
+
              cat("\ntvgarch object created successfully!\n")
              cat("\nNext Steps:\n")
              cat("\n1. Copy the TV component from this object into a local TV variable, TV <- tvgarch@tvObj")
@@ -1163,54 +1168,71 @@ setGeneric(name="loglik.tvgarch.univar",
            }
 )
 
-## -- getTargetValue(e,TV,GARCH) ####
-setGeneric(name="getTargetValue",
-           valueClass = "numeric",
-           signature = c("e","tvObj","garchObj"),
-           def = function(e,tvObj,garchObj){
-             ll <- NaN
-             if(is.null(garchObj$Estimated)){
-               g <- .calculate_g(tvObj)
-               ll <- sum( -0.5*log(2*pi) - 0.5*log(g) - 0.5*(e^2)/g )
-             } else {
-               G1 <- calculate_h(garchObj,e)
-               ll <- sum( -0.5*log(2*pi) - 0.5*log(G1@h) - 0.5*(e^2)/G1@h )
+
+## -- estimateTVGARCH ####
+setGeneric(name="estimateTVGARCH",
+           valueClass = "tvgarch_class",
+           signature = c("e","tvgarchObj","iter"),
+           def = function(e,tvgarchObj,iter){
+             this <- tvgarchObj
+
+             estCtrl <- list(calcSE = TRUE, verbose = FALSE)
+             TV <- this@tvObj
+             GARCH <- this@garchObj
+
+             # 1. Filter out GARCH, then estimate TV
+             w <- e/sqrt(GARCH@h)
+
+             # 2. Do requested number of iterations
+             for(n in 1:iter){
+               TV <- estimateTV(w,TV,estCtrl)
+               z <- w/sqrt(TV@g)
+               GARCH <- estimateGARCH(z,GARCH,estCtrl)
+               w <- z/sqrt(GARCH@h)
+
+               nextResult <- length(this@Results) + 1
+               this@Results[[nextResult]] <- list()
+               this@Results[[nextResult]]$tv <- TV
+               this@Results[[nextResult]]$garch <- GARCH
+               this@Results[[nextResult]]$value <- loglik.tvgarch.univar(e,TV@g,GARCH@h)
+
+               prevTVpars <- this@Results[[nextResult-1]]$tv$Estimated$pars
+               currentTVpars <- this@Results[[nextResult]]$tv$Estimated$pars
+               tvParamChange <- (currentTVpars-prevTVpars)/prevTVpars * 100
+
+               prevGARCHpars <- this@Results[[nextResult-1]]$garch$Estimated$pars
+               currentGARCHpars <- this@Results[[nextResult]]$garch$Estimated$pars
+               garchParamChange <- (currentGARCHpars-prevGARCHpars)/prevGARCHpars * 100
+
+               prevVALUE <- this@Results[[nextResult-1]]$value
+               currentVALUE <- this@Results[[nextResult]]$value
+               valueChange <- (currentVALUE-prevVALUE)/prevVALUE * 100
+
+               # Result changes:
+               this@Results[[nextResult]]$tvParamChange <- tvParamChange
+               this@Results[[nextResult]]$garchParamChange <- garchParamChange
+               this@Results[[nextResult]]$valueChange <- valueChange
              }
-             return(ll)
+
+             return(this)
            }
 )
 
-setMethod("getTargetValue",signature = c("numeric","tv_class","missing"),
-          function(e,tvObj){
-            g1 <- garch(garchtype$noGarch)
-            getTargetValue(e,tvObj,g1)
-          })
-setMethod("getTargetValue",signature = c("numeric","missing","garch_class"),
-          function(e,garchObj){
-            t1 <- new("tv_class")
-            getTargetValue(e,t1,garchObj)
-          })
-
-## -- calcLoglik() ####
-setGeneric(name="calcLoglik",
-           valueClass = "tvgarch_class",
-           signature = c("tvgarchObj","tvObj","garchObj"),
-           def = function(tvgarchObj,tvObj,garchObj){
+setGeneric(name="showResults",
+           valueClass = "numeric",
+           signature = c("tvgarchObj"),
+           def = function(tvgarchObj){
              this <- tvgarchObj
 
-             nextResult <- length(this$results) + 1
-             this$results[[nextResult]] <- list()
-             this$results[[nextResult]]$tv <- tvObj
-             this$results[[nextResult]]$garch <- garchObj
+             nr.Results <- length(this@Results)
+             for(n in 1:nr.Results){
+               cat("\nIteration: ",n)
+               print(this@Results[[n]]@tvParamChange)
+               print(this@Results[[n]]@garchParamChange)
+               print(this@Results[[n]]@valueChange)
+             }
 
-             ll_val <- loglik.tvgarch.univar(this@e,tvObj@g,garchObj@h)
-             this$results[[nextResult]]$value <- ll_val
-
-             cat("\nThe LogLik value is:",ll_val)
-             cat("\n\nIf this is better than any previous estimate then do another iteration,")
-             cat("\notherwise, we are done.")
-
-             return(this)
+           return(1)
            }
 )
 
