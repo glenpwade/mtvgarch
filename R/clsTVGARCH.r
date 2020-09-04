@@ -799,8 +799,8 @@ setMethod("garch",signature = c("numeric","missing"),
 ## -- estimateGARCH() ####
 setGeneric(name="estimateGARCH",
            valueClass = "garch_class",
-           signature = c("e","garchObj","estimationControl"),
-           def = function(e,garchObj,estimationControl){
+           signature = c("e","garchObj","estimationControl","winLen"),
+           def = function(e,garchObj,estimationControl,winLen){
              this <- garchObj
 
              if(this$type == garchtype$noGarch) {
@@ -822,12 +822,13 @@ setGeneric(name="estimateGARCH",
              optimpars <- as.vector(this$pars)
              names(optimpars) <- rownames(this$pars)
 
-             # Now call optim:
-             tmp <- NULL
-             try(tmp <- optim(optimpars,loglik.garch.univar,gr=NULL,e,this,method="BFGS",control=this$optimcontrol,hessian=calcSE))
-
              ## --- Attach results of estimation to the object --- ##
              this$Estimated <- list()
+
+             # Now call optim:
+             tmp <- NULL
+             try(tmp <- optim(optimpars,loglik.garch.univar,gr=NULL,e,this,winLen,method="BFGS",control=this$optimcontrol,hessian=calcSE))
+
 
              # An unhandled error could result in a NULL being returned by optim()
              if (is.null(tmp)) {
@@ -850,7 +851,7 @@ setGeneric(name="estimateGARCH",
              #Update the GARCH object paramters using optimised pars:
              this$Estimated$pars <- .parsVecToMatrix(this,tmp$par)
              # Get conditional variance
-             this <- .calculate_h(this,e)
+             this <- .calculate_h(this,e,winLen)
 
              # Calc Std Errors
              if (calcSE) {
@@ -967,8 +968,8 @@ setGeneric(name=".parsVecToMatrix",
 ## -- .calculate_h() ####
 setGeneric(name=".calculate_h",
            valueClass = "garch_class",
-           signature = c("garchObj","e"),
-           def = function(garchObj,e){
+           signature = c("garchObj","e","winLen"),
+           def = function(garchObj,e,winLen){
 
              this <- garchObj
 
@@ -978,14 +979,33 @@ setGeneric(name=".calculate_h",
              }
 
              Tobs <- NROW(e)
-
              h <- rep(0,Tobs)
              h[1] <- sum(e*e)/Tobs
-             # TODO: Extend the below to handle more lags
-             for(t in 2:Tobs) {
-               h[t] <- this$Estimated$pars["omega",1] + this$Estimated$pars["alpha",1]*(e[t-1])^2 + this$Estimated$pars["beta",1]*h[t-1]
-               if(this$type == garchtype$gjr) h[t] <- h[t] + this$Estimated$pars["gamma",1]*(min(e[t-1],0))^2
-             }
+
+             # # TODO: Extend the below to handle more lags
+             # for(t in 2:Tobs) {
+             #   h[t] <- this$Estimated$pars["omega",1] + this$Estimated$pars["alpha",1]*(e[t-1])^2 + this$Estimated$pars["beta",1]*h[t-1]
+             #   if(this$type == garchtype$gjr) h[t] <- h[t] + this$Estimated$pars["gamma",1]*(min(e[t-1],0))^2
+             # }
+
+             ## TEST ONLY - Variance Targetting
+
+            for(t in 2:Tobs) {
+
+              if( t <= winLen/2 || t > (Tobs-winLen/2) ) {
+                h[t] <- var(e)
+              } else {
+                start <- (t - winLen/2)
+                end <- t + winLen/2
+                localVar <- var(e[start:end])
+                this$Estimated$pars["omega",1] <- (1 - this$Estimated$pars["alpha",1] - this$Estimated$pars["beta",1]) * localVar
+                h[t] <- this$Estimated$pars["omega",1] + this$Estimated$pars["alpha",1]*(e[t-1])^2 + this$Estimated$pars["beta",1]*h[t-1]
+                #if(this$type == garchtype$gjr) h[t] <- h[t] + this$Estimated$pars["gamma",1]*(min(e[t-1],0))^2
+              }
+
+            }
+
+             ## END TEST
 
              this@h <- h
              return(this)
@@ -995,8 +1015,8 @@ setGeneric(name=".calculate_h",
 ## -- loglik.garch.univar() ####
 setGeneric(name="loglik.garch.univar",
            valueClass = "numeric",
-           signature = c("optimpars","e","garchObj"),
-           def =  function(optimpars,e,garchObj){
+           signature = c("optimpars","e","garchObj","winLen"),
+           def =  function(optimpars,e,garchObj,winLen){
 
              error <- -1e10
              this <- garchObj
@@ -1006,11 +1026,12 @@ setGeneric(name="loglik.garch.univar",
              if(min(optimpars,na.rm = TRUE) < 0) return(error)
              #
              if (optimpars["omega"] <= 0) return(error)
-             if (optimpars["alpha"]+optimpars["beta"] >= 1) return(error)
+             if (optimpars["alpha"] + optimpars["beta"] >= 1) return(error)
 
              ## ======== calculate loglikelihood ======== ##
+
              this$Estimated$pars <- .parsVecToMatrix(this,optimpars)
-             this <- .calculate_h(this,e)
+             this <- .calculate_h(this,e,winLen)
 
              #Return the LogLiklihood value:
              sum( -0.5*log(2*pi) - 0.5*log(this@h) - 0.5*(e*e)/this@h )
@@ -1117,7 +1138,6 @@ setGeneric(name="tvgarch",
              # Validate: Spit dummy if TV & GARCH are not estimated
              if(is.null(tvObj$Estimated) || is.null(garchObj$Estimated)) {
                message("tvgarch-class objects require the tv & garch components to be estimated before initialising.")
-               #this$tv <- this$garch <- NULL
                return(this)
              }
 
