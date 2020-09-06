@@ -90,7 +90,7 @@ setGeneric(name="tv",
            }
 )
 
-## --- Public Methods --- ####
+## --- Public TV Methods --- ####
 
 ## -- estimateTV(e,tv,ctrl) ####
 
@@ -341,7 +341,7 @@ setGeneric(name="setTaylorOrder",
 )
 
 
-## --- PRIVATE METHODS --- ####
+## --- PRIVATE TV METHODS --- ####
 
 ## -- .testStatDist ####
 setGeneric(name=".testStatDist",
@@ -794,7 +794,7 @@ setMethod("garch",signature = c("numeric","missing"),
           })
 
 
-## --- Public Methods --- ####
+## --- Public GARCH Methods --- ####
 
 ## -- estimateGARCH() ####
 setGeneric(name="estimateGARCH",
@@ -851,7 +851,7 @@ setGeneric(name="estimateGARCH",
              #Update the GARCH object paramters using optimised pars:
              this$Estimated$pars <- .parsVecToMatrix(this,tmp$par)
              # Get conditional variance
-             this <- .calculate_h(this,e,winLen)
+             this@h <- .calculate_h(this,e,winLen)
 
              # Calc Std Errors
              if (calcSE) {
@@ -882,7 +882,7 @@ setMethod("estimateGARCH",signature = c("numeric","garch_class","missing"),
 )
 
 
-## --- PRIVATE METHODS --- ####
+## --- PRIVATE GARCH METHODS --- ####
 
 ## -- .setInitPars() -- ####
 
@@ -967,7 +967,7 @@ setGeneric(name=".parsVecToMatrix",
 
 ## -- .calculate_h() ####
 setGeneric(name=".calculate_h",
-           valueClass = "garch_class",
+           valueClass = "numeric,",
            signature = c("garchObj","e","winLen"),
            def = function(garchObj,e,winLen){
 
@@ -1007,8 +1007,7 @@ setGeneric(name=".calculate_h",
 
              ## END TEST
 
-             this@h <- h
-             return(this)
+             return(h)
            }
 )
 
@@ -1031,7 +1030,7 @@ setGeneric(name="loglik.garch.univar",
              ## ======== calculate loglikelihood ======== ##
 
              this$Estimated$pars <- .parsVecToMatrix(this,optimpars)
-             this <- .calculate_h(this,e,winLen)
+             this@h <- .calculate_h(this,e,winLen)
 
              #Return the LogLiklihood value:
              sum( -0.5*log(2*pi) - 0.5*log(this@h) - 0.5*(e*e)/this@h )
