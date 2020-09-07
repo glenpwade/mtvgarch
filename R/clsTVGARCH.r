@@ -102,6 +102,7 @@ setGeneric(name="estimateTV",
              this$Estimated <- list()
              if(is.null(this$Estimated$delta0)) this$Estimated$delta0 <- this$delta0
 
+             if(!is.list(estimationControl)) estimationControl <- list()
              if(!is.null(estimationControl$calcSE)) calcSE <- estimationControl$calcSE else calcSE <- FALSE
              if(!is.null(estimationControl$verbose)) verbose <- estimationControl$verbose else verbose <- FALSE
 
@@ -213,11 +214,11 @@ setGeneric(name="estimateTV",
 
 setMethod("estimateTV",signature = c("numeric","tv_class","missing"),
           function(e,tvObj){
-            estimationControl <- list()
-            estimationControl$calcSE <- FALSE
-            estimationControl$verbose <- FALSE
-            estimationControl$taylor.order <- as.integer(0)
-            estimateTV(e,tvObj,estimationControl)
+            estControl <- list()
+            estControl$calcSE <- FALSE
+            estControl$verbose <- FALSE
+            estControl$taylor.order <- as.integer(0)
+            estimateTV(e,tvObj,estControl)
           })
 
 ## -- test.LM.TR2(e,tv) ####
@@ -1215,16 +1216,29 @@ setGeneric(name="estimateTVGARCH",
              # 1. Filter out initial GARCH, then estimate TV & GARCH inside loop
              w <- e/sqrt(this$garchObj@h)
 
+             # Option 1. Use the same starting params each time
+             TV <- this$tvObj
+             GARCH <- this$garchObj
+
              # 2. Do requested number of iterations
              cat("\nStarting Iteration: ")
              for(n in 1:iter){
                cat(n)
-               if(n==1) TV <- this$tvObj else TV <- this$Results[[n]]$tv
+
+               # # Option 2. Use the previous estimated starting params each time
+               # if (n==1) TV <- this$Results[[1]]$tv else {
+               #   TV <- this$Results[[n-1]]$tv
+               #   TV$pars <- TV$Estimated$pars
+               # }
                TV <- estimateTV(w,TV,estCtrl)
                cat(".")
 
                z <- w/sqrt(TV@g)
-               if(n==1) GARCH <- this$garchObj else GARCH <- this$Results[[n]]$garch
+
+               # if(n==1) GARCH <- this$Results[[1]]$garch else {
+               #   GARCH <- this$Results[[n-1]]$garch
+               #   GARCH$pars <- GARCH$Estimated$pars
+               # }
                GARCH <- estimateGARCH(z,GARCH,estCtrl)
                cat(".")
                w <- z/sqrt(GARCH@h)
@@ -1305,5 +1319,61 @@ setGeneric(name="setEstimatedResult",
 
            }
 )
+
+
+
+setGeneric(name="generateRefData",
+           valueClass = "matrix",
+           signature = c("tvObj","garchObj","nr.series","nr.obs"),
+           def =  function(tvObj,garchObj,nr.series,nr.obs)
+{
+           #z    # this will store iid data
+           #e    # this will store data with GARCH
+           #eps  # this will store correlated data with GARCH and TV
+
+  TV <- tvObj
+  GARCH <- garchObj
+
+  nr.loops <- round(nr.series * 1.25)
+  refData <- matrix(NA,nrow = nr.obs, ncol = nr.loops)
+  seedstart <- 1984
+
+  for (b in seq(1,nr.loops))
+  {
+    set.seed(seedstart+b)
+    e <- z <- rnorm(nr.obs)
+    ht <- 1
+    e[1] <- sqrt(ht)*z[1]
+    for (t in 2:nr.obs) {
+      ht_1 <- ht
+      ht <- GARCH$pars["omega",1] + GARCH$pars["alpha",1]*(e[t-1])^2 + GARCH$pars["beta",1]*ht_1
+      if(GARCH$type == garchtype$gjr) { ht <- ht + GARCH$pars["gamma",1]*(min(e[t-1],0)^2) }
+      e[t] <- sqrt(ht)*z[t]
+    }
+    refData[,b] <- e
+  }
+  # Discard the first 25%
+  startCol <- nr.loops - nr.series + 1
+  refData <- refData[,(startCol:nr.loops)]
+  # GARCH data created
+
+  gt <- .calculate_g(TV)
+  refData <- refData*sqrt(gt)
+  # TV data created
+
+  fileName <- "refData.RDS"
+  saveRDS(refData,fileName)
+
+  #Return:
+  refData
+
+}
+)
+
+
+
+
+
+
 
 
