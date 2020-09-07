@@ -100,6 +100,7 @@ setGeneric(name="estimateTV",
            def=function(e,tvObj,estimationControl){
              this <- tvObj
              this$Estimated <- list()
+             if(is.null(this$Estimated$delta0)) this$Estimated$delta0 <- this$delta0
 
              if(!is.null(estimationControl$calcSE)) calcSE <- estimationControl$calcSE else calcSE <- FALSE
              if(!is.null(estimationControl$verbose)) verbose <- estimationControl$verbose else verbose <- FALSE
@@ -110,7 +111,6 @@ setGeneric(name="estimateTV",
                  this$Estimated$delta0 <- var(e)
                  this@nr.pars <- as.integer(1)
                } else {
-                 if(is.null(this$Estimated$delta0)) this$Estimated$delta0 <- this$delta0
                  this@nr.pars <- as.integer(0)
                }
                this@g <- rep(this$Estimated$delta0,this@Tobs)
@@ -121,20 +121,25 @@ setGeneric(name="estimateTV",
                return(this)
              }
 
-             # Start the Estimation process:
+             # Set verbose tracing:
              if (verbose) {
                this$optimcontrol$trace <- 10
                cat("\nEstimating TV object...\n")
              } else this$optimcontrol$trace <- 0
 
+             # Set the Optimpars
+             optimpars <- NULL
              parsVec <- as.vector(this$pars)
              parsVec <- parsVec[!is.na(parsVec)]
-             optimpars <- NULL
-             # Set the Optimpars
+
              if(this@delta0free){
-               optimpars <- c(this$delta0, parsVec)
+               # Estimating a single TV_class object
+               optimpars <- c(this$Estimated$delta0, parsVec)
              }else{
+               # Estimating a TVGARCH_class object - (delta0 is fixed to the passed-in estimated value)
                optimpars <- parsVec
+               this$optimcontrol$nDeps <- tail(this$optimcontrol$nDeps,this@nr.pars)
+               this$optimcontrol$parscale <- tail(this$optimcontrol$nDeps,this@nr.pars)
              }
 
              # Now call optim:
@@ -1079,7 +1084,7 @@ setMethod("summary",signature="garch_class",
                 seVecSig <- vector("character", length(seVec))
 
                 for(n in seq_along(parsVec)){
-                  if(is.nan(seVec[n])) {
+                  if(is.na(seVec[n])) {
                     seVecSig[n] <- "   "
                   } else {
                     # Calculate a significance indicator
@@ -1149,6 +1154,7 @@ setGeneric(name="tvgarch",
              if(isTRUE(this@tvObj@delta0free)){
                if(this@garchObj$type != garchtype$noGarch){
                  this@tvObj@delta0free <- FALSE
+                 this@tvObj$delta0 <-
                  this@tvObj$optimcontrol$ndeps <- this@tvObj$optimcontrol$ndeps[2:this@tvObj@nr.pars]
                  this@tvObj$optimcontrol$parscale <- this@tvObj$optimcontrol$parscale[2:this@tvObj@nr.pars]
                  this@tvObj@nr.pars <- this@tvObj@nr.pars - as.integer(1)
@@ -1193,18 +1199,26 @@ setGeneric(name="estimateTVGARCH",
              this@Results <- list()
              this@Results[[1]] <- initVal
 
-             #estCtrl <- list(calcSE = TRUE, verbose = FALSE)
-             TV <- this@tvObj
-             GARCH <- this@garchObj
+             estCtrl <- list(calcSE = TRUE, verbose = FALSE)
+             # We are likely to get warning messages from Optim()...
+             # The Std Err calc requires a matrix inversion, which often fails, so...
+             # We will suppress these warning and report the number of valid pars/se
 
-             # 1. Filter out GARCH, then estimate TV
-             w <- e/sqrt(GARCH@h)
+             # 1. Filter out initial GARCH, then estimate TV & GARCH inside loop
+             w <- e/sqrt(this@garchObj@h)
 
              # 2. Do requested number of iterations
+             cat("\nStarting Iteration:")
              for(n in 1:iter){
-               TV <- estimateTV(w,TV)
+               cat(n)
+               TV <- this@tvObj
+               suppressWarnings( TV <- estimateTV(w,TV,estCtrl) )
+               cat(".")
+
                z <- w/sqrt(TV@g)
-               GARCH <- estimateGARCH(z,GARCH)
+               GARCH <- this@garchObj
+               suppressWarnings( GARCH <- estimateGARCH(z,GARCH,estCtrl) )
+               cat(".")
                w <- z/sqrt(GARCH@h)
 
                nextResult <- length(this@Results) + 1
@@ -1223,13 +1237,15 @@ setGeneric(name="estimateTVGARCH",
 
                prevVALUE <- this@Results[[nextResult-1]]$value
                currentVALUE <- this@Results[[nextResult]]$value
-               valueChange <- (currentVALUE-prevVALUE)/prevVALUE * -100  #(Use -100 so: positive % increases are good)
+               valueChange <- (currentVALUE-this@Results[[1]])/this@Results[[1]] * -100  #(Use -100 so: positive % increases are good)
 
                # Result changes:
                this@Results[[nextResult]]$tvParamChange <- tvParamChange
                this@Results[[nextResult]]$garchParamChange <- garchParamChange
                this@Results[[nextResult]]$valueChange <- valueChange
              }
+             cat("\nTVGARCH Estimation Complete\n")
+
 
              return(this)
            }
@@ -1244,13 +1260,23 @@ setGeneric(name="showResults",
 
              cat("\nStart of TVGARCH Results\n")
 
-             nr.Results <- length(this@Results)
-             for(n in 2:nr.Results){
-               cat("\nIteration:",(n-1), " % Change\n")
+             for(n in 1:length(this@Results) ){
+               cat("\nResult Number:",n, " % Change from prior iteration\n")
                print(this@Results[[n]]$tvParamChange)
                print(this@Results[[n]]$garchParamChange)
-               print(this@Results[[n]]$valueChange)
-               cat("Iteration:",(n-1)," LogLik.Value",this@Results[[n]]$value,"\n")
+               if(n==1){
+                 cat("LogLik.Value: ",this@Results[[n]]$value)
+               }else {
+                 cat("LogLik.Value: ",this@Results[[n]]$value," % Change from start: ",this@Results[[n]]$valueChange, "\n")
+               }
+
+               se <- this@Results[[n]]$tv$Estimated$se
+               Nr.se <- length(se[!is.na(se)])
+               se <- this@Results[[n]]$garch$Estimated$se
+               Nr.se <- Nr.se + length(se[!is.na(se)])
+               Tot.pars <- this@tvObj@nr.pars + this@garchObj@nr.pars
+
+               cat("Nr Pars with StdErrs: ",Nr.se," / ",Tot.pars,"\n")
              }
 
            return("\nEnd of TVGARCH Results")
@@ -1263,8 +1289,9 @@ setGeneric(name="setEstimatedResult",
            def = function(tvgarchObj,resultNum){
              this <- tvgarchObj
              this$Estimated <- list()
-             this$Estimated$tv <- this@Results[[resultNum-1]]$tv
-             this$Estimated$garch <- this@Results[[resultNum-1]]$garch
+             this$Estimated$tv <- this@Results[[resultNum]]$tv
+             this$Estimated$garch <- this@Results[[resultNum]]$garch
+             this$Estimated$value <- this@Results[[resultNum]]$value
              return(this)
 
            }
