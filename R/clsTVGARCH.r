@@ -110,13 +110,14 @@ setGeneric(name="estimateTV",
              if(this@nr.transitions == 0){
                if(this@delta0free){
                  this$Estimated$delta0 <- var(e)
+
                  this@nr.pars <- as.integer(1)
                } else {
                  this@nr.pars <- as.integer(0)
                }
                this@g <- rep(this$Estimated$delta0,this@Tobs)
                if(calcSE) this$Estimated$delta0_se <- NaN
-               this$Estimated$pars <- NULL
+               this$Estimated$pars <- c(NA,NA,NA,NA)
                this$Estimated$value <- sum(-0.5*log(2*pi) - 0.5*log(this@g) - (0.5*e^2)/this@g)
                this$Estimated$error <- FALSE
                return(this)
@@ -1305,7 +1306,7 @@ setGeneric(name="showResults",
            return("\nEnd of TVGARCH Results")
            }
 )
-
+## -- setEstimatedResult -- ####
 setGeneric(name="setEstimatedResult",
            valueClass = "tvgarch_class",
            signature = c("tvgarchObj","resultNum"),
@@ -1319,9 +1320,7 @@ setGeneric(name="setEstimatedResult",
 
            }
 )
-
-
-
+## -- generateRefData -- ####
 setGeneric(name="generateRefData",
            valueClass = "matrix",
            signature = c("tvObj","garchObj","nr.series","nr.obs"),
@@ -1329,40 +1328,40 @@ setGeneric(name="generateRefData",
 {
            #z    # this will store iid data
            #e    # this will store data with GARCH
-           #eps  # this will store correlated data with GARCH and TV
 
   TV <- tvObj
   GARCH <- garchObj
+  GARCH$pars["omega",1] <- 1 - GARCH$pars["alpha",1] - GARCH$pars["beta",1]
 
-  nr.loops <- round(nr.series * 1.25)
-  refData <- matrix(NA,nrow = nr.obs, ncol = nr.loops)
+  nr.rows <- nr.obs + 2000   # discard = 2000
+  refData <- matrix(NA,nrow = nr.rows, ncol = nr.series)
   seedstart <- 1984
 
-  for (b in seq(1,nr.loops))
+  for (b in seq(1,nr.series))
   {
     set.seed(seedstart+b)
-    e <- z <- rnorm(nr.obs)
-    ht <- 1
-    e[1] <- sqrt(ht)*z[1]
-    for (t in 2:nr.obs) {
-      ht_1 <- ht
+    e <- z <- rnorm(nr.rows)
+    ht_1 <- 1
+    e[1] <- z[1]^2
+    for (t in 2:nr.rows) {
       ht <- GARCH$pars["omega",1] + GARCH$pars["alpha",1]*(e[t-1])^2 + GARCH$pars["beta",1]*ht_1
-      if(GARCH$type == garchtype$gjr) { ht <- ht + GARCH$pars["gamma",1]*(min(e[t-1],0)^2) }
+        if(GARCH$type == garchtype$gjr) { ht <- ht + GARCH$pars["gamma",1]*(min(e[t-1],0)^2) }
+      ht_1 <- ht
       e[t] <- sqrt(ht)*z[t]
     }
     refData[,b] <- e
   }
-  # Discard the first 25%
-  startCol <- nr.loops - nr.series + 1
-  refData <- refData[,(startCol:nr.loops)]
+
+  # Discard the first 2000
+  startRow <- 2001
+  refData <- refData[(startRow:nr.rows),]
   # GARCH data created
 
   gt <- .calculate_g(TV)
   refData <- refData*sqrt(gt)
   # TV data created
 
-  fileName <- "refData.RDS"
-  saveRDS(refData,fileName)
+  saveRDS(refData,"refData.RDS")
 
   #Return:
   refData
