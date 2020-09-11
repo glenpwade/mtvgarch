@@ -17,7 +17,7 @@
 # tvgarch$results[[1..n]]        -- "list" - contains a tv,garch & ll_value for each estimation iteration
 
 
-
+library(doParallel)
 ## --- TV_CLASS Definition --- ####
 
 tvshape = list(delta0only=0,single=1,double=2,double1loc=3)
@@ -824,7 +824,7 @@ setGeneric(name="estimateGARCH",
              # vartargetWindow is only used for initial estimation of the Garch, so we will default it to 0
              if(!is.null(estimationControl$vartargetWindow)) {
                vartargetWindow <- estimationControl$vartargetWindow
-               this$Estimated$method <- "maximum-liklihood, targetting a local variance"
+               this$Estimated$method <- paste0("maximum-liklihood, targetting the local variance using a Window of ",vartargetWindow, " observations")
              }else {
                vartargetWindow <- 0
                this$Estimated$method <- "maximum-liklihood"
@@ -1007,7 +1007,7 @@ setGeneric(name=".calculate_h",
                  if(this$type == garchtype$gjr) h[t] <- h[t] + this$Estimated$pars["gamma",1]*(min(e[t-1],0))^2
                }
              } else {
-               for(t in 2:Tobs) {
+               for(t in seq(2,Tobs,by=50) ) {
 
                  if( t <= vartargetWindow/2 || t > (Tobs-vartargetWindow/2) ) {
                    h[t] <- var(e)
@@ -1053,6 +1053,46 @@ setGeneric(name="loglik.garch.univar",
 
            }
 )
+
+setGeneric(name="estimateGARCH_RollingWindow",
+           valueClass = "list",
+           signature = c("refData","nr.cores","garchObj","saveAs"),
+           def =  function(refData,nr.cores,garchObj,saveAs){
+
+             nr.cores<-3
+             clust <- makeCluster(nr.cores)
+             registerDoParallel(clust)
+
+             Obs <- NROW(refData)
+             N <- NCOL(refData)
+             G1 <- garchObj
+             saveAs <- "Output/TV_Const_RollWindow_Garch_Sim.RDS"
+
+             estCtrl <- list(verbose=FALSE, calcSE=FALSE, vartargetWindow=0, vartargetStep=1)
+
+             simResult <- matrix(NA, nrow = N, ncol = 3)
+             colnames(simResult) <- c("omega","alpha","beta")
+             simResults <- list()
+             vtWinLen <- c(250,500,750,1000)
+
+             reqMethods <- c("estimateGarch")
+             for(n in 1:length(vtWinLen)){
+               estCtrl$vartargetWindow <- vtWinLen[n]
+
+               simResult <- foreach(i = 1:N, .combine = 'rbind', .inorder = FALSE, .export = reqMethods )%dopar%{
+                 G1 <- estimateGARCH(refData[,i],G1,estCtrl)
+                 #Return
+                 as.vector(G1$Estimated$pars)
+               }
+               simResults[[n]] <- simResult
+               saveRDS(simResults,saveAs)
+             }
+
+             stopCluster(clust)
+             return(simResults)
+           }
+)
+
 
 
 ## --- Override Methods --- ####
@@ -1349,7 +1389,7 @@ setGeneric(name="generateRefData",
       ht_1 <- ht
       e[t] <- sqrt(ht)*z[t]
     }
-    refData[,b] <- e
+    refData[,b] <- as.numeric(e)
   }
 
   # Discard the first 2000
