@@ -972,22 +972,22 @@ setGeneric(name="estimateGARCH_RollingWindow",
              Tobs <- NROW(e)
              h <- rep(0,Tobs)
              h[1] <- sum(e*e)/Tobs
+             halfWindow <- round(vartargetWindow/2)
 
-             stepSize <- max(round(vartargetWindow/250),1)
-             for(t in seq(2,Tobs,by=stepSize) ) {
+             for(t in 2:Tobs){
 
-               if( t <= vartargetWindow/2 || t > (Tobs-vartargetWindow/2) ) {
+               if( t <= halfWindow || t > (Tobs-halfWindow) ) {
                  h[t] <- var(e)
                } else {
-                 start <- (t - vartargetWindow/2)
-                 end <- t + vartargetWindow/2
+                 start <- t - halfWindow
+                 end <- min(t + halfWindow,Tobs)
                  localVar <- var(e[start:end])
                  this$Estimated$pars["omega",1] <- (1 - this$Estimated$pars["alpha",1] - this$Estimated$pars["beta",1]) * localVar
                  h[t] <- this$Estimated$pars["omega",1] + this$Estimated$pars["alpha",1]*(e[t-1])^2 + this$Estimated$pars["beta",1]*h[t-1]
                  if(this$type == garchtype$gjr) h[t] <- h[t] + this$Estimated$pars["gamma",1]*(min(e[t-1],0))^2
                }
              }
-             # End: .calculate_h(this,e,vartargetWindow)
+             # End: Get conditional variance - 'h'
 
 
              # Calc Std Errors
