@@ -1344,42 +1344,30 @@ setGeneric(name="estimateTVGARCH",
            signature = c("e","tvgarchObj","iter"),
            def = function(e,tvgarchObj,iter){
              this <- tvgarchObj
+
+             # Reset the Results list every time we estimate
              initVal <- this$Results[[1]]
              this$Results <- list()
              this$Results[[1]] <- initVal
 
              estCtrl <- list(calcSE = TRUE, verbose = FALSE)
-             # We are likely to get warning messages from Optim()...
-             # The Std Err calc requires a matrix inversion, which often fails, so...
-             # We will suppress these warning and report the number of valid pars/se
-             #options(warn = -1)
 
              # 1. Filter out initial GARCH, then estimate TV & GARCH inside loop
              w <- e/sqrt(this$garchObj@h)
 
-             # Option 1. Use the same starting params each time
+             # Use the same starting params each time
              TV <- this$tvObj
              GARCH <- this$garchObj
 
              # 2. Do requested number of iterations
              cat("\nStarting Iteration: ")
+             ll_values <- this$Results[[1]]$value
              for(n in 1:iter){
                cat(n)
-
-               # # Option 2. Use the previous estimated starting params each time
-               # if (n==1) TV <- this$Results[[1]]$tv else {
-               #   TV <- this$Results[[n-1]]$tv
-               #   TV$pars <- TV$Estimated$pars
-               # }
                TV <- estimateTV(w,TV,estCtrl)
                cat(".")
-
                z <- w/sqrt(TV@g)
 
-               # if(n==1) GARCH <- this$Results[[1]]$garch else {
-               #   GARCH <- this$Results[[n-1]]$garch
-               #   GARCH$pars <- GARCH$Estimated$pars
-               # }
                GARCH <- estimateGARCH(z,GARCH,estCtrl)
                cat(".")
                w <- z/sqrt(GARCH@h)
@@ -1389,6 +1377,7 @@ setGeneric(name="estimateTVGARCH",
                this$Results[[nextResult]]$tv <- TV
                this$Results[[nextResult]]$garch <- GARCH
                this$Results[[nextResult]]$value <- loglik.tvgarch.univar(e,TV@g,GARCH@h)
+               ll_values <- c(ll_values, this$Results[[nextResult]]$value )
 
                prevTVpars <- this$Results[[nextResult-1]]$tv$Estimated$pars
                currentTVpars <- this$Results[[nextResult]]$tv$Estimated$pars
@@ -1407,9 +1396,24 @@ setGeneric(name="estimateTVGARCH",
                this$Results[[nextResult]]$garchParamChange <- garchParamChange
                this$Results[[nextResult]]$valueChange <- valueChange
              }
-             cat("\nTVGARCH Estimation Complete\n")
 
-             #options(warn = 0)
+             # 3. Check if the iterations improved the starting estimate, and if not see if re-estimating Garch improves the model
+
+             if(which.max(ll_values) == 1){
+
+               TV <- this$tvObj
+               GARCH <- this$garchObj
+               z <- e/sqrt(TV@g)
+
+               GARCH <- estimateGARCH(z,GARCH,estCtrl)
+               # Has the ll_value improved?
+               if(GARCH$Estimated$value > this$garchObj$Estimated$value) {
+                 this$Results[[1]]$garch <- GARCH
+                 this$Results[[1]]$value <- loglik.tvgarch.univar(e,TV@g,GARCH@h)
+               }
+             }
+
+             cat("\nTVGARCH Estimation Complete\n")
 
              return(this)
            }
