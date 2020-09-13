@@ -1361,7 +1361,7 @@ setGeneric(name="estimateTVGARCH",
 
              # 2. Do requested number of iterations
              cat("\nStarting Iteration: ")
-             ll_values <- this$Results[[1]]$value
+
              for(n in 1:iter){
                cat(n)
                TV <- estimateTV(w,TV,estCtrl)
@@ -1377,7 +1377,6 @@ setGeneric(name="estimateTVGARCH",
                this$Results[[nextResult]]$tv <- TV
                this$Results[[nextResult]]$garch <- GARCH
                this$Results[[nextResult]]$value <- loglik.tvgarch.univar(e,TV@g,GARCH@h)
-               ll_values <- c(ll_values, this$Results[[nextResult]]$value )
 
                prevTVpars <- this$Results[[nextResult-1]]$tv$Estimated$pars
                currentTVpars <- this$Results[[nextResult]]$tv$Estimated$pars
@@ -1397,20 +1396,18 @@ setGeneric(name="estimateTVGARCH",
                this$Results[[nextResult]]$valueChange <- valueChange
              }
 
-             # 3. Check if the iterations improved the starting estimate, and if not see if re-estimating Garch improves the model
+             # 3. Complete the starting estimate - filter out TV, then estimate Garch & SAVE
 
-             if(which.max(ll_values) == 1){
+             TV <- this$tvObj
+             GARCH <- this$garchObj
+             z <- e/sqrt(TV@g)
 
-               TV <- this$tvObj
-               GARCH <- this$garchObj
-               z <- e/sqrt(TV@g)
-
-               GARCH <- estimateGARCH(z,GARCH,estCtrl)
-               # Has the ll_value improved?
-               if(GARCH$Estimated$value > this$garchObj$Estimated$value) {
-                 this$Results[[1]]$garch <- GARCH
-                 this$Results[[1]]$value <- loglik.tvgarch.univar(e,TV@g,GARCH@h)
-               }
+             GARCH <- estimateGARCH(z,GARCH,estCtrl)
+             # Has the ll_value improved?
+             ## TODO: Confirm StdErr are computed sucessfully before saving...
+             if(GARCH$Estimated$value > this$garchObj$Estimated$value) {
+               this$Results[[1]]$garch <- GARCH
+               this$Results[[1]]$value <- loglik.tvgarch.univar(e,TV@g,GARCH@h)
              }
 
              cat("\nTVGARCH Estimation Complete\n")
