@@ -348,6 +348,7 @@ setGeneric(name="setTaylorOrder",
 )
 
 
+
 ## --- PRIVATE TV METHODS --- ####
 
 ## -- .testStatDist ####
@@ -625,6 +626,15 @@ setGeneric(name=".calculate_g",
              g
            }
 )
+
+setGeneric(name="get_g",
+           valueClass = "numeric",
+           signature = c("tvObj"),
+           def = function(tvObj){
+            .calculate_g(tvObj)
+          }
+)
+
 
 ## -- loglik.tv.univar() ####
 setGeneric(name="loglik.tv.univar",
@@ -1121,6 +1131,32 @@ setGeneric(name=".calculate_h",
 
 )
 
+setGeneric(name="get_h",
+           valueClass = "numeric",
+           signature = c("garchObj","e"),
+           def = function(garchObj,e){
+             this <- garchObj
+
+             if(this$type == garchtype$noGarch) {
+               message("Cannot get h(t) for type: NoGarch")
+               return(h)
+             }
+
+             Tobs <- NROW(e)
+             h <- rep(0,Tobs)
+             h[1] <- sum(e*e)/Tobs
+
+             # TODO: Extend the below to handle more lags (higher order Garch)
+             for(t in 2:Tobs) {
+               h[t] <- this$pars["omega",1] + this$pars["alpha",1]*(e[t-1])^2 + this$pars["beta",1]*h[t-1]
+               if(this$type == garchtype$gjr) h[t] <- h[t] + this$pars["gamma",1]*(min(e[t-1],0))^2
+             }
+
+             return(h)
+           }
+
+)
+
 ## -- loglik.garch.univar() ####
 setGeneric(name="loglik.garch.univar",
            valueClass = "numeric",
@@ -1345,23 +1381,34 @@ setGeneric(name="estimateTVGARCH",
            def = function(e,tvgarchObj,iter){
              this <- tvgarchObj
 
+             # Use the same starting params each time
+             TV <- this$tvObj
+             GARCH <- this$garchObj
+             estCtrl <- list(calcSE = TRUE, verbose = FALSE)
+
+             cat("\nStarting Estimation: ")
+
              # Reset the Results list every time we estimate
              initVal <- this$Results[[1]]
              this$Results <- list()
              this$Results[[1]] <- initVal
 
-             estCtrl <- list(calcSE = TRUE, verbose = FALSE)
+             # Estimate the first Result:
+             z <- e/sqrt(TV@g)
+             cat(".")
+
+             GARCH <- estimateGARCH(z,GARCH,estCtrl)
+             cat(".")
+             ## TODO: Confirm StdErr are computed sucessfully before saving...
+             if(GARCH$Estimated$value > this$garchObj$Estimated$value) {
+               this$Results[[1]]$garch <- GARCH
+               this$Results[[1]]$value <- loglik.tvgarch.univar(e,TV@g,GARCH@h)
+             }
 
              # 1. Filter out initial GARCH, then estimate TV & GARCH inside loop
-             w <- e/sqrt(this$garchObj@h)
-
-             # Use the same starting params each time
-             TV <- this$tvObj
-             GARCH <- this$garchObj
+             w <- e/sqrt(GARCH@h)
 
              # 2. Do requested number of iterations
-             cat("\nStarting Iteration: ")
-
              for(n in 1:iter){
                cat(n)
                TV <- estimateTV(w,TV,estCtrl)
@@ -1396,21 +1443,7 @@ setGeneric(name="estimateTVGARCH",
                this$Results[[nextResult]]$valueChange <- valueChange
              }
 
-             # 3. Complete the starting estimate - filter out TV, then estimate Garch & SAVE
-
-             TV <- this$tvObj
-             GARCH <- this$garchObj
-             z <- e/sqrt(TV@g)
-
-             GARCH <- estimateGARCH(z,GARCH,estCtrl)
-             # Has the ll_value improved?
-             ## TODO: Confirm StdErr are computed sucessfully before saving...
-             if(GARCH$Estimated$value > this$garchObj$Estimated$value) {
-               this$Results[[1]]$garch <- GARCH
-               this$Results[[1]]$value <- loglik.tvgarch.univar(e,TV@g,GARCH@h)
-             }
-
-             cat("\nTVGARCH Estimation Complete\n")
+             cat("TVGARCH Estimation Complete",fill = TRUE)
 
              return(this)
            }
