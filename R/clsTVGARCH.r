@@ -727,6 +727,17 @@ setMethod("summary",signature="tv_class",
               #
             } else{
 
+              # Calculate significance indicator for delta0
+              if(is.null(this$Estimated$delta0_se)) this$Estimated$delta0_se <- NaN
+              se <- this$Estimated$delta0_se
+              d0 <- this$Estimated$delta0
+              d0Sig <- ""
+              if(!is.nan(se)){
+                if(se*2 < abs(d0/100)) { d0Sig <- "***" }
+                else if(se*2 < abs(d0/10) ) { d0Sig <- "** " }
+                else if(se*2 < abs(d0) ) { d0Sig <- "*  " }
+              }
+
               parsVec <-  round(as.vector(this$Estimated$pars),6)
               if(!is.null(this$Estimated$se) ){
                 seVec <- round(as.vector(this$Estimated$se),6)
@@ -760,10 +771,9 @@ setMethod("summary",signature="tv_class",
 
             cat("\nTV OBJECT\n")
             cat("\nEstimation Results:\n")
-            if(is.null(this$Estimated$delta0_se)) this$Estimated$delta0_se <- NaN
-            cat("\nDelta0 =",round(this$Estimated$delta0,6),"se0 = ",round(this$Estimated$delta0_se,6),"\n\n")
+            cat("\nDelta0 =",round(this$Estimated$delta0,6),"se0 = ",round(this$Estimated$delta0_se,6),d0Sig,"\n\n")
             print(results[,-1])
-            cat("\nLog-liklihood value: ",this$Estimated$value)
+            cat("\nLog-liklihood value(TV): ",this$Estimated$value)
 
           })
 
@@ -1298,7 +1308,7 @@ setMethod("summary",signature="garch_class",
             cat("\nOrder: (",this@order[1],",",this@order[2],")")
             cat("\nEstimation Results:\n")
             print(results[,-1])
-            cat("\nLog-liklihood value: ",this$Estimated$value)
+            cat("\nLog-liklihood value(GARCH): ",this$Estimated$value)
 
           }
 )
@@ -1497,12 +1507,12 @@ setGeneric(name="setEstimatedResult",
 setMethod("summary",signature="tvgarch_class",
           function(object,...){
             this <- object
-            cat("\n -- TVGARCH Object Specification --\n")
+            cat("\n -- TVGARCH Model Specification --\n")
             cat("\nMultiplicative Model Log-Liklihood Value: ", this$Estimated$value)
-            cat("\n\n TVGARCH Model Parameters:")
-            summary(this$Estimated$tv)
+            cat("\n\nTVGARCH Model Parameters:")
             summary(this$Estimated$garch)
-            cat("\n\n -- End of TVGARCH Object Specification --")
+            summary(this$Estimated$tv)
+            cat("\n\n -- End of TVGARCH Model Specification --")
           }
 )
 
