@@ -1386,7 +1386,7 @@ setGeneric(name="estimateTVGARCH",
              GARCH <- this$garchObj
              estCtrl <- list(calcSE = TRUE, verbose = FALSE)
 
-             cat("\nStarting Estimation: ")
+             cat("\nStarting Estimation...")
 
              # Reset the Results list every time we estimate
              initVal <- this$Results[[1]]
@@ -1395,7 +1395,6 @@ setGeneric(name="estimateTVGARCH",
 
              # Estimate the first Result:
              z <- e/sqrt(TV@g)
-             cat(".")
 
              GARCH <- estimateGARCH(z,GARCH,estCtrl)
              cat(".")
@@ -1494,6 +1493,20 @@ setGeneric(name="setEstimatedResult",
 
            }
 )
+
+setMethod("summary",signature="tvgarch_class",
+          function(object,...){
+            this <- object
+            cat("\n -- TVGARCH Object Specification --\n")
+            cat("\nMultiplicative Model Log-Liklihood Value: ", this$Estimated$value)
+            cat("\n\n TVGARCH Model Parameters:")
+            summary(this$Estimated$tv)
+            summary(this$Estimated$garch)
+            cat("\n\n -- End of TVGARCH Object Specification --")
+          }
+)
+
+
 ## -- generateRefData -- ####
 setGeneric(name="generateRefData",
            valueClass = "matrix",
