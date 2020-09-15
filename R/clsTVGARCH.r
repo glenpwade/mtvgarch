@@ -699,7 +699,7 @@ setGeneric(name="loglik.tv.univar",
              }# End: paramater boundary checks:
 
              g <- .calculate_g(this)
-             if (min(g,na.rm = TRUE) < 0) return(error)
+             if (min(g,na.rm = TRUE) <= 0) return(error)
 
              #Return the LogLiklihood value:
              sum( -0.5*log(2*pi) - 0.5*log(g) - 0.5*(e^2)/g )
@@ -1192,6 +1192,8 @@ setGeneric(name="loglik.garch.univar",
            }
 )
 
+
+
 ## -- .loglik.garch.rollingWin() ####
 setGeneric(name=".loglik.garch.rollingWin",
            valueClass = "numeric",
@@ -1324,7 +1326,6 @@ setMethod("initialize","tvgarch_class",
           function(.Object){
             .Object$tvObj <- new("tv_class")
             .Object$garchObj <- new("garch_class")
-            .Object$Results <- list()
             # Return:
             .Object
           })
@@ -1337,9 +1338,9 @@ setGeneric(name="tvgarch",
 
              this <- new("tvgarch_class")
 
-             # Validate: Spit dummy if TV & GARCH are not estimated
-             if(is.null(tvObj$Estimated) || is.null(garchObj$Estimated)) {
-               message("tvgarch-class objects require the tv & garch components to be estimated before initialising.")
+             # Validate: Spit dummy if TV is not estimated
+             if(is.null(tvObj$Estimated) ) {
+               message("tvgarch-class objects require the tv component to be estimated before initialising.")
                return(this)
              }
 
@@ -1369,15 +1370,6 @@ setGeneric(name="tvgarch",
              this$optimcontrol$ndeps <- c(this$optimcontrol$ndeps,this$tvObj$optimcontrol$ndeps)
              this$optimcontrol$parscale <- c(this$optimcontrol$parscale,this$tvObj$optimcontrol$parscale)
 
-             # Initialise the Results list with the starting values:
-             this$Results[[1]] <- list()
-             this$Results[[1]]$tv <- tvObj
-             this$Results[[1]]$garch <- garchObj
-             this$Results[[1]]$value <- loglik.tvgarch.univar(e,tvObj@g,garchObj@h)
-             this$Results[[1]]$tvParamChange <- 1
-             this$Results[[1]]$garchParamChange <- 1
-             this$Results[[1]]$valueChange <- 1
-
              cat("\ntvgarch object created successfully!\n")
 
              return(this)
@@ -1389,7 +1381,7 @@ setGeneric(name="loglik.tvgarch.univar",
            valueClass = "numeric",
            signature = c("e","g","h"),
            def = function(e,g,h){
-             ll <- sum( -0.5*log(2*pi) - 0.5*log(g) - 0.5*log(h) - 0.5*(e^2/(h*g) ) )
+             ll <- sum( -0.5*log(2*pi) - 0.5*log(g) - 0.5*log(h) - 0.5*(e^2/(g*h) ) )
              names(ll) <- "Loglik.Value"
              return(ll)
            }
@@ -1399,72 +1391,66 @@ setGeneric(name="loglik.tvgarch.univar",
 ## -- estimateTVGARCH -- ####
 setGeneric(name="estimateTVGARCH",
            valueClass = "tvgarch_class",
-           signature = c("e","tvgarchObj","iter"),
-           def = function(e,tvgarchObj,iter){
+           signature = c("e","tvgarchObj","estimationControl"),
+           def = function(e,tvgarchObj,estimationControl){
              this <- tvgarchObj
 
              # Use the same starting params each time
              TV <- this$tvObj
              GARCH <- this$garchObj
-             estCtrl <- list(calcSE = TRUE, verbose = FALSE)
+             estCtrl <- estimationControl
+             firstRun <- FALSE
 
              cat("\nStarting Estimation...")
 
-             # Reset the Results list every time we estimate
-             initVal <- this$Results[[1]]
-             this$Results <- list()
-             this$Results[[1]] <- initVal
+             #==  First time being estimated ==#
+             if(is.null(this$Estimated)){
 
-             # Estimate the first Result:
+               GARCH <- estimateGARCH(e/sqrt(TV@g),GARCH,estCtrl)
+               cat(".")
+               this$Estimated <- list()
+               # Put the initial best model into the Estimated list
+               this$Estimated$tv <- TV
+               this$Estimated$garch <- GARCH
+               this$Estimated$startValue <- loglik.tvgarch.univar(e,TV@g,GARCH@h)
+               this$Estimated$finalValue <- this$Estimated$startValue
+               firstRun <- TRUE
+
+             } else {
+               TV <- this$Estimated$tv
+               GARCH <- this$Estimated$garch
+               this$Estimated$startValue <- this$Estimated$finalValue
+             }
+
+             #== Every time being estimated ==#
+
+             w <- e/sqrt(GARCH@h)
+             TV$pars <-  TV$Estimated$pars
+             TV$optimcontrol$reltol <- TV$optimcontrol$reltol / 100
+             TV$optimcontrol$ndeps <- TV$optimcontrol$ndeps / 100
+             TV <- estimateTV(w,TV,estCtrl)
+             cat(".")
+
+             LL.tv <- max(loglik.tvgarch.univar(e,TV@g,GARCH@h),-1e100)
+             # If loglik value does not improve, override TV with old "best" pars
+             if(LL.tv < this$Estimated$startValue) TV <- this$Estimated$tv else cat("\nTV Estimate Improved\n")
+
              z <- e/sqrt(TV@g)
-
+             GARCH$pars <-  GARCH$Estimated$pars
+             GARCH$optimcontrol$reltol <- GARCH$optimcontrol$reltol / 100
+             GARCH$optimcontrol$ndeps <- GARCH$optimcontrol$ndeps / 100
              GARCH <- estimateGARCH(z,GARCH,estCtrl)
              cat(".")
-             ## TODO: Confirm StdErr are computed sucessfully before saving...
-             if(GARCH$Estimated$value > this$garchObj$Estimated$value) {
-               this$Results[[1]]$garch <- GARCH
-               this$Results[[1]]$value <- loglik.tvgarch.univar(e,TV@g,GARCH@h)
+
+             LL.garch <- max(loglik.tvgarch.univar(e,TV@g,GARCH@h),-1e100)
+             if(LL.garch - this$Estimated$startValue > 0.001) {
+               this$Estimated$tv <- TV
+               this$Estimated$garch <- GARCH
+               this$Estimated$finalValue <- LL.garch
+               cat("\nTVGARCH Estimation Completed - Improved",fill = TRUE)
+             }else {
+               if(firstRun) cat("\nTVGARCH Estimation Completed") else cat("\nTVGARCH Estimation Completed - could not be improved",fill = TRUE)
              }
-
-             # 1. Filter out initial GARCH, then estimate TV & GARCH inside loop
-             w <- e/sqrt(GARCH@h)
-
-             # 2. Do requested number of iterations
-             for(n in 1:iter){
-               cat(n)
-               TV <- estimateTV(w,TV,estCtrl)
-               cat(".")
-               z <- w/sqrt(TV@g)
-
-               GARCH <- estimateGARCH(z,GARCH,estCtrl)
-               cat(".")
-               w <- z/sqrt(GARCH@h)
-
-               nextResult <- length(this$Results) + 1
-               this$Results[[nextResult]] <- list()
-               this$Results[[nextResult]]$tv <- TV
-               this$Results[[nextResult]]$garch <- GARCH
-               this$Results[[nextResult]]$value <- loglik.tvgarch.univar(e,TV@g,GARCH@h)
-
-               prevTVpars <- this$Results[[nextResult-1]]$tv$Estimated$pars
-               currentTVpars <- this$Results[[nextResult]]$tv$Estimated$pars
-               tvParamChange <- (currentTVpars-prevTVpars)/prevTVpars * 100
-
-               prevGARCHpars <- this$Results[[nextResult-1]]$garch$Estimated$pars
-               currentGARCHpars <- this$Results[[nextResult]]$garch$Estimated$pars
-               garchParamChange <- (currentGARCHpars-prevGARCHpars)/prevGARCHpars * 100
-
-               prevVALUE <- this$Results[[nextResult-1]]$value
-               currentVALUE <- this$Results[[nextResult]]$value
-               valueChange <- (currentVALUE-this$Results[[1]]$value)/this$Results[[1]]$value * -100  #(Use -100 so: positive % increases are good)
-
-               # Result changes:
-               this$Results[[nextResult]]$tvParamChange <- tvParamChange
-               this$Results[[nextResult]]$garchParamChange <- garchParamChange
-               this$Results[[nextResult]]$valueChange <- valueChange
-             }
-
-             cat("TVGARCH Estimation Complete",fill = TRUE)
 
              return(this)
            }
@@ -1609,58 +1595,11 @@ setGeneric(name="estimateTVGARCH.1",
            }
 )
 
-
-## -- showResults -- ####
-setGeneric(name="showResults",
-           valueClass = "character",
-           signature = c("tvgarchObj"),
-           def = function(tvgarchObj){
-             this <- tvgarchObj
-
-             cat("\nStart of TVGARCH Results\n")
-
-             for(n in 1:length(this$Results) ){
-               cat("\nResult Number:",n, " Values shown are % Change from prior iteration\n")
-               print(this$Results[[n]]$tvParamChange)
-               print(this$Results[[n]]$garchParamChange)
-               if(n==1){
-                 cat("LogLik.Value: ",this$Results[[n]]$value, "\n")
-               }else {
-                 cat("LogLik.Value: ",this$Results[[n]]$value," Increase from start: ",round(this$Results[[n]]$valueChange), "%\n")
-               }
-
-               se <- this$Results[[n]]$tv$Estimated$se
-               Nr.se <- length(se[!is.na(se)])
-               se <- this$Results[[n]]$garch$Estimated$se
-               Nr.se <- Nr.se + length(se[!is.na(se)])
-               Tot.pars <- this$tvObj@nr.pars + this$garchObj@nr.pars
-
-               cat("Nr Pars with StdErrs: ",Nr.se," / ",Tot.pars,"\n")
-             }
-
-           return("\nEnd of TVGARCH Results")
-           }
-)
-## -- setEstimatedResult -- ####
-setGeneric(name="setEstimatedResult",
-           valueClass = "tvgarch_class",
-           signature = c("tvgarchObj","resultNum"),
-           def = function(tvgarchObj,resultNum){
-             this <- tvgarchObj
-             this$Estimated <- list()
-             this$Estimated$tv <- this$Results[[resultNum]]$tv
-             this$Estimated$garch <- this$Results[[resultNum]]$garch
-             this$Estimated$value <- this$Results[[resultNum]]$value
-             return(this)
-
-           }
-)
-
 setMethod("summary",signature="tvgarch_class",
           function(object,...){
             this <- object
             cat("\n -- TVGARCH Model Specification --\n")
-            cat("\nMultiplicative Model Log-Liklihood Value: ", this$Estimated$value)
+            cat("\nMultiplicative Model Log-Liklihood Value: ", this$Estimated$finalValue)
             cat("\n\nTVGARCH Model Parameters:")
             summary(this$Estimated$garch)
             summary(this$Estimated$tv)
