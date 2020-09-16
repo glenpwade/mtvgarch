@@ -347,100 +347,116 @@ setGeneric(name="setTaylorOrder",
            }
 )
 
+## -- getTestStats(tv) ####
+setGeneric(name="getTestStats",
+           valueClass = "list",
+           signature = c("e","tvObj"),
+           def = function(e,tvObj){
+             this <- list()
+
+             this$TR2 <- test.LM.TR2(e,tvObj)
+             this$Robust <- test.LM.Robust(e,tvObj)
+
+             return(this)
+           }
+)
+
+
+
 
 
 ## --- PRIVATE TV METHODS --- ####
 
-## -- .testStatDist ####
-setGeneric(name=".testStatDist",
+#### ==================  Simulate Test Stat Distribution  ================== ###
+
+## -- testStatDist ####
+setGeneric(name="testStatDist",
            valueClass = "list",
-           signature = c("tvObj","refdata","reftests","simcontrol"),
-           def = function(tvObj,refdata,reftests,simcontrol){
+           signature = c("refdata","tvObj","reftests","simcontrol"),
+           def = function(refdata,tvObj,reftests,simcontrol){
              this <- tvObj
 
-             # 1. Setup the default params & timer
+             # 1. Setup the default params
+             library(doParallel)
              if(!is.null(simcontrol$saveAs)) {
                saveAs <- simcontrol$saveAs
              } else {
-               saveAs <- paste("SimDist-",strftime(Sys.time(),format="%Y%m%d-%H%M%S",usetz = FALSE),sep = "")
+               saveAs <- paste("TestStatDist-",strftime(Sys.time(),format="%Y%m%d-%H%M%S",usetz = FALSE),sep = "")
              }
              if(!is.null(simcontrol$numLoops)) numLoops <- simcontrol$numLoops else numLoops <- 1100
-
              if(!is.null(simcontrol$numCores)) numCores <- simcontrol$numCores else numCores <- detectCores() - 1
-             # Setup the parallel backend environment #
-             Sys.setenv("MC_CORES" = numCores)
-             cl <- makeCluster(numCores)
-             registerDoParallel(cl, cores = numCores)
-             #
-             tmr <- proc.time()
-             timestamp(prefix = "Starting Simulation on ",suffix = "\nPlease be patient as this may take a while...\n")
 
              # 2. Create Sim_Dist folder (if not there) & set Save filename
              if (!dir.exists(file.path(getwd(),"Sim_Dist"))) dir.create(file.path(getwd(),"Sim_Dist"))
              saveAs <- paste0(file.path("Sim_Dist",saveAs),".RDS")
 
              # 3. Load the generated data with Garch and add the 'g' from our TV object
-             RefData_WithGarch <- refdata[1:this@Tobs,1:numLoops]
-             RefData_WithGarch <- RefData_WithGarch*sqrt(this@g)
+             refdata <- refdata*sqrt(this@g)
 
-             # 4. Setup the matrix to store the simulation results - depends on the Order of TV function
+             # 4. Setup the matrix to store the simulation results
              testStats <- matrix(NA,nrow=numLoops,ncol=8)
 
-             # 5. Perform the simulation - in parallel
+             # 5. Setup the parallel backend
+             Sys.setenv("MC_CORES" = numCores)
+             cl <- makeCluster(numCores)
+             registerDoParallel(cl, cores = numCores)
+             #
+
+             # 6. Perform the simulation - in parallel
+             estCtrl <- list(calcSE = FALSE, verbose = FALSE)
+             if(is.null(reftests$TR2)) reftests$TR2 <- NaN
+             if(is.null(reftests$Robust)) reftests$Robust <- NaN
+
+             tmr <- proc.time()
+             timestamp(prefix = "Starting to build Test Stat Distribution - ",suffix = "\nPlease be patient as this may take a while...\n")
+
              testStats <- foreach(b = 1:numLoops, .inorder=FALSE, .combine=rbind, .verbose = FALSE) %dopar% {
-               source("clsTV.r",local = TRUE)
 
-               sim_e <- as.vector(RefData_WithGarch[,b])
-
-               TV <- estimateTV(sim_e,this)    # Note: The tv params don't change, only the sim_e changes
+               sim_e <- as.vector(refdata[,b])
+               TV <- estimateTV(sim_e,this,estCtrl)    # Note: The tv params don't change, only the sim_e changes
                if (!TV$Estimated$error) {
-                 if(!is.nan(reftests$LMTR2)) simTEST1 <- test.LM.TR2(sim_e,TV) else simTEST1 <- NaN
-                 if(!is.nan(reftests$LMRobust)) simTEST2 <- test.LM.Robust(sim_e,TV) else simTEST2 <- NaN
-                 runSimrow <- c(b,simTEST1,as.integer(simTEST1 > reftests$LMTR2),reftests$LMTR2,simTEST2,as.integer(simTEST2 > reftests$LMRobust),reftests$LMRobust,TV$Estimated$value)
+                 if(is.nan(reftests$TR2)) simTEST1 <- NaN else simTEST1 <- test.LM.TR2(sim_e,TV)
+                 if(is.nan(reftests$Robust)) simTEST2 <- NaN else simTEST2 <- test.LM.Robust(sim_e,TV)
+                 runSimrow <- c(b,reftests$TR2,simTEST1,as.integer(simTEST1 > reftests$TR2),reftests$Robust,simTEST2,as.integer(simTEST2 > reftests$Robust),TV$Estimated$value)
                }
                # Progress indicator:
-               if(b/100==round(b/100)) cat(".")
+               #if(b/100==round(b/100)) cat(".")
 
                #Result:
                runSimrow
 
              } # End: foreach(b = 1:numloops,...
 
-             # 6. Save the distribution
-             try(saveRDS(testStats,saveAs))
-
-             # 7. Extract Test P_Values from Results & express as %
-             colnames(testStats) <- c("b","Stat_TR2","Pval_TR2","Ref$LMTR2","Stat_Robust","Pval_Robust","Ref$LMRobust","Estimated_LL")
-             Test <- list()
-             Test$p_TR2 <- 100*mean(testStats[,"Pval_TR2"],na.rm = TRUE)
-             Test$p_ROB <- 100*mean(testStats[,"Pval_Robust"],na.rm = TRUE)
-             Test$Ref_TR2 <- testStats[1,"Ref$LMTR2"]
-             Test$Ref_Robust <- testStats[1,"Ref$LMRobust"]
-             Test$Stat_TR2 <- testStats[,"Stat_TR2"]
-             Test$Stat_Robust <- testStats[,"Stat_Robust"]
-             Test$TR2_Dist_Obs <- length(na.omit(testStats[,"Stat_TR2"]))
-             Test$ROB_Dist_Obs <- length(na.omit(testStats[,"Stat_Robust"]))
-
-             # 8. Print the time taken to the console:
-             cat("\nSimulation Completed \nRuntime:",(proc.time()-tmr)[3],"seconds\n")
-
-             # 9. Attempt to release memory:
+             # 7. Save the distribution & stop the parallel cluster
+             if(!is.na(saveAs)) try(saveRDS(testStats,saveAs))
              stopCluster(cl)
-             rm(RefData_WithGarch,testStats)
+
+             # 8. Extract Test P_Values from Results & express as %
+             colnames(testStats) <- c("b","Ref$LMTR2","Stat_TR2","Pval_TR2","Ref$LMRobust","Stat_Robust","Pval_Robust","Estimated_LL")
+             Test <- list()
+             Test$p_TR2 <- round(100*mean(testStats[,"Pval_TR2"],na.rm = TRUE),3)
+             Test$p_ROB <- round(100*mean(testStats[,"Pval_Robust"],na.rm = TRUE),3)
+             Test$TestStatDist <- testStats
+
+             # 9. Print the time taken to the console:
+             cat("\nTest Stat Distribution Completed \nRuntime:",(proc.time()-tmr)[3],"seconds\n")
+
+             # 10. Attempt to release memory:
+             rm(refdata,testStats)
 
              # Return:
-             Test
+             return(Test)
 
            }
 )
 
-setMethod(".testStatDist",signature = c("tv_class","matrix","list","missing"),
-          function(tvObj,refdata,reftests){
-            simcontrol <- list()
-            simcontrol$saveAs <- paste("SimDist-",strftime(Sys.time(),format="%Y%m%d-%H%M%S",usetz = FALSE))
-            simcontrol$numLoops <- 1100
-            simcontrol$numCores <- parallel::detectCores() - 1
-            .testStatDist(tvObj,refdata,reftests,simcontrol)
+setMethod("testStatDist",signature = c("matrix","tv_class","list","missing"),
+          function(refdata,tvObj,reftests){
+            simControl <- list()
+            simControl$saveAs <- paste("TestStatDist-",strftime(Sys.time(),format="%Y%m%d-%H%M%S",usetz = FALSE))
+            simControl$numLoops <- 1100
+            simControl$numCores <- parallel::detectCores() - 1
+            testStatDist(refdata,tvObj,reftests,simControl)
           })
 
 
@@ -733,9 +749,9 @@ setMethod("summary",signature="tv_class",
               d0 <- this$Estimated$delta0
               d0Sig <- ""
               if(!is.nan(se)){
-                if(se*2 < abs(d0/100)) { d0Sig <- "***" }
-                else if(se*2 < abs(d0/10) ) { d0Sig <- "** " }
-                else if(se*2 < abs(d0) ) { d0Sig <- "*  " }
+                if(se*2.576 < abs(d0)) { d0Sig <- "***" }
+                else if(se*1.96 < abs(d0)) { d0Sig <- "** " }
+                else if(se*1.645 < abs(d0)) { d0Sig <- "*  " }
               }
 
               parsVec <-  round(as.vector(this$Estimated$pars),6)
@@ -748,9 +764,9 @@ setMethod("summary",signature="tv_class",
                     seVecSig[n] <- "   "
                   } else {
                     # Calculate a significance indicator
-                    if(seVec[n]*2 < abs((parsVec[n]/100)) ) { (seVecSig[n] <- "***") }
-                    else if(seVec[n]*2 < abs((parsVec[n]/10)) ) { (seVecSig[n] <- "** ") }
-                    else if(seVec[n]*2 < abs((parsVec[n])) ) { (seVecSig[n] <- "*  ") }
+                    if(seVec[n]*2.576 < abs(parsVec[n]) ) { (seVecSig[n] <- "***") }
+                    else if(seVec[n]*1.96 < abs(parsVec[n]) ) { (seVecSig[n] <- "** ") }
+                    else if(seVec[n]*1.645 < abs(parsVec[n]) ) { (seVecSig[n] <- "*  ") }
                   }
                 }
               } else {
@@ -770,10 +786,11 @@ setMethod("summary",signature="tv_class",
             }
 
             cat("\nTV OBJECT\n")
+            if(this@taylor.order > 0) cat("\nTaylor Expansion Order: ",this@taylor.order ,"\n")
             cat("\nEstimation Results:\n")
             cat("\nDelta0 =",round(this$Estimated$delta0,6),"se0 = ",round(this$Estimated$delta0_se,6),d0Sig,"\n\n")
             print(results[,-1])
-            cat("\nLog-liklihood value(TV): ",this$Estimated$value)
+            cat("\nLog-likelihood value(TV): ",this$Estimated$value)
 
           })
 
@@ -1016,11 +1033,12 @@ setGeneric(name="estimateGARCH_RollingWindow",
                StdErrors <- NULL
                try(StdErrors <- sqrt(-diag(qr.solve(tmp$hessian))))
                if(is.null(StdErrors)) {
-                 this$Estimated$se <- matrix(NA,nrow=(this@nr.pars-1))
+                 this$Estimated$se <- matrix(NA,nrow=(this@nr.pars))
                }else {
-                 this$Estimated$se <- matrix(StdErrors,nrow=(this@nr.pars-1))
+                 StdErrors <- c(NA,StdErrors)
+                 this$Estimated$se <- matrix(StdErrors,nrow=(this@nr.pars))
                }
-               rownames(this$Estimated$se) <- rownames(tail(this$pars,-1))
+               rownames(this$Estimated$se) <- rownames(this$pars)
                colnames(this$Estimated$se) <- "se"
              }
              if (verbose) this$Estimated$optimoutput <- tmp
@@ -1285,9 +1303,9 @@ setMethod("summary",signature="garch_class",
                     seVecSig[n] <- "   "
                   } else {
                     # Calculate a significance indicator
-                    if(seVec[n]*2 < abs((parsVec[n]/100)) ) { (seVecSig[n] <- "***") }
-                    else if(seVec[n]*2 < abs((parsVec[n]/10)) ) { (seVecSig[n] <- "** ") }
-                    else if(seVec[n]*2 < abs((parsVec[n])) ) { (seVecSig[n] <- "*  ") }
+                    if(seVec[n]*2.576 < abs(parsVec[n]) ) { (seVecSig[n] <- "***") }
+                    else if(seVec[n]*1.96 < abs(parsVec[n]) ) { (seVecSig[n] <- "** ") }
+                    else if(seVec[n]*1.645 < abs(parsVec[n]) ) { (seVecSig[n] <- "*  ") }
                   }
                 }
               } else {
@@ -1307,10 +1325,12 @@ setMethod("summary",signature="garch_class",
             }
 
             cat("\nGARCH OBJECT\n")
+            cat("\nType: ",TypeNames[this$type+1])
             cat("\nOrder: (",this@order[1],",",this@order[2],")")
+            cat("\nMethod: ",this$Estimated$method,"\n")
             cat("\nEstimation Results:\n")
             print(results[,-1])
-            cat("\nLog-liklihood value(GARCH): ",this$Estimated$value)
+            cat("\nLog-likelihood value(GARCH): ",this$Estimated$value)
 
           }
 )
@@ -1318,7 +1338,8 @@ setMethod("summary",signature="garch_class",
 
 ## --- tvgarch_CLASS Definition --- ####
 tvgarch <- setClass(Class = "tvgarch_class",
-               contains = c("namedList")
+                    slots = c(IsEstimated="logical"),
+                    contains = c("namedList")
 )
 
 ## -- Initialise -- ####
@@ -1326,6 +1347,7 @@ setMethod("initialize","tvgarch_class",
           function(.Object){
             .Object$tvObj <- new("tv_class")
             .Object$garchObj <- new("garch_class")
+            .Object@IsEstimated <- FALSE
             # Return:
             .Object
           })
@@ -1399,57 +1421,66 @@ setGeneric(name="estimateTVGARCH",
              TV <- this$tvObj
              GARCH <- this$garchObj
              estCtrl <- estimationControl
-             firstRun <- FALSE
 
              cat("\nStarting Estimation...")
 
              #==  First time being estimated ==#
-             if(is.null(this$Estimated)){
-
+             if(!isTRUE(this@IsEstimated)){
+               this$Estimated <- list()
                GARCH <- estimateGARCH(e/sqrt(TV@g),GARCH,estCtrl)
                cat(".")
-               this$Estimated <- list()
+
                # Put the initial best model into the Estimated list
                this$Estimated$tv <- TV
                this$Estimated$garch <- GARCH
                this$Estimated$startValue <- loglik.tvgarch.univar(e,TV@g,GARCH@h)
                this$Estimated$finalValue <- this$Estimated$startValue
-               firstRun <- TRUE
+
+               cat("\nTVGARCH Estimation Completed")
+               cat("\n")
+
+               this@IsEstimated <- TRUE
+
+               return(this)
 
              } else {
                TV <- this$Estimated$tv
                GARCH <- this$Estimated$garch
                this$Estimated$startValue <- this$Estimated$finalValue
+               this$Estimated$finalValue <- NA
              }
 
-             #== Every time being estimated ==#
+             #== Every other time being estimated ==#
 
              w <- e/sqrt(GARCH@h)
-             TV$pars <-  TV$Estimated$pars
-             TV$optimcontrol$reltol <- TV$optimcontrol$reltol / 100
-             TV$optimcontrol$ndeps <- TV$optimcontrol$ndeps / 100
+             #TV$pars <-  TV$Estimated$pars * 0.9
+             TV$optimcontrol$reltol <- TV$optimcontrol$reltol / 10
+             TV$optimcontrol$ndeps <- TV$optimcontrol$ndeps / 10
              TV <- estimateTV(w,TV,estCtrl)
              cat(".")
 
-             LL.tv <- max(loglik.tvgarch.univar(e,TV@g,GARCH@h),-1e100)
+             if(!TV$Estimated$error){
+               LL.tv <- max(loglik.tvgarch.univar(e,TV@g,GARCH@h),-1e100)
+             } else LL.tv <- -1e100
+
              # If loglik value does not improve, override TV with old "best" pars
-             if(LL.tv < this$Estimated$startValue) TV <- this$Estimated$tv else cat("\nTV Estimate Improved\n")
+             if(LL.tv < this$Estimated$startValue) TV <- this$Estimated$tv else cat("\nTV Estimate Improved, now re-estimating Garch...\n")
 
              z <- e/sqrt(TV@g)
-             GARCH$pars <-  GARCH$Estimated$pars
-             GARCH$optimcontrol$reltol <- GARCH$optimcontrol$reltol / 100
-             GARCH$optimcontrol$ndeps <- GARCH$optimcontrol$ndeps / 100
+             #GARCH$pars <-  GARCH$Estimated$pars * 0.95
+             GARCH$optimcontrol$reltol <- GARCH$optimcontrol$reltol / 10
+             GARCH$optimcontrol$ndeps <- GARCH$optimcontrol$ndeps / 10
              GARCH <- estimateGARCH(z,GARCH,estCtrl)
              cat(".")
 
              LL.garch <- max(loglik.tvgarch.univar(e,TV@g,GARCH@h),-1e100)
+             this$Estimated$finalValue <- LL.garch
              if(LL.garch - this$Estimated$startValue > 0.001) {
                this$Estimated$tv <- TV
                this$Estimated$garch <- GARCH
-               this$Estimated$finalValue <- LL.garch
                cat("\nTVGARCH Estimation Completed - Improved",fill = TRUE)
              }else {
-               if(firstRun) cat("\nTVGARCH Estimation Completed") else cat("\nTVGARCH Estimation Completed - could not be improved",fill = TRUE)
+               cat("\nTVGARCH Estimation Completed - could not be improved",fill = TRUE)
              }
 
              return(this)
@@ -1595,11 +1626,12 @@ setGeneric(name="estimateTVGARCH.1",
            }
 )
 
+## ========= summary ==========####
 setMethod("summary",signature="tvgarch_class",
           function(object,...){
             this <- object
             cat("\n -- TVGARCH Model Specification --\n")
-            cat("\nMultiplicative Model Log-Liklihood Value: ", this$Estimated$finalValue)
+            cat("\nMultiplicative Model Log-Likelihood Value: ", this$Estimated$finalValue)
             cat("\n\nTVGARCH Model Parameters:")
             summary(this$Estimated$garch)
             summary(this$Estimated$tv)
