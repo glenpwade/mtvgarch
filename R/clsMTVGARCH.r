@@ -4,16 +4,16 @@
 
 ## --- mtvgarch_class Definition --- ####
 
-CORRtype = list(CCC=1,CEC=2,STCC1=3,STEC1=4)
-CORRshape = list(single=1,double=2,double1loc=3)
-CORRspeedopt = list(gamma=1,gamma_std=2,eta=3)
+corrtype = list(CCC=1,CEC=2,STCC1=3,STEC1=4)
+corrshape = list(single=1,double=2,double1loc=3)
+corrspeedopt = list(gamma=1,gamma_std=2,eta=3)
 
 mtvgarch <- setClass(Class = "mtvgarch_class",
-               slots = c(tvgarch_list="list",corrType="integer"),
+               slots = c(tvgarch_list="list",N="integer",Tobs="integer"),
                contains = c("namedList")
                )
 
-## Initialise with no params
+## === Initialise  ===####
 setMethod("initialize","mtvgarch_class",
           function(.Object,...){
             .Object <- callNextMethod(.Object,...)
@@ -21,48 +21,76 @@ setMethod("initialize","mtvgarch_class",
             .Object
           })
 
+## === Constructor  ===####
 setGeneric(name="mtvgarch",
            valueClass = "mtvgarch_class",
-           signature = c("tvgarch_list","corrObj"),
-           def = function(tvgarch_list,corrObj){
+           signature = c("tvgarch_list","series.names"),
+           def = function(tvgarch_list,series.names){
              this <- new("mtvgarch_class")
-             this@tvgarch_list <- tvgarch_list
-             this@corrType <- corrObj$type
-             this$corr <- corrObj
-             # Do validation checks:
 
-
+             # Do basic validation checks:
+             if(length(tvgarch_list) < 2) {
+               warning("multivariate mtvgarch objects require a minimum of 2 data series.")
+               return(this)
+             }
+             if(length(tvgarch_list) != length(series.names) ) {
+               warning("The number of series.names provided must match the number of data series in the list.")
+               return(this)
+             }
              # End validation
 
-             if (this@corrType == CORRtype$CCC){
+             this@tvgarch_list <- tvgarch_list
+             this@N <- as.integer(length(tvgarch_list))
+             this@Tobs <- tvgarch_list[[1]]$tvObj@Tobs
 
+             for(n in 1:this@N){
+               # Validate the class_type:
+               objType <- class(tvgarch_list[[n]])
+               if(objType[1] != "tvgarch_class") {
+                 warning("multivariate mtvgarch objects require data to be a list of tvgarch_class objects")
+                 return(this)
+               }
+
+               this[[series.names[n]]] <- tvgarch_list[[n]]
              }
-             if (this@corrType == CORRtype$STCC1){
-
-             }
-
-
 
              return(this)
            }
 )
 
-
-setGeneric(name="estimateMTVGARCH",
-           valueClass = "mtvgarch_class",
-           signature = c("z","mtvgarchObj","estimationControl"),
-           def=function(z,mtvgarchObj,estimationControl){
+setGeneric(name="filterData",
+           valueClass = "matrix",
+           signature = c("e","mtvgarchObj"),
+           def=function(e,mtvgarchObj){
              this <- mtvgarchObj
 
-             if (this@corrType == CORRtype$CCC){
-
+             # Do basic validation checks:
+             objType <- class(e)
+             if(objType[1] != "matrix"){
+               warning("data must be a matrix")
+               return(matrix())
              }
-             if (this@corrType == CORRtype$STCC1){
-               this$corr <- estimateSTCC1(z,this$corr,estimationControl)
-
+             objType <- class(mtvgarchObj)
+             if(objType[1] != "mtvgarch_class"){
+               warning("mtvgarchObj must be an instance of the mtvgarch_class")
+               return(matrix())
              }
+             if(this@N != NCOL(e)){
+               warning("The number of data series in mtvgarch must match the number of series in 'e'")
+               return(matrix())
+             }
+             # End validation
 
-             return(this)
+             filteredData <- matrix(nrow = this@Tobs, ncol = this@N)
 
-           })
+             for(n in 1:this@N){
+
+               filteredData[,n] <- e[,n]/sqrt(this[[n]]$Estimated$tv@g * this[[n]]$Estimated$garch@h)
+             }
+             colnames(filteredData) <- names(this)
+
+             return(filteredData)
+
+           }
+)
 

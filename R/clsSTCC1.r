@@ -4,10 +4,28 @@
 ## -- This class file maintains the Structure for STCC1 (STCC with One Transition)
 
 
-## ===============  Anna's Matrix Functions  ================== ##
+##===============  Anna's Matrix Functions  ==================##
 
+setGeneric(name=".Vecl",
+           valueClass = "numeric",
+           signature = c("sqrMatrix"),
+           def = function(sqrMatrix){
+             ## Returns the lower triangle of a square matrix in vector format.
+             ## Note: This operation can be reversed using myUnVecl()
+             idx = 0
+             N <- ncol(sqrMatrix)
+             vM <- matrix(0,N*(N-1)/2,1)
+             for (idxCol in seq(1,N-1)){
+               for (idxRow in seq(idxCol+1,N)){
+                 idx <- idx+1
+                 vM[idx,1] <- sqrMatrix[idxRow,idxCol]
+               }
+             }
+             return(as.vector(vM))
+           }
+)
 ## -- unVecl -- ####
-setGeneric(name="unVecl",
+setGeneric(name=".unVecl",
            valueClass = "matrix",
            signature = c("lowerTri"),
            def = function(lowerTri){
@@ -21,7 +39,7 @@ setGeneric(name="unVecl",
            }
 )
 ## -- eigVec.EC -- ####
-setGeneric(name="eigVec.EC",
+setGeneric(name=".eigVec.EC",
            valueClass = "matrix",
            signature = c("N"),
            def = function(N){
@@ -45,7 +63,7 @@ setGeneric(name="eigVec.EC",
           }
 )
 ## -- eigVal.EC -- ####
-setGeneric(name="eigVal.EC",
+setGeneric(name=".eigVal.EC",
            valueClass = "numeric",
            signature = c("N","rho"),
            def = function(N,rho){
@@ -58,7 +76,7 @@ setGeneric(name="eigVal.EC",
            }
 )
 ## -- ar1.Filter -- ####
-setGeneric(name="ar1.Filter",
+setGeneric(name=".ar1.Filter",
            valueClass = "matrix",
            signature = c("mX","vB"),
            def = function(mX,vB){
@@ -84,9 +102,9 @@ setGeneric(name="ar1.Filter",
 
 ## --- stcc1_class Definition --- ####
 
-CORRtype = CORRtype = list(CCC=1,CEC=2,STCC1=3,STEC1=4)
-CORRshape = list(single=1,double=2,double1loc=3)
-CORRspeedopt = list(gamma=1,gamma_std=2,eta=3)
+corrtype <- list(CCC=1,CEC=2,STCC1=3,STEC1=4)
+corrshape <- list(single=1,double=2,double1loc=3)
+corrspeedopt <- list(gamma=1,gamma_std=2,eta=3)
 
 stcc1 <- setClass(Class = "stcc1_class",
                slots = c(st="numeric",shape="numeric",type="integer",nr.covPars="integer",nr.trPars="integer",Tobs="integer",N="integer"),
@@ -98,12 +116,12 @@ setMethod("initialize","stcc1_class",
           function(.Object,...){
             .Object <- callNextMethod(.Object,...)
             # By definition of STCC1:
-            .Object@type <- CORRtype$STCC1
+            .Object@type <- corrtype$STCC1
 
             # Default initial values
-            .Object@shape <- CORRshape$single
+            .Object@shape <- corrshape$single
             .Object@N <- as.integer(2)
-            .Object$speedopt <- CORRspeedopt$eta
+            .Object$speedopt <- corrspeedopt$eta
             .Object$optimcontrol <- list(fnscale = -1, maxit = 1000, reltol = 1e-5)
 
             # Return:
@@ -134,7 +152,7 @@ setGeneric(name="stcc1",
              this@st <- st
              this@Tobs <- as.integer(NROW(st))
              this@shape <- shape
-             if(shape==CORRshape$double) {
+             if(shape==corrshape$double) {
                this@nr.trPars <- as.integer(3)
                this$pars <- c(2.5,0.33,0.66)
              }else {
@@ -153,36 +171,36 @@ setGeneric(name="stcc1",
            }
 )
 ## -- calc.st_c -- ####
-setGeneric(name="calc.st_c",
+setGeneric(name=".calc.st_c",
            valueClass = "numeric",
            signature = c("stcc1Obj"),
            def = function(stcc1Obj){
              this <- stcc1Obj
              st_c <- 0
-             if(this@shape == CORRshape$single) { st_c <- this@st-this$pars["loc1"] }
-             if(this@shape == CORRshape$double) { st_c <- (this@st-this$pars["loc1"])*(this@st-this$pars["loc2"]) }
-             if(this@shape == CORRshape$double1loc) { st_c <- (this@st-this$pars["loc1"])^2 }
+             if(this@shape == corrshape$single) { st_c <- this@st-this$pars["loc1"] }
+             if(this@shape == corrshape$double) { st_c <- (this@st-this$pars["loc1"])*(this@st-this$pars["loc2"]) }
+             if(this@shape == corrshape$double1loc) { st_c <- (this@st-this$pars["loc1"])^2 }
              return(st_c)
            }
 )
 
 ## -- calc.Gt -- ####
-setGeneric(name="calc.Gt",
+setGeneric(name=".calc.Gt",
            valueClass = "numeric",
            signature = c("stcc1Obj","st_c"),
            def = function(stcc1Obj,st_c){
              this <- stcc1Obj
              G <- 0
-             if(this$speedopt == CORRspeedopt$gamma) { G <- 1/(1+exp(-this@speed*st_c)) }
-             if(this$speedopt == CORRspeedopt$gamma_std) { G <- 1/(1+exp(-this@speed/sd(this@st)*st_c)) }
-             if(this$speedopt == CORRspeedopt$eta) { G <- 1/(1+exp(-exp(this@speed)*st_c)) }
+             if(this$speedopt == corrspeedopt$gamma) { G <- 1/(1+exp(-this@speed*st_c)) }
+             if(this$speedopt == corrspeedopt$gamma_std) { G <- 1/(1+exp(-this@speed/sd(this@st)*st_c)) }
+             if(this$speedopt == corrspeedopt$eta) { G <- 1/(1+exp(-exp(this@speed)*st_c)) }
 
              return(matrix(G,nrow = this@Tobs,ncol = 1))
            }
 )
 
 ## -- calc.Pt -- ####
-setGeneric(name="calc.Pt",
+setGeneric(name=".calc.Pt",
            valueClass = "matrix",
            signature = c("stcc1Obj"),
            def =   function(stcc1Obj){
@@ -236,7 +254,7 @@ setGeneric(name="loglik.stcc1",
              tmp.par <- optimpars
 
              vP1 <- tmp.par[1:this@nr.covPars]
-             mP <- unVecl(vP1)
+             mP <- .unVecl(vP1)
              eig <- eigen(mP,symmetric=TRUE,only.values=TRUE)
              # Check for SPD - positive-definite check:
              if (min(eig$values) <= 0) return(err_output)
@@ -244,19 +262,19 @@ setGeneric(name="loglik.stcc1",
              #Remove the P1 covPars, then extract the P2 covPars
              tmp.par <- tail(tmp.par,-this@nr.covPars)
              vP2 <- tmp.par[1:this@nr.covPars]
-             mP <- unVecl(vP2)
+             mP <- .unVecl(vP2)
              eig <- eigen(mP,symmetric=TRUE,only.values=TRUE)
              # Check for SPD - positive-definite check:
              if (min(eig$values) <= 0) return(err_output)
 
-             st_c <- calc.st_c(this)
-             Gt <- calc.Gt(this,st_c)
+             st_c <- .calc.st_c(this)
+             Gt <- .calc.Gt(this,st_c)
 
              Pt <- t(apply(Gt,MARGIN = 1,FUN = function(X,P1,P2) ((1-X)*P1 + X*P2), P1=vP1, P2=vP2))
 
              llt <- vector("numeric")
              for(t in 1:this@Tobs) {
-               mPt <- unVecl(Pt[t,])
+               mPt <- .unVecl(Pt[t,])
                llt[t] <- -0.5*log(det(mPt)) -0.5*( t(z[t,])%*%(qr.solve(mPt))%*%z[t,])
              }
              # Return:
@@ -282,7 +300,7 @@ setGeneric(name="estimateSTCC1",
              if (verbose) this$optimcontrol$trace <- 10
 
              tmp <- NULL
-             try(tmp <- optim(optimpars,loglik.stcc1,z,this,gr=NULL,method="BFGS",control=this$optimcontrol,hessian=calcSE))
+             try(tmp <- optim(optimpars,.loglik.stcc1,z,this,gr=NULL,method="BFGS",control=this$optimcontrol,hessian=calcSE))
 
              ### ---  Interpret the response from optim --- ###
              # An unhandled error could result in a NULL being returned by optim()
@@ -298,12 +316,12 @@ setGeneric(name="estimateSTCC1",
                this$Estimated$value <- tmp$value
 
                tmp.par <- tmp$par
-               this$Estimated$P1 <- unVecl(tmp.par[1:this@nr.covPars])
+               this$Estimated$P1 <- .unVecl(tmp.par[1:this@nr.covPars])
                tmp.par <- tail(tmp.par,-this@nr.covPars)
-               this$Estimated$P2 <- unVecl(tmp.par[1:this@nr.covPars])
+               this$Estimated$P2 <- .unVecl(tmp.par[1:this@nr.covPars])
                tmp.par <- tail(tmp.par,-this@nr.covPars)
                this$Estimated$pars <- tmp.par
-               if(this@shape != CORRshape$double) this$Estimated$pars <- c(this$Estimated$pars,NA)
+               if(this@shape != corrshape$double) this$Estimated$pars <- c(this$Estimated$pars,NA)
                names(this$Estimated$pars) <- names(this$pars)
 
                if (calcSE) {
@@ -318,7 +336,7 @@ setGeneric(name="estimateSTCC1",
                    vecSE <- tail(vecSE,-this@nr.covPars)
 
                    this$Estimated$pars.se <- vecSE
-                   if(this$shape != CORRshape$double) this$Estimated$pars.se <- c(this$Estimated$pars.se,NA)
+                   if(this$shape != corrshape$double) this$Estimated$pars.se <- c(this$Estimated$pars.se,NA)
                    names(this$Estimated$pars.se) <- names(this$pars)
                  }
                }
@@ -345,47 +363,3 @@ setMethod("estimateSTCC1",signature = c("matrix","stcc1_class","missing"),
           })
 
 ## --- PRIVATE METHODS --- ####
-
-# calcParamStats_STCC <- function(STCC,sig_level_percent=5) {
-#
-#   if(sig_level_percent < 1) {
-#     warning("Please enter an integer % value, e.g. 5 for 5%")
-#     return()
-#   }
-#
-#   pars <- STCC$Estimated$parsVector
-#   errs <- STCC$Estimated$stderr
-#
-#   STCC$Estimated$tStats <- vector(mode="numeric",length=length(pars))
-#   STCC$Estimated$PValues <- vector(mode="numeric",length=length(pars))
-#   STCC$Estimated$fStat <- NULL
-#
-#   sig_level_percent = 5
-#   sig_value = (100 - sig_level_percent)/100 * 2
-#
-#   # Calculate t-stat = test if param is significantly different from zero
-#   STCC$Estimated$tStats <- round(pars/errs,6)
-#
-#   # Calculate P-Values based on the above t-Stats, for the significance level provided
-#   FUN1 <- function(x) {round(sig_value*pnorm(-abs(x)),6)}
-#   STCC$Estimated$PValues <- vapply(STCC$Estimated$tStats, FUN1, vector("numeric",length = 1))
-#
-#   # Add an asterix to each P-Value (in the name), to help users understand the parameter significance
-#   FUN2 <- function(x) {ifelse((abs(x) < sig_level_percent/100), "*", "") }
-#   names(STCC$Estimated$PValues) <- paste0(names(STCC$Estimated$PValues),vapply(STCC$Estimated$PValues, FUN2, vector("character",length = 1)))
-#
-#   #Return
-#   STCC
-#
-# }
-
-
-## --- Override Methods --- ####
-
-# ## -- plot() ####
-# setMethod("plot",signature = c(x="stcc1_class",y="missing"),
-#           function(x, y, ...){
-#             this <- x
-#             plot(this@h, type='l', ylab = "Cond.Variance", ...)
-#           })
-

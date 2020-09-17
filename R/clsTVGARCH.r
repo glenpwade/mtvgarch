@@ -785,8 +785,9 @@ setMethod("summary",signature="tv_class",
               }
             }
 
-            cat("\nTV OBJECT\n")
-            if(this@taylor.order > 0) cat("\nTaylor Expansion Order: ",this@taylor.order ,"\n")
+            cat("\n\nTV OBJECT\n")
+            if(this@taylor.order > 0) cat("\nTaylor Expansion Order: ",this@taylor.order)
+            cat("\nTransition Shapes:", this$shape ,"\n")
             cat("\nEstimation Results:\n")
             cat("\nDelta0 =",round(this$Estimated$delta0,6),"se0 = ",round(this$Estimated$delta0_se,6),d0Sig,"\n\n")
             print(results[,-1])
