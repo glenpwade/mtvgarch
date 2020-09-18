@@ -4,12 +4,12 @@
 
 ## --- mtvgarch_class Definition --- ####
 
-corrtype = list(CCC=1,CEC=2,STCC1=3,STEC1=4)
-corrshape = list(single=1,double=2,double1loc=3)
-corrspeedopt = list(gamma=1,gamma_std=2,eta=3)
+corrtype <- list(CCC=1,CEC=2,STCC1=3,STEC1=4)
+corrshape <- list(single=1,double=2,double1loc=3)
+corrspeedopt <- list(gamma=1,gamma_std=2,eta=3)
 
 mtvgarch <- setClass(Class = "mtvgarch_class",
-               slots = c(tvgarch_list="list",N="integer",Tobs="integer"),
+               slots = c(N="integer",Tobs="integer"),
                contains = c("namedList")
                )
 
@@ -39,7 +39,6 @@ setGeneric(name="mtvgarch",
              }
              # End validation
 
-             this@tvgarch_list <- tvgarch_list
              this@N <- as.integer(length(tvgarch_list))
              this@Tobs <- tvgarch_list[[1]]$tvObj@Tobs
 
@@ -58,6 +57,7 @@ setGeneric(name="mtvgarch",
            }
 )
 
+## ===   FilterData ===####
 setGeneric(name="filterData",
            valueClass = "matrix",
            signature = c("e","mtvgarchObj"),

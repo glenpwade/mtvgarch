@@ -107,7 +107,7 @@ corrshape <- list(single=1,double=2,double1loc=3)
 corrspeedopt <- list(gamma=1,gamma_std=2,eta=3)
 
 stcc1 <- setClass(Class = "stcc1_class",
-               slots = c(st="numeric",shape="numeric",type="integer",nr.covPars="integer",nr.trPars="integer",Tobs="integer",N="integer"),
+               slots = c(st="numeric",nr.covPars="integer",nr.trPars="integer",Tobs="integer",N="integer"),
                contains = c("namedList")
                )
 
@@ -116,11 +116,11 @@ setMethod("initialize","stcc1_class",
           function(.Object,...){
             .Object <- callNextMethod(.Object,...)
             # By definition of STCC1:
-            .Object@type <- corrtype$STCC1
+            .Object$type <- corrtype$STCC1
 
             # Default initial values
-            .Object@shape <- corrshape$single
-            .Object@N <- as.integer(2)
+            .Object@N <- as.integer(0)
+            .Object$shape <- corrshape$single
             .Object$speedopt <- corrspeedopt$eta
             .Object$optimcontrol <- list(fnscale = -1, maxit = 1000, reltol = 1e-5)
 
@@ -131,28 +131,24 @@ setMethod("initialize","stcc1_class",
 ## -- Constructor:stcc1 -- ####
 setGeneric(name="stcc1",
            valueClass = "stcc1_class",
-           signature = c("st","shape","N"),
-           def = function(st,shape,N){
+           signature = c("mtvgarchObj"),
+           def = function(mtvgarchObj){
              this <- new("stcc1_class")
 
              ## -- Do validation checks -- ####
-             # Validate shape:
-             if(length(shape) != 1){
-               stop("Invalid shape: STCC1 requires just 1 transition")
+             objType <- class(mtvgarchObj)
+             if(objType[1] != "mtvgarch_class"){
+               warning("a valid instance of the mtvgarch_class is required to create an STCC1 model")
+               return(this)
              }
-             # Validate N (number of series):
-             if(N < 2){
-               stop("Invalid N (number of series): STCC1 requires at least 2 data series")
-             }
-
              # End validation
 
              # Set Default Values:
-             this@N <- as.integer(N)
-             this@st <- st
-             this@Tobs <- as.integer(NROW(st))
-             this@shape <- shape
-             if(shape==corrshape$double) {
+             this@N <- mtvgarchObj@N
+             this@st <- 1:mtvgarchObj@Tobs/mtvgarchObj@Tobs
+             this@Tobs <- mtvgarchObj@Tobs
+
+             if(this$shape==corrshape$double) {
                this@nr.trPars <- as.integer(3)
                this$pars <- c(2.5,0.33,0.66)
              }else {
@@ -161,8 +157,9 @@ setGeneric(name="stcc1",
              }
              names(this$pars) <- c("speed","loc1","loc2")
 
-             this@nr.covPars <- as.integer(N + (N^2-N)/2)
-             this$P1 <- matrix(0.2,N,N)
+             N <- this@N
+             this@nr.covPars <- as.integer((N^2-N)/2)
+             this$P1 <- matrix(0.3,N,N)
              diag(this$P1) <- 1
              this$P2 <- matrix(0.7,N,N)
              diag(this$P2) <- 1
@@ -176,24 +173,29 @@ setGeneric(name=".calc.st_c",
            signature = c("stcc1Obj"),
            def = function(stcc1Obj){
              this <- stcc1Obj
+             loc1 <- this$Estimated$pars["loc1"]
+             loc2 <- this$Estimated$pars["loc2"]
+
              st_c <- 0
-             if(this@shape == corrshape$single) { st_c <- this@st-this$pars["loc1"] }
-             if(this@shape == corrshape$double) { st_c <- (this@st-this$pars["loc1"])*(this@st-this$pars["loc2"]) }
-             if(this@shape == corrshape$double1loc) { st_c <- (this@st-this$pars["loc1"])^2 }
+             if(this$shape == corrshape$single) { st_c <- this@st - loc1 }
+             if(this$shape == corrshape$double) { st_c <- (this@st - loc1)*(this@st - loc2) }
+             if(this$shape == corrshape$double1loc) { st_c <- (this@st - loc1)^2 }
              return(st_c)
            }
 )
 
 ## -- calc.Gt -- ####
 setGeneric(name=".calc.Gt",
-           valueClass = "numeric",
+           valueClass = "matrix",
            signature = c("stcc1Obj","st_c"),
            def = function(stcc1Obj,st_c){
              this <- stcc1Obj
+             speed <- this$Estimated$pars["speed"]
+
              G <- 0
-             if(this$speedopt == corrspeedopt$gamma) { G <- 1/(1+exp(-this@speed*st_c)) }
-             if(this$speedopt == corrspeedopt$gamma_std) { G <- 1/(1+exp(-this@speed/sd(this@st)*st_c)) }
-             if(this$speedopt == corrspeedopt$eta) { G <- 1/(1+exp(-exp(this@speed)*st_c)) }
+             if(this$speedopt == corrspeedopt$gamma) { G <- 1/(1+exp(-speed*st_c)) }
+             if(this$speedopt == corrspeedopt$gamma_std) { G <- 1/(1+exp(-speed/sd(this@st)*st_c)) }
+             if(this$speedopt == corrspeedopt$eta) { G <- 1/(1+exp(-exp(speed)*st_c)) }
 
              return(matrix(G,nrow = this@Tobs,ncol = 1))
            }
@@ -211,16 +213,17 @@ setGeneric(name=".calc.Pt",
              mP2 <- this$Estimated$P2
              vP2 <- mP2[lower.tri(mP2)]
 
-             st_c <- calc.st_c(this)
-             Gt <- calc.Gt(this,st_c)
+             st_c <- .calc.st_c(this)
+             Gt <- .calc.Gt(this,st_c)
              Pt <- t(apply(Gt,MARGIN = 1,FUN = function(X,P1,P2) ((1-X)*P1 + X*P2), P1=vP1, P2=vP2))
 
              return(Pt)
 
            }
 )
+
 ## -- loglik.stcc1() --####
-setGeneric(name="loglik.stcc1",
+setGeneric(name=".loglik.stcc1",
            valueClass = "numeric",
            signature = c("optimpars","z","stcc1Obj"),
            def = function(optimpars,z,stcc1Obj){
@@ -250,6 +253,8 @@ setGeneric(name="loglik.stcc1",
 
 
              #### ======== calculate loglikelihood ======== ####
+
+             this$Estimated$pars <- tail(optimpars,this@nr.trPars)
 
              tmp.par <- optimpars
 
@@ -288,13 +293,14 @@ setGeneric(name="estimateSTCC1",
            signature = c("z","stcc1Obj","estimationCtrl"),
            def = function(z,stcc1Obj,estimationCtrl){
              this <- stcc1Obj
+
              calcSE <- estimationCtrl$calcSE
              verbose <- estimationCtrl$verbose
 
              this$Estimated <- list()
 
              optimpars <- c( this$P1[lower.tri(this$P1)], this$P2[lower.tri(this$P2)], this$pars )
-             optimpars <- na.omit(optimpars)
+             optimpars <- optimpars[!is.na(optimpars)]
 
              ### ---  Call optim to calculate the estimate --- ###
              if (verbose) this$optimcontrol$trace <- 10
@@ -321,7 +327,7 @@ setGeneric(name="estimateSTCC1",
                this$Estimated$P2 <- .unVecl(tmp.par[1:this@nr.covPars])
                tmp.par <- tail(tmp.par,-this@nr.covPars)
                this$Estimated$pars <- tmp.par
-               if(this@shape != corrshape$double) this$Estimated$pars <- c(this$Estimated$pars,NA)
+               if(this$shape != corrshape$double) this$Estimated$pars <- c(this$Estimated$pars,NA)
                names(this$Estimated$pars) <- names(this$pars)
 
                if (calcSE) {
@@ -330,9 +336,9 @@ setGeneric(name="estimateSTCC1",
                  try(vecSE <- sqrt(-diag(qr.solve(tmp$hessian))))
 
                  if(length(vecSE) > 0) {
-                   this$Estimated$P1.se <- unVecl(vecSE[1:this@nr.covPars])
+                   this$Estimated$P1.se <- .unVecl(vecSE[1:this@nr.covPars])
                    vecSE <- tail(vecSE,-this@nr.covPars)
-                   this$Estimated$P2.se <- unVecl(vecSE[1:this@nr.covPars])
+                   this$Estimated$P2.se <- .unVecl(vecSE[1:this@nr.covPars])
                    vecSE <- tail(vecSE,-this@nr.covPars)
 
                    this$Estimated$pars.se <- vecSE
@@ -340,7 +346,7 @@ setGeneric(name="estimateSTCC1",
                    names(this$Estimated$pars.se) <- names(this$pars)
                  }
                }
-               this$Estimated$Pt <- calc.Pt(this)
+               this$Estimated$Pt <- .calc.Pt(this)
 
              } else {
                #Failed to converge
@@ -356,9 +362,7 @@ setGeneric(name="estimateSTCC1",
 )
 setMethod("estimateSTCC1",signature = c("matrix","stcc1_class","missing"),
           function(z,stcc1Obj){
-            estimationControl <- list()
-            estimationControl$calcSE <- FALSE
-            estimationControl$verbose <- FALSE
+            estimationControl <- list(calcSE = TRUE,verbose = TRUE)
             estimateSTCC1(z,stcc1Obj,estimationControl)
           })
 
