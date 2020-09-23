@@ -34,10 +34,18 @@ setGeneric(name="ccc",
              }
              # End validation
 
+             # Add the Estimated components from the mtvgarch
+             this$mtvgarch <- list()
+             for(n in 1:mtvgarchObj@N){
+               this$mtvgarch[[n]] <- list()
+               this$mtvgarch[[n]]$tv <- mtvgarchObj[[n]]$Estimated$tv
+               this$mtvgarch[[n]]$garch <- mtvgarchObj[[n]]$Estimated$garch
+             }
+             names(this$mtvgarch) <- names(mtvgarchObj)
+
              # Set Default Values:
              this@N <- mtvgarchObj@N
              this@Tobs <- mtvgarchObj@Tobs
-
              N <- this@N
              this@nr.covPars <- as.integer((N^2-N)/2)
              this$P <- matrix(0,N,N)
@@ -107,7 +115,7 @@ setGeneric(name="estimateCCC",
 ##====  TESTS  ====####
 
 
-test.CCCParsim.LM <- function(z,H0,H1,testorder=1) {
+test.CCCParsim.LM <- function(e,H0,H1,testorder=1) {
 
   ####--- Initialise ---####
   if(T){
@@ -928,10 +936,31 @@ myTest.CCCvSTCC.LM.new <- function(e,H0,H1,testorder=1) {
 }  # End: myTest.CCCvSTCC.LM.new()
 
 
+setGeneric(name="test.CCCParsim",
+           valueClass = "list",
+           signature = c("e","H0","H1","testOrder"),
+           def = function(e,H0,H1,testOrder){
+
+             # Get x_tau, dlldrho_A
+             rtn <- .x_tau(z,H0,testOrder)
+             x_tau <- rtn$x_tau
+             dlldrho_A <- rtn$dlldrho_A
+
+             # Get x_garch
+             g <- matrix(1,H0@Tobs,H0@N)
+             for (n in 1:H0@N) { g[,n] <- H0[[n]]$Estimated$tv@g }
+             lapply(x,H0,FUN = return(Estimated$tv@g))
+             w <- e/sqrt(g)
+             x_garch <- .x_garch(w,H0)
+
+           }
+)
+
+H0 <- mtvg_AusBanks
 
 ## ===== Test Sub Functions =====####
 
-
+##===  .x_tau ===####
 setGeneric(name=".x_tau",
            valueClass = "list",
            signature = c("z","H0","testOrder"),
@@ -975,7 +1004,7 @@ setGeneric(name=".x_tau",
            }
 )
 
-
+##===  .x_garch ===####
 setGeneric(name=".x_garch",
            valueClass = "matrix",
            signature = c("w","H0"),
@@ -1023,7 +1052,7 @@ setGeneric(name=".x_garch",
 
            }
 )
-
+##===  .x_tv ===####
 setGeneric(name=".x_tv",
            valueClass = "matrix",
            signature = c("w","H0"),
@@ -1084,7 +1113,7 @@ setGeneric(name=".x_tv",
 
            }
 )
-
+##===  .im_garch ===####
 setGeneric(name=".im_garch",
            valueClass = "list",
            signature = c("H0","x_garch","x_tau"),
@@ -1154,7 +1183,7 @@ setGeneric(name=".im_garch",
 
            }
 )
-
+##===  .im_tv ===####
 setGeneric(name=".im_tv",
            valueClass = "list",
            signature = c("H0","x_tv","x_tau"),
@@ -1219,7 +1248,7 @@ setGeneric(name=".im_tv",
 
            }
 )
-
+##===  .im_tv_garch ===####
 setGeneric(name=".im_tv_garch",
            valueClass = "matrix",
            signature = c("H0","x_tv","x_garch"),
@@ -1252,7 +1281,7 @@ setGeneric(name=".im_tv_garch",
 
            }
 )
-
+##===  .im_cor ===####
 setGeneric(name=".im_cor",
            valueClass = "matrix",
            signature = c("H0","x_tau","testOrder"),
@@ -1281,7 +1310,7 @@ setGeneric(name=".im_cor",
 
            }
 )
-
+##===  .LM ===####
 setGeneric(name=".LM",
            valueClass = "matrix",
            signature = c("H0","IM_list","dlldrho_A","testOrder"),
