@@ -96,6 +96,15 @@ setGeneric(name=".ar1.Filter",
              return(mY)
            }
 )
+## -- vec -- ####
+setGeneric(name=".vec",
+           valueClass = "matrix",
+           signature = c("mat"),
+           def = function(mat){
+             # Convert a matrix to a single-column matrix
+             return(matrix(as.vector(mat),ncol=1))
+           }
+)
 
 ## ===============  End: Anna's Tricky Functions  ================== ##
 
