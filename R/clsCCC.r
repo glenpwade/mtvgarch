@@ -115,7 +115,7 @@ setGeneric(name="estimateCCC",
 ##===  test.CCCParsim ===####
 
 setGeneric(name="test.CCCParsim",
-           valueClass = "list",
+           valueClass = "numeric",
            signature = c("e","H0","H1","testOrder"),
            def = function(e,H0,H1,testOrder){
 
@@ -427,6 +427,7 @@ setGeneric(name=".im_tv",
              L.inv <- diag(tmp$values^(-1)) # matrix
              L2.inv <- diag(tmp$values^(-2)) # matrix
              L <- diag(tmp$values) # matrix
+             One_1.N_1 <- matrix(1,nrow=1,ncol=(N-1))
 
              I <- diag(N,N) # NxN Identity matrix
              I.P.Pinv <- I + P * solve(P)
@@ -545,7 +546,7 @@ setGeneric(name=".im_cor",
 )
 ##===  .LM ===####
 setGeneric(name=".LM",
-           valueClass = "matrix",
+           valueClass = "numeric",
            signature = c("H0","IM_list","dlldrho_A","testOrder"),
            def = function(H0,IM_list,dlldrho_A,testOrder){
 
@@ -569,12 +570,13 @@ setGeneric(name=".LM",
              if (!is.matrix(IM_inv)) stop("LM Test: Can't invert the information matrix IM_inv")
 
              ##--- Block corresponding to the corr.parameters that are set to zero under null ---##
-             block_start <- NCOL(IM_inv) - (testOrder*(N-1) + 1)
+             block_start <- 1 + NCOL(IM_inv) - testOrder*(N-1)
              block_end <- NCOL(IM_inv)
              IM_inv_SE <- IM_inv[(block_start:block_end),(block_start:block_end)]
 
              ##--- Return LM ---##
-             return( (1/H0@Tobs)*t(dlldrho_A) %*% IM_inv_SE %*% dlldrho_A )
+             LM <- (1/H0@Tobs)*t(dlldrho_A) %*% IM_inv_SE %*% dlldrho_A
+             return( as.numeric(LM[1,1]) )
 
            }
 )
