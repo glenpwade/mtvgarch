@@ -1,7 +1,7 @@
 ## --- ccc_class Definition --- ####
 
 ccc <- setClass(Class = "ccc_class",
-                  slots = c(nr.covPars="integer",Tobs="integer",N="integer"),
+                  slots = c(Tobs="integer",N="integer"),
                   contains = c("namedList")
 )
 
@@ -13,7 +13,6 @@ setMethod("initialize","ccc_class",
             # Default initial values
             .Object@N <- as.integer(0)
             .Object@Tobs <- as.integer(0)
-            .Object@nr.covPars <- as.integer(0)
 
             # Return:
             .Object
@@ -46,10 +45,6 @@ setGeneric(name="ccc",
              # Set Default Values:
              this@N <- mtvgarchObj@N
              this@Tobs <- mtvgarchObj@Tobs
-             N <- this@N
-             this@nr.covPars <- as.integer((N^2-N)/2)
-             this$P <- matrix(0,N,N)
-             diag(this$P) <- 1
 
              return(this)
            }
@@ -57,34 +52,29 @@ setGeneric(name="ccc",
 
 
 setGeneric(name=".loglik.ccc",
-           valueClass = "list",
+           valueClass = "numeric",
            signature = c("optimpars","z","cccObj"),
            def = function(optimpars,z,cccObj){
 
              err_output <- -1e10
-             this <- list()
 
              #### ======== constraint checks ======== ####
 
-             # # Check 1: Confirm we have
+             # # Check 1: Confirm we have...
 
              vP <- optimpars
              mP <- .unVecl(vP)
              eig <- eigen(mP,symmetric=TRUE,only.values = TRUE)
              if (min(eig$values) <= 0) return(err_output)
 
-             # - - - P(t) and loglik-value
+             # - - - calc loglik-value
              Tobs <- NROW(z)
-             llt <- rep(0,Tobs)
+             llt <- NULL
              mPinv <- solve(mP)
 
-             for(t in seq(1,Tobs)) llt[t] <- -0.5*log(det(mP)) - 0.5*(t(z[t,])%*%(mPinv)%*%z[t,])
-             Pt <- matrix(vP,nrow=Tobs,ncol=length(vP),byrow=TRUE)
+             for(t in seq(1,Tobs)) llt[t] <- -0.5*log(det(mP)) - 0.5*(t(z[t,]) %*% mPinv %*% z[t,])
 
-             this$value <- sum(llt)
-             this$P <- cor(z)
-
-             return(this)
+             return(sum(llt))
 
            }
 )
@@ -99,7 +89,8 @@ setGeneric(name="estimateCCC",
              this$Estimated <- list()
 
              optimpars <- this$P[lower.tri(this$P)]
-             this$Estimated <- .loglik.ccc(optimpars,z,this)
+             this$Estimated$value <- .loglik.ccc(optimpars,z,this)
+             this$Estimated$P <- cor(z)
 
              return(this)
            }
