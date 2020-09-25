@@ -97,11 +97,8 @@ setGeneric(name="estimateCCC",
              this <- cccObj
 
              this$Estimated <- list()
-             #this$Estimated$P <- cor(z)
-             #this$Estimated$error <- FALSE
 
              optimpars <- this$P[lower.tri(this$P)]
-
              this$Estimated <- .loglik.ccc(optimpars,z,this)
 
              return(this)
@@ -113,7 +110,6 @@ setGeneric(name="estimateCCC",
 ##====  TESTS  ====####
 
 ##===  test.CCCParsim ===####
-
 setGeneric(name="test.CCCParsim",
            valueClass = "numeric",
            signature = c("e","H0","H1","testOrder"),
@@ -149,15 +145,17 @@ setGeneric(name="test.CCCParsim",
              x_tau <- rtn$x_tau
              dlldrho_A <- rtn$dlldrho_A
 
-             # Get im_garch, im_garch_cor
-             rtn <- .im_garch(H0,x_garch,x_tau)
-             im_garch <- rtn$im_garch
-             im_garch_cor <- rtn$im_garch_cor
+             # Get im_garch
+             im_garch <- .im_garch(H0,x_garch)
 
-             # Get im_tv, im_tv_cor
-             rtn <- .im_tv(H0,x_tv,x_tau)
-             im_tv <- rtn$im_tv
-             im_tv_cor <- rtn$im_tv_cor
+             # Get im_garch_cor
+             im_garch_cor <- .im_garch_cor(H0,x_garch,x_tau)
+
+             # Get im_tv,
+             im_tv <- .im_tv(H0,x_tv)
+
+             # Get im_tv_cor
+             im_tv_cor <- .im_tv_cor(H0,x_tv,x_tau)
 
              # Get im_tv_garch
              im_tv_garch <- .im_tv_garch(H0,x_tv,x_garch)
@@ -181,10 +179,113 @@ setGeneric(name="test.CCCParsim",
            }
 )
 
+##===  test.CCCvSTCC1 ===####
+setGeneric(name="test.CCCvSTCC1",
+           valueClass = "numeric",
+           signature = c("e","H0","H1","testOrder"),
+           def = function(e,H0,H1,testOrder){
+
+             # Validation
+             objType <- class(H0)
+             if(objType[1] != "ccc_class"){
+               warning("This test requires a valid instance of an estimated ccc model as the null (H0)")
+               return(list())
+             }
+
+             # Get the common variables:
+             g <- matrix(1,H0@Tobs,H0@N)
+             h <- matrix(1,H0@Tobs,H0@N)
+             beta <- matrix(1,1,H0@N)
+             for (n in 1:H0@N) {
+               g[,n] <- H0$mtvgarch[[n]]$tv@g
+               h[,n] <- H0$mtvgarch[[n]]$garch@h
+               beta[1,n] <- H0$mtvgarch[[n]]$garch$Estimated$pars["beta",1]
+             }
+             w <- e/sqrt(g)
+             z <- w/sqrt(h)
+
+             # Get x_garch
+             x_garch <- .x_garch(w,H0,h,beta)
+
+             # Get x_tv
+             x_tv <- .x_tv(z,H0,g,h,beta)
+
+             # Get v_rho, dlldrho_A
+             rtn <- .v_rho(z,H0,H1,testOrder)
+             v_rho <- rtn$v_rho
+             dlldrho_A <- rtn$dlldrho_A
+
+             # Get im_garch
+             im_garch <- .im_garch(H0,x_garch)
+
+             # Get im_garch_cor
+             im_garch_cor <- .im_garch_cor(H0,x_garch,v_rho)
+
+             # Get im_tv,
+             im_tv <- .im_tv(H0,x_tv)
+
+             # Get im_tv_cor
+             im_tv_cor <- .im_tv_cor(H0,x_tv,v_rho)
+
+             # Get im_tv_garch
+             im_tv_garch <- .im_tv_garch(H0,x_tv,x_garch)
+
+             # Get im_cor
+             im_cor <- .im_cor(H0,v_rho)
+
+             # Get LM using all InfoMatrix blocks
+             IM_list <- list()
+             IM_list$IM_tv <- im_tv
+             IM_list$IM_tv_cor <- im_tv_cor
+             IM_list$IM_garch <- im_garch
+             IM_list$IM_garch_cor <- im_garch_cor
+             IM_list$IM_tv_garch <- im_tv_garch
+             IM_list$IM_cor <- im_cor
+
+             LM <- .LM(H0,IM_list,dlldrho_A,testOrder)
+
+             return(LM)
+
+           }
+)
+
 
 ## ===== Test Sub Functions =====####
 
+##=== .I.P.Pinv_scale( tv or garch ) ===####
+.I.P.Pinv_scale <- function(H0,type){
 
+  # H0 is the Null-Hypothesis - must be an estimated CCC object
+  # type: "tv" or "garch" - case sensitive
+
+  N <- H0@N
+  P <- H0$Estimated$P
+  I <- diag(N,N) # NxN Identity matrix
+  I.P.Pinv <- I + P * solve(P)
+  I.P.Pinv_scale <- NULL
+
+  for (i in 1:N) {
+    # i = row index
+    if(H0$mtvgarch[[i]][[type]]@nr.pars > 0) {
+      I.P.Pinv_scale_row <- NULL
+
+      for (j in 1:N) {
+        # j = col index
+        if (H0$mtvgarch[[i]][[type]]@nr.pars > 0){
+          #TODO: Remove this Hack
+          if(identical(type,"garch")) scaleFactor <- matrix(1,3,3) else {
+            scaleFactor <- matrix(1,H0$mtvgarch[[i]][[type]]@nr.pars,H0$mtvgarch[[j]][[type]]@nr.pars)
+          }
+          I.P.Pinv_scale_row <- cbind(I.P.Pinv_scale_row, (I.P.Pinv[i,j] %x% scaleFactor))
+        }
+      } # End: for (j in 1:N)
+
+      I.P.Pinv_scale <- rbind(I.P.Pinv_scale, I.P.Pinv_scale_row)
+    }
+  } # End: for (i in 1:N)
+  return(I.P.Pinv_scale)
+
+}
 
 ##===  .x_garch ===####
 setGeneric(name=".x_garch",
@@ -341,9 +442,73 @@ setGeneric(name=".x_tau",
            }
 )
 
+##===  .v_rho ===####
+setGeneric(name=".v_rho",
+           valueClass = "list",
+           signature = c("z","H0","H1","testOrder"),
+           def = function(z,H0,H1,testOrder){
+
+             st <- H1$st
+             if (testOrder==1) v_rho <- (-0.5)*cbind(st)
+             if (testOrder==2) v_rho <- (-0.5)*cbind(st,st^2)
+             if (testOrder==3) v_rho <- (-0.5)*cbind(st,st^2,st^3)
+
+             N <- H0@N
+             P <- H0$Estimated$P
+             Pinv <- solve(P)
+
+             #Construct the U matrix:Dimensions = N^2 x N*(N-1)/2
+             U <- NULL
+             for (i in 1:(N-1)) {
+               for (j in (i+1):N) {
+                 block <- matrix(0,N,N)
+                 block[i,j] <- block[j,i] <- 1
+                 Ucol <- as.vector(block)
+                 U <- cbind(U,Ucol)
+               }
+             }
+
+             # score for rho
+             zKRONz <- matrix(0,nrow=N^2,ncol=H0@Tobs)
+             for (t in 1:H0@Tobs) {
+               zKRONz[,t] <- t(z[t,,drop=FALSE] %x% z[t,,drop=FALSE]) # (N^2 x T), each col = "z_t kron z_t"
+             }
+             scaleFactor <- matrix(1,nrow=1,ncol=H0@Tobs)
+             dlldrho_A <- -0.5*t(U) %*% ( .vec(Pinv) %x% scaleFactor-(Pinv%x%Pinv)%*%(zKRONz) ) %*% v_rho # N*(N-1)/2 x testorder
+             dlldrho_A <- .vec(dlldrho_A) # testorder*N*(N-1)/2 x 1, SUM OVER TIME
+             v_rho <- cbind(1,v_rho) # T x 2 or T x 3, now add column of ones at the front
+
+             rtn <- list()
+             rtn$v_rho <- v_rho
+             rtn$dlldrho_A <- dlldrho_A
+             return(rtn)
+
+           }
+)
+
 ##===  .im_garch ===####
 setGeneric(name=".im_garch",
-           valueClass = "list",
+           valueClass = "matrix",
+           signature = c("H0","x_garch"),
+           def = function(H0,x_garch){
+
+             # IM_garch (Num_garch_pars x Num_garch_pars), SUM OVER TIME
+
+             I.P.Pinv_scale <- .I.P.Pinv_scale(H0,"garch")
+
+             IM_garch <- matrix(NA,0,0)
+
+             if(!is.null(I.P.Pinv_scale)) {
+               IM_garch <- ((t(x_garch) %*% x_garch) * I.P.Pinv_scale) / H0@Tobs
+             }
+             return(IM_garch)
+
+           }
+)
+
+##===  .im_garch_cor(...,x_tau) ===####
+setGeneric(name=".im_garch_cor",
+           valueClass = "matrix",
            signature = c("H0","x_garch","x_tau"),
            def = function(H0,x_garch,x_tau){
 
@@ -353,70 +518,101 @@ setGeneric(name=".im_garch",
              tmp <- eigen(P)
              Q <- tmp$vectors
              L.inv <- diag(tmp$values^(-1)) # matrix
-             L2.inv <- diag(tmp$values^(-2)) # matrix
-             L <- diag(tmp$values) # matrix
-
-             One_31 <- matrix(1,3,1)
-             One_33 <- matrix(1,3,3)
              One_1.N_1 <- matrix(1,nrow=1,ncol=(N-1))
-             I <- diag(N,N) # NxN Identity matrix
-             I.P.Pinv <- I + P*solve(P)
-             I.P.Pinv_scale <- NULL
-             scaleFactor <- NULL
 
-             for (i in 1:N) {
-               # i = row index
-               I.P.Pinv_scale_row <- NULL
-               if (H0$mtvgarch[[i]]$garch$type == garchtype$noGarch){
-                 # do nothing
-               } else {
-                 for (j in 1:N) {
-                   if(H0$mtvgarch[[j]]$garch$type == garchtype$noGarch){
-                     # do nothing
-                   } else {
-                     # j = col index
-                     #if(H0$mtvgarch[[i]]$garch$type==garchtype$general && H0$mtvgarch[[j]]$garch$type==garchtype$general) scaleFactor <- One_33 else stop("Garch type is not supported")
-                     scaleFactor <- One_33
-                     I.P.Pinv_scale_row <- cbind(I.P.Pinv_scale_row, (I.P.Pinv[i,j] %x% scaleFactor))
-                   }
-                 } # End: for "j" loop
-               }
-               I.P.Pinv_scale <- rbind(I.P.Pinv_scale,I.P.Pinv_scale_row)
-             } # End: for "i" loop
+             # IM_garch_cor, will be 3N x (testorder+1)*(N-1)
+             mHelp1 <- matrix(0,nrow=0,ncol=(N - 1) )
 
+             for (n in 1:H0@N) {
+               ## TODO: What about GJR??
+               if (H0$mtvgarch[[n]]$garch$type != garchtype$noGarch) {
+                 scaleFactor <- matrix(1,nrow=3,ncol=1)
+                 mHelp1 <- rbind(mHelp1, scaleFactor %x% (2*Q[n,1:(N-1),drop=FALSE]^2 %*% L.inv[1:(N-1),1:(N-1)] - 2*Q[n,N]^2 * L.inv[N,N] * One_1.N_1))
+               } else mHelp1 <- matrix(1,nrow = (3*Ho@N), ncol=(N-1))
+             }
+             mHelp2 <- t(x_garch) %*% x_tau
+             mHelp3 <- matrix(0,nrow=NROW(mHelp2),ncol=(N-1)*NCOL(mHelp2))
+             for (i in 1:NROW(mHelp2)){
+               mHelp3[i,] <- mHelp2[i,,drop=FALSE] %x% mHelp1[i,,drop=FALSE]
+             }
+             IM_garch_cor <- mHelp3/H0@Tobs # (Num_Garch_Pars x (testorder+1)*N), SUM OVER TIME
 
-             if(!is.null(I.P.Pinv_scale)){
-               IM_garch <- ((t(x_garch) %*% x_garch) * I.P.Pinv_scale) / H0@Tobs
-               # IM_garch_cor, will be 3N x (testorder+1)*(N-1)
-               mHelp1 <- matrix(0,nrow=0,ncol=(N - 1) )
-
-               for (n in 1:H0@N) {
-                 ## TODO: What about GJR??
-                 if (H0$mtvgarch[[n]]$garch$type != garchtype$noGarch) {
-                   scaleFactor <- matrix(1,nrow=3,ncol=1)
-                   mHelp1 <- rbind(mHelp1, scaleFactor %x% (2*Q[n,1:(N-1),drop=FALSE]^2 %*% L.inv[1:(N-1),1:(N-1)] - 2*Q[n,N]^2 * L.inv[N,N] * One_1.N_1))
-                 } else mHelp1 <- matrix(1,nrow = (3*Ho@N), ncol=(N-1))
-               }
-               mHelp2 <- t(x_garch) %*% x_tau
-               mHelp3 <- matrix(0,nrow=NROW(mHelp2),ncol=(N-1)*NCOL(mHelp2))
-               for (i in 1:NROW(mHelp2)){
-                 mHelp3[i,] <- mHelp2[i,,drop=FALSE] %x% mHelp1[i,,drop=FALSE]
-               }
-               IM_garch_cor <- mHelp3/H0@Tobs # (Num_Garch_Pars x (testorder+1)*N), SUM OVER TIME
-
-             } # End: if(!is.null(I.P.Pinv_scale))  => Only process when we have 'some' Garch
-
-             rtn <- list()
-             rtn$im_garch <- IM_garch
-             rtn$im_garch_cor <- IM_garch_cor
-             return(rtn)
+             return(IM_garch_cor)
 
            }
 )
 
+##===  .im_garch_cor(...,v_rho) ===####
+setGeneric(name=".im_garch_cor",
+           valueClass = "matrix",
+           signature = c("H0","x_garch","v_rho"),
+           def = function(H0,x_garch,v_rho){
+
+             N <- H0@N
+             P <- H0$Estimated$P
+             Pinv <- solve(P)
+             I <- diag(nrow = N,ncol = N) # NxN Identity matrix
+             One_31 <- matrix(1,3,1)
+             #Construct the U matrix:Dimensions = N^2 x N*(N-1)/2
+             U <- NULL
+             for (i in 1:(N-1)) {
+               for (j in (i+1):N) {
+                 block <- matrix(0,N,N)
+                 block[i,j] <- block[j,i] <- 1
+                 Ucol <- as.vector(block)
+                 U <- cbind(U,Ucol)
+               }
+             }
+
+             # IM_garch_cor, 3N x (testorder+1)*N*(N-1)/2
+             mHelp1 <- matrix(0,nrow = 0,ncol=N*N)  # N x N^2
+             for (n in 1:N) mHelp1 <- rbind(mHelp1, (Pinv[n,] %x% I[n,] + I[n,] %x% Pinv[n,])) # N x N^2
+
+             mHelp1 <- -0.5*(mHelp1 %*% U)
+             mHelp1_scale <- matrix(0,nrow = 0,ncol=N*(N-1)/2)  # (Num_Garch_Pars x N*(N-1)/2)
+
+             for (n in 1:N) {
+               # TODO: GJR!!!
+               if (H0$mtvgarch[[n]]$garch$type != garchtype$noGarch) mHelp1_scale <- rbind(mHelp1_scale, (mHelp1[n, ,drop=FALSE] %x% One_31))
+             }
+
+             mHelp2 <- t(t(v_rho) %*% x_garch)/H0@Tobs # Num_garch_pars x 2 (or x3 if TestOrder=2), SUM OVER TIME
+
+             IM_garch_cor <- matrix(0,nrow = 0,ncol=0)  # (Num_Garch_Pars x (testorder+1)*N*(N-1)/2)
+             for (i in 1:NCOL(v_rho)){
+               IM_garch_cor <- cbind(IM_garch_cor,((mHelp2[,i,drop=FALSE] %x% t(rep(1,(N*(N-1))/2))) * mHelp1_scale))  # (Num_Garch_Pars x (testorder+1)*N*(N-1)/2),  SUM OVER TIME
+             }
+             return(IM_garch_cor)
+
+           }
+)
+
+
+
+
+
+
 ##===  .im_tv ===####
 setGeneric(name=".im_tv",
-           valueClass = "list",
+           valueClass = "matrix",
+           signature = c("H0","x_tv"),
+           def = function(H0,x_tv){
+
+             I.P.Pinv_scale <- .I.P.Pinv_scale(H0,"tv")
+
+             IM_tv <- matrix(NA,0,0)
+
+             if(!is.null(I.P.Pinv_scale)) {
+               IM_tv <- ((t(x_tv) %*% x_tv) * I.P.Pinv_scale) / H0@Tobs  # sum(num_tv_pars) x sum(num_tv_pars)
+             }
+
+             return(IM_tv)
+           }
+)
+
+##===  .im_tv_cor(...,x_tau) ===####
+setGeneric(name=".im_tv_cor",
+           valueClass = "matrix",
            signature = c("H0","x_tv","x_tau"),
            def = function(H0,x_tv,x_tau){
 
@@ -425,61 +621,80 @@ setGeneric(name=".im_tv",
              tmp <- eigen(P)
              Q <- tmp$vectors
              L.inv <- diag(tmp$values^(-1)) # matrix
-             L2.inv <- diag(tmp$values^(-2)) # matrix
-             L <- diag(tmp$values) # matrix
              One_1.N_1 <- matrix(1,nrow=1,ncol=(N-1))
 
-             I <- diag(N,N) # NxN Identity matrix
-             I.P.Pinv <- I + P * solve(P)
-             I.P.Pinv_scale <- NULL
-             scaleFactor <- NULL
-
-             for (i in 1:N) {
-               # i = row index
-               if(H0$mtvgarch[[i]]$tv@nr.pars > 0) {
-                I.P.Pinv_scale_row <- NULL
-
-                for (j in 1:N) {
-                   # j = col index
-                   if (H0$mtvgarch[[j]]$tv@nr.pars > 0){
-                     scaleFactor <- matrix(1,H0$mtvgarch[[i]]$tv@nr.pars,H0$mtvgarch[[j]]$tv@nr.pars)
-                     I.P.Pinv_scale_row <- cbind(I.P.Pinv_scale_row, (I.P.Pinv[i,j] %x% scaleFactor))
-                   } # End: if (jj==0)
-                 } # End: for (j in 1:N)
-                 I.P.Pinv_scale <- rbind(I.P.Pinv_scale, I.P.Pinv_scale_row)
-
-               } # End: if (ii==0)
-             } # End: for (i in 1:N)
-
-             IM_tv <- ((t(x_tv) %*% x_tv) * I.P.Pinv_scale) / H0@Tobs  # sum(num_tv_pars) x sum(num_tv_pars)
-
-
              # IM_tv_cor, (total #of tv pars in model) x (testorder+1)*(N-1)
-             mHelp4 <- matrix(0,nrow=0,ncol=(N-1) )
+             mHelp1 <- matrix(0,nrow=0,ncol=(N-1) )
              for (n in 1:N) {
                if (H0$mtvgarch[[n]]$tv@nr.pars > 0){
                  scaleFactor <- matrix(1,nrow=H0$mtvgarch[[n]]$tv@nr.pars,ncol=1)
-                 mHelp4 <- rbind(mHelp4, scaleFactor %x% (2*Q[n,1:(N-1),drop=FALSE]^2 %*% L.inv[1:(N-1),1:(N-1)] - 2*Q[n,N]^2 * L.inv[N,N] * One_1.N_1) )
-               } # End: if (ii==0)
+                 mHelp1 <- rbind(mHelp1, scaleFactor %x% (2*Q[n,1:(N-1),drop=FALSE]^2 %*% L.inv[1:(N-1),1:(N-1)] - 2*Q[n,N]^2 * L.inv[N,N] * One_1.N_1) )
+               }
              } # End: for (n in 1:N)
-             mHelp5 <- t(x_tv) %*% x_tau
-             mHelp6 <- matrix(0,nrow=NROW(mHelp5),ncol=(N-1)*NCOL(mHelp5))
-             if (NROW(mHelp6)>0){
-               for (i in 1:NROW(mHelp6)){
-                 mHelp6[i,] <- mHelp5[i,,drop=FALSE] %x% mHelp4[i,,drop=FALSE]
+             mHelp2 <- t(x_tv) %*% x_tau
+             mHelp3 <- matrix(0,nrow=NROW(mHelp2),ncol=(N-1)*NCOL(mHelp2))
+             if (NROW(mHelp3)>0){
+               for (i in 1:NROW(mHelp3)){
+                 mHelp3[i,] <- mHelp2[i,,drop=FALSE] %x% mHelp1[i,,drop=FALSE]
                }
              }
+             IM_tv_cor <- mHelp3 / H0@Tobs  # (Num_tv_Pars x (testorder+1)*N),  SUM OVER TIME
 
-             IM_tv_cor <- mHelp6 / H0@Tobs  # (Num_tv_Pars x (testorder+1)*N),  SUM OVER TIME
-
-             rtn <- list()
-             rtn$im_tv <- IM_tv
-             rtn$im_tv_cor <- IM_tv_cor
-             return(rtn)
-
+             return(IM_tv_cor)
 
            }
 )
+
+##===  .im_tv_cor(...,v_rho) ===####
+setGeneric(name=".im_tv_cor",
+           valueClass = "matrix",
+           signature = c("H0","x_tv","v_rho"),
+           def = function(H0,x_tv,v_rho){
+
+             N <- H0@N
+             Pinv <- solve(H0$Estimated$P)
+             I <- diag(nrow = N,ncol = N) # NxN Identity matrix
+             #Construct the U matrix:Dimensions = N^2 x N*(N-1)/2
+             U <- NULL
+             for (i in 1:(N-1)) {
+               for (j in (i+1):N) {
+                 block <- matrix(0,N,N)
+                 block[i,j] <- block[j,i] <- 1
+                 Ucol <- as.vector(block)
+                 U <- cbind(U,Ucol)
+               }
+             }
+
+             # IM_tv_cor, (#of tv pars in n,n=1...N)N x (testorder+1)*N*(N-1)/2
+             mHelp1 <- matrix(0,nrow=0,ncol=N*N )
+             for (n in 1:N) {
+               if (H0$mtvgarch[[n]]$tv@nr.pars > 0){
+                 mHelp1 <- rbind(Mhelp3, (Pinv[n,,drop=FALSE] %x% I[n,,drop=FALSE] + I[n,,drop=FALSE] %x% Pinv[n,,drop=FALSE])) # N x N^2
+               }
+             } # End: for (n in 1:N)
+             mHelp2 <- -0.5*(mHelp1 %*% U)  # N x N*(N-1)/2
+             mHelp3_scale <- matrix(0,nrow=0,ncol=(N*(N-1)/2))  # (Total Num_tv_Pars x N*(N-1)/2)
+             for (n in 1:N) {
+               if (H0$mtvgarch[[n]]$tv@nr.pars > 0){
+                 scaleFactor <- matrix(1,nrow=H0$mtvgarch[[n]]$tv@nr.pars,ncol=1)
+                 mHelp3_scale <- rbind(mHelp3_scale, mHelp3[n,,drop=FALSE] %x% scaleFactor)
+               }
+             }
+             mHelp4 <- t(t(v_rho)%*%x_tv)/Tobs # Num_tv_pars x 2 (or x3 if TestOrder=2), SUM OVER TIME
+
+             IM_tv_cor <- matrix(NA,0,0)
+             for (i in 1:NCOL(v_rho)){
+               IM_tv_cor <- matrix(0,nrow=H0$mtvgarch[[n]]$tv@nr.pars,ncol=0)
+               scaleFactor <- matrix(1,nrow=1,ncol=N*(N-1)/2)
+               IM_tv_cor <- cbind(IM_tv_cor,(mHelp4[,i,drop=FALSE]%x%scaleFactor) * mHelp3_scale)  # (Num_tv_Pars x (testorder+1)*N*(N-1)/2),  SUM OVER TIME
+             }
+
+             return(IM_tv_cor)
+
+           }
+)
+
+
 ##===  .im_tv_garch ===####
 setGeneric(name=".im_tv_garch",
            valueClass = "matrix",
@@ -503,19 +718,19 @@ setGeneric(name=".im_tv_garch",
                      #scaleFactor <- matrix(1,H0$mtvgarch[[i]]$tv@nr.pars,H0$mtvgarch[[j]]$garch@nr.pars)
                      scaleFactor <- matrix(1,H0$mtvgarch[[i]]$tv@nr.pars, 3)
                      I.P.Pinv_scale_row <- cbind(I.P.Pinv_scale_row, (I.P.Pinv[i,j] %x% scaleFactor))
-                   } # End if (jj==0)
+                   }
                  } # End for (j in 1:N)
                  I.P.Pinv_scale <- rbind(I.P.Pinv_scale,I.P.Pinv_scale_row)  # (total of tvpars) x (total of garchpars)
-               } # End if (ii==0)
+               }
              }
-             #IM_tv_garch <- NULL
+             IM_tv_garch <- matrix(NA,0,0)
              IM_tv_garch <- (t(x_tv) %*% x_garch) * (I.P.Pinv_scale/H0@Tobs)  #  (total # of tvpars)x(total # of garchpars)
 
              return(IM_tv_garch)
 
            }
 )
-##===  .im_cor ===####
+##===  .im_cor(...,x_tau) ===####
 setGeneric(name=".im_cor",
            valueClass = "matrix",
            signature = c("H0","x_tau","testOrder"),
@@ -539,6 +754,51 @@ setGeneric(name=".im_cor",
              }
 
              IM_cor <- ( t(x_tau)%*%x_tau ) %x% (2*L2.inv[1:(N-1),1:(N-1)] + 2*L2.inv[N,N]*One_N_1.N_1) / H0@Tobs # (testorder+1)*N x (testorder+1)*N
+
+             return(IM_cor)
+
+           }
+)
+
+##===  .im_cor(...,v_rho) ===####
+setGeneric(name=".im_cor",
+           valueClass = "matrix",
+           signature = c("H0","v_rho"),
+           def = function(H0,v_rho){
+
+             # IM_cor (testorder+1)*(N-1) x (testorder+1)*(N-1), SUM OVER TIME
+             N <- H0@N
+             Pinv <- solve(H0$Estimated$P)
+             I <- diag(nrow = N,ncol = N) # NxN Identity matrix
+
+             #Construct the U matrix:Dimensions = N^2 x N*(N-1)/2
+             U <- NULL
+             for (i in 1:(N-1)) {
+               for (j in (i+1):N) {
+                 block <- matrix(0,N,N)
+                 block[i,j] <- block[j,i] <- 1
+                 Ucol <- as.vector(block)
+                 U <- cbind(U,Ucol)
+               }
+             }
+
+             #Construct the K matrix: N^2 x N^2
+             K <- NULL
+             for (i in 1:N) {
+               # block rows
+               Krow <- NULL
+               for (j in 1:N) {
+                 # block columns
+                 block <- matrix(0,N,N)
+                 block[j,i] <- 1
+                 Krow <- cbind(Krow,block)
+               }
+               K <- rbind(K,Krow)
+             }
+
+             mHelp1 <- t(U) %*% (Pinv %x% Pinv + (Pinv %x% I) %*% K %*% (Pinv %x% I)) %*% U # N*(N-1)/2 x N*(N-1)/2
+             mHelp2 <- t(v_rho) %*% v_rho/H0@Tobs # 2x2 or 3x3, SUM OVER TIME
+             IM_cor <- 0.25*(mHelp2 %x% mHelp1) # (testorder+1)*N*(N-1)/2 x (testorder+1)*N*(N-1)/2
 
              return(IM_cor)
 
