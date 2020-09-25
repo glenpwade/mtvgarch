@@ -84,9 +84,9 @@ setGeneric(name="estimateCCC",
 
              this$Estimated <- list()
 
-             optimpars <- this$P[lower.tri(this$P)]
-             this$Estimated$value <- .loglik.ccc(optimpars,z,this)
              this$Estimated$P <- cor(z)
+             optimpars <- this$Estimated$P[lower.tri(this$Estimated$P)]
+             this$Estimated$value <- .loglik.ccc(optimpars,z,this)
 
              return(this)
            }
@@ -136,19 +136,19 @@ setGeneric(name="test.CCCParsim",
              im_garch <- .im_garch(H0,x_garch)
 
              # Get im_garch_cor
-             im_garch_cor <- .im_garch_cor(H0,x_garch,x_tau)
+             im_garch_cor <- .im_garch_cor_parsim(H0,x_garch,x_tau)
 
              # Get im_tv,
              im_tv <- .im_tv(H0,x_tv)
 
              # Get im_tv_cor
-             im_tv_cor <- .im_tv_cor(H0,x_tv,x_tau)
+             im_tv_cor <- .im_tv_cor_parsim(H0,x_tv,x_tau)
 
              # Get im_tv_garch
              im_tv_garch <- .im_tv_garch(H0,x_tv,x_garch)
 
              # Get im_cor
-             im_cor <- .im_cor(H0,x_tau,testOrder)
+             im_cor <- .im_cor_parsim(H0,x_tau,testOrder)
 
              # Get LM using all InfoMatrix blocks
              IM_list <- list()
@@ -493,8 +493,8 @@ setGeneric(name=".im_garch",
            }
 )
 
-##===  .im_garch_cor(...,x_tau) ===####
-setGeneric(name=".im_garch_cor",
+##===  .im_garch_cor_parsim(...,x_tau) ===####
+setGeneric(name=".im_garch_cor_parsim",
            valueClass = "matrix",
            signature = c("H0","x_garch","x_tau"),
            def = function(H0,x_garch,x_tau){
@@ -597,8 +597,8 @@ setGeneric(name=".im_tv",
            }
 )
 
-##===  .im_tv_cor(...,x_tau) ===####
-setGeneric(name=".im_tv_cor",
+##===  .im_tv_cor_parsim(...,x_tau) ===####
+setGeneric(name=".im_tv_cor_parsim",
            valueClass = "matrix",
            signature = c("H0","x_tv","x_tau"),
            def = function(H0,x_tv,x_tau){
@@ -717,8 +717,8 @@ setGeneric(name=".im_tv_garch",
 
            }
 )
-##===  .im_cor(...,x_tau) ===####
-setGeneric(name=".im_cor",
+##===  .im_cor_parsim(...,x_tau) ===####
+setGeneric(name=".im_cor_parsim",
            valueClass = "matrix",
            signature = c("H0","x_tau","testOrder"),
            def = function(H0,x_tau,testOrder){
