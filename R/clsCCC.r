@@ -25,7 +25,7 @@ setGeneric(name="ccc",
            def = function(mtvgarchObj){
              this <- new("ccc_class")
 
-             ## -- Do validation checks -- ####
+             ## -- Do validation checks -- ##
              objType <- class(mtvgarchObj)
              if(objType[1] != "mtvgarch_class"){
                warning("a valid instance of the mtvgarch_class is required to create a ccc model")
@@ -50,17 +50,13 @@ setGeneric(name="ccc",
            }
 )
 
-
+## -- .loglik.ccc -- ####
 setGeneric(name=".loglik.ccc",
            valueClass = "numeric",
            signature = c("optimpars","z","cccObj"),
            def = function(optimpars,z,cccObj){
 
              err_output <- -1e10
-
-             #### ======== constraint checks ======== ####
-
-             # # Check 1: Confirm we have...
 
              vP <- optimpars
              mP <- .unVecl(vP)

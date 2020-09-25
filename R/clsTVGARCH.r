@@ -20,9 +20,6 @@
 
 ## --- TV_CLASS Definition --- ####
 
-tvshape <- list(delta0only=0,single=1,double=2,double1loc=3)
-speedopt <- list(none=0,gamma=1,gamma_std=2,eta=3,lamda2_inv=4)
-
 tv <- setClass(Class = "tv_class",
                slots = c(st="numeric",g="numeric",delta0free="logical",nr.pars="integer", nr.transitions="integer",Tobs="integer",taylor.order="integer"),
                contains = c("namedList")
@@ -798,7 +795,6 @@ setMethod("summary",signature="tv_class",
 
 
 ## --- GARCH_CLASS Definition --- ####
-garchtype <- list(noGarch=0,general=1,gjr=2)
 
 garch <- setClass(Class = "garch_class",
                   slots = c(h="numeric",nr.pars="integer",order="numeric"),
@@ -1650,44 +1646,44 @@ setGeneric(name="generateRefData",
            #z    # this will store iid data
            #e    # this will store data with GARCH
 
-  TV <- tvObj
-  GARCH <- garchObj
-  GARCH$pars["omega",1] <- 1 - GARCH$pars["alpha",1] - GARCH$pars["beta",1]
+    TV <- tvObj
+    GARCH <- garchObj
+    GARCH$pars["omega",1] <- 1 - GARCH$pars["alpha",1] - GARCH$pars["beta",1]
 
-  nr.rows <- nr.obs + 2000   # discard = 2000
-  refData <- matrix(NA,nrow = nr.rows, ncol = nr.series)
-  seedstart <- 1984
+    nr.rows <- nr.obs + 2000   # discard = 2000
+    refData <- matrix(NA,nrow = nr.rows, ncol = nr.series)
+    seedstart <- 1984
 
-  for (b in seq(1,nr.series))
-  {
-    set.seed(seedstart+b)
-    e <- z <- rnorm(nr.rows)
-    ht_1 <- 1
-    e[1] <- z[1]^2
-    for (t in 2:nr.rows) {
-      ht <- GARCH$pars["omega",1] + GARCH$pars["alpha",1]*(e[t-1])^2 + GARCH$pars["beta",1]*ht_1
-        if(GARCH$type == garchtype$gjr) { ht <- ht + GARCH$pars["gamma",1]*(min(e[t-1],0)^2) }
-      ht_1 <- ht
-      e[t] <- sqrt(ht)*z[t]
+    for (b in seq(1,nr.series))
+    {
+      set.seed(seedstart+b)
+      e <- z <- rnorm(nr.rows)
+      ht_1 <- 1
+      e[1] <- z[1]^2
+      for (t in 2:nr.rows) {
+        ht <- GARCH$pars["omega",1] + GARCH$pars["alpha",1]*(e[t-1])^2 + GARCH$pars["beta",1]*ht_1
+          if(GARCH$type == garchtype$gjr) { ht <- ht + GARCH$pars["gamma",1]*(min(e[t-1],0)^2) }
+        ht_1 <- ht
+        e[t] <- sqrt(ht)*z[t]
+      }
+      refData[,b] <- as.numeric(e)
     }
-    refData[,b] <- as.numeric(e)
+
+    # Discard the first 2000
+    startRow <- 2001
+    refData <- refData[(startRow:nr.rows),]
+    # GARCH data created
+
+    gt <- .calculate_g(TV)
+    refData <- refData*sqrt(gt)
+    # TV data created
+
+    saveRDS(refData,"refData.RDS")
+
+    #Return:
+    refData
+
   }
-
-  # Discard the first 2000
-  startRow <- 2001
-  refData <- refData[(startRow:nr.rows),]
-  # GARCH data created
-
-  gt <- .calculate_g(TV)
-  refData <- refData*sqrt(gt)
-  # TV data created
-
-  saveRDS(refData,"refData.RDS")
-
-  #Return:
-  refData
-
-}
 )
 
 
