@@ -59,7 +59,7 @@ setGeneric(name=".loglik.ccc",
              err_output <- -1e10
 
              vP <- optimpars
-             mP <- .unVecl(vP)
+             mP <- .unVecL(vP)
              eig <- eigen(mP,symmetric=TRUE,only.values = TRUE)
              if (min(eig$values) <= 0) return(err_output)
 
@@ -245,14 +245,14 @@ setGeneric(name="test.TVCC1vTVCC2",
            def = function(e,H0,testOrder){
              # Purpose:
              # Test a time-series to identify evidence of a second transition...
-             
+
              # Validation
              objType <- class(H0)
              if(objType[1] != "stcc_class"){
                warning("This test requires a valid instance of an estimated stcc model as the null (H0)")
                return(list())
              }
-             
+
              # Get the common variables:
              g <- matrix(1,H0@Tobs,H0@N)
              h <- matrix(1,H0@Tobs,H0@N)
@@ -264,20 +264,20 @@ setGeneric(name="test.TVCC1vTVCC2",
              }
              w <- e/sqrt(g)
              z <- w/sqrt(h)
-             
+
              # Get x_tv - T x Total Nr.TvPars
              x_tv <- .x_tv(z,H0,g,h,beta)
-             
+
              # Get x_garch - T x Total Nr.GarchPars
              x_garch <- .x_garch(w,H0,h,beta)
-             
+
              I <- diag(H0@N)
-            
+
              im_tv <- matrix(0,NCOL(x_tv),NCOL(x_tv))
              im_garch <- matrix(0,NCOL(x_garch),NCOL(x_garch))
              im_tv_garch <- matrix(0,NCOL(x_tv),NCOL(x_garch))
              for(t in 1:H0@Tobs){
-               Pt <- .unVecl(H0$Estimated$Pt[t,])
+               Pt <- .unVecL(H0$Estimated$Pt[t,])
                # im_tv
                I.Pt.Ptinv <- .I.P.Pinv_scale(H0,Pt,"tv","tv")
                im_tv <- im_tv + (t(x_tv[t,,drop=FALSE]) %*% x_tv[t,,drop=FALSE]) * I.Pt.Ptinv
@@ -291,29 +291,29 @@ setGeneric(name="test.TVCC1vTVCC2",
              im_tv <- im_tv/H0@Tobs
              im_garch <- im_garch/H0@Tobs
              im_tv_garch <- im_tv_garch/H0@Tobs
-             
-             
-             
-             
-             
+
+
+
+
+
              # Get v_rho, dlldrho_A
              rtn <- .v_rho(z,H0,H1,testOrder)
              v_rho <- rtn$v_rho
              dlldrho_A <- rtn$dlldrho_A
-             
-            
+
+
              # Get im_garch_cor
              im_garch_cor <- .im_garch_cor(H0,x_garch,v_rho)
-             
-        
+
+
              # Get im_tv_cor
              im_tv_cor <- .im_tv_cor(H0,x_tv,v_rho)
-             
-             
-             
+
+
+
              # Get im_cor
              im_cor <- .im_cor(H0,v_rho)
-             
+
              # Get LM using all InfoMatrix blocks
              IM_list <- list()
              IM_list$IM_tv <- im_tv
@@ -322,11 +322,11 @@ setGeneric(name="test.TVCC1vTVCC2",
              IM_list$IM_garch_cor <- im_garch_cor
              IM_list$IM_tv_garch <- im_tv_garch
              IM_list$IM_cor <- im_cor
-             
+
              LM <- .LM(H0,IM_list,dlldrho_A,testOrder)
-             
+
              return(LM)
-             
+
            }
 )
 
@@ -777,7 +777,7 @@ setGeneric(name=".im_tv_garch",
            def = function(H0,Pt,x_tv,x_garch){
 
              N <- H0@N
-             
+
              I <- diag(nrow = N,ncol = N) # NxN Identity matrix
              I.P.Pinv <- I + Pt * solve(Pt)
              I.P.Pinv_scale <- .I.P.Pinv_scale(H0,Pt,"tv","garch")
@@ -906,8 +906,8 @@ setGeneric(name=".v_cor_H0",
            valueClass = "matrix",
            signature = c(H0),
            def = function(H0){
-             
-             
+
+
            }
 )
 ##===  .v_cor_H1 ===####
@@ -915,7 +915,7 @@ setGeneric(name=".v_cor_H1",
            valueClass = "matrix",
            signature = c(H0,testOrder),
            def = function(H0,testOrder){
-             
-             
+
+
            }
 )

@@ -4,12 +4,7 @@
 ## -- This class file maintains the Structure for STCC1 (STCC with One Transition)
 
 
-
-
 ## --- stcc1_class Definition --- ####
-
-
-
 stcc1 <- setClass(Class = "stcc1_class",
                slots = c(st="numeric",nr.covPars="integer",nr.trPars="integer",Tobs="integer",N="integer"),
                contains = c("namedList")
@@ -45,9 +40,18 @@ setGeneric(name="stcc1",
              }
              # End validation
 
+             # Add the Estimated components from the mtvgarch
+             this$mtvgarch <- list()
+             for(n in 1:mtvgarchObj@N){
+               this$mtvgarch[[n]] <- list()
+               this$mtvgarch[[n]]$tv <- mtvgarchObj[[n]]$Estimated$tv
+               this$mtvgarch[[n]]$garch <- mtvgarchObj[[n]]$Estimated$garch
+             }
+             names(this$mtvgarch) <- names(mtvgarchObj)
+
              # Set Default Values:
              this@N <- mtvgarchObj@N
-             this@st <- 1:mtvgarchObj@Tobs/mtvgarchObj@Tobs
+             this@st <- (1:mtvgarchObj@Tobs)/mtvgarchObj@Tobs
              this@Tobs <- mtvgarchObj@Tobs
 
              if(this$shape==corrshape$double) {
