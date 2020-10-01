@@ -59,7 +59,7 @@ setGeneric(name=".loglik.ccc",
              err_output <- -1e10
 
              vP <- optimpars
-             mP <- .unVecL(vP)
+             mP <- .unVecl(vP)
              eig <- eigen(mP,symmetric=TRUE,only.values = TRUE)
              if (min(eig$values) <= 0) return(err_output)
 
@@ -145,7 +145,8 @@ setGeneric(name="test.CCCParsim",
              im_tv_cor <- .im_tv_cor_parsim(H0,x_tv,x_tau)
 
              # Get im_tv_garch
-             im_tv_garch <- .im_tv_garch(H0,x_tv,x_garch)
+             Pt <- H0$Estimated$P
+             im_tv_garch <- .im_tv_garch(H0,Pt,x_tv,x_garch)
 
              # Get im_cor
              im_cor <- .im_cor_parsim(H0,x_tau,testOrder)
@@ -215,7 +216,8 @@ setGeneric(name="test.CCCvSTCC1",
              im_tv_cor <- .im_tv_cor(H0,x_tv,v_rho)
 
              # Get im_tv_garch
-             im_tv_garch <- .im_tv_garch(H0,x_tv,x_garch)
+             Pt <- H0$Estimated$P
+             im_tv_garch <- .im_tv_garch(H0,Pt,x_tv,x_garch)
 
              # Get im_cor
              im_cor <- .im_cor(H0,v_rho)
@@ -236,19 +238,112 @@ setGeneric(name="test.CCCvSTCC1",
            }
 )
 
+##===  test.TVCC1vTVCC2 ===####
+setGeneric(name="test.TVCC1vTVCC2",
+           valueClass = "numeric",
+           signature = c("e","H0","testOrder"),
+           def = function(e,H0,testOrder){
+             # Purpose:
+             # Test a time-series to identify evidence of a second transition...
+             
+             # Validation
+             objType <- class(H0)
+             if(objType[1] != "stcc_class"){
+               warning("This test requires a valid instance of an estimated stcc model as the null (H0)")
+               return(list())
+             }
+             
+             # Get the common variables:
+             g <- matrix(1,H0@Tobs,H0@N)
+             h <- matrix(1,H0@Tobs,H0@N)
+             beta <- matrix(1,1,H0@N)
+             for (n in 1:H0@N) {
+               g[,n] <- H0$mtvgarch[[n]]$tv@g
+               h[,n] <- H0$mtvgarch[[n]]$garch@h
+               beta[1,n] <- H0$mtvgarch[[n]]$garch$Estimated$pars["beta",1]
+             }
+             w <- e/sqrt(g)
+             z <- w/sqrt(h)
+             
+             # Get x_tv - T x Total Nr.TvPars
+             x_tv <- .x_tv(z,H0,g,h,beta)
+             
+             # Get x_garch - T x Total Nr.GarchPars
+             x_garch <- .x_garch(w,H0,h,beta)
+             
+             I <- diag(H0@N)
+            
+             im_tv <- matrix(0,NCOL(x_tv),NCOL(x_tv))
+             im_garch <- matrix(0,NCOL(x_garch),NCOL(x_garch))
+             im_tv_garch <- matrix(0,NCOL(x_tv),NCOL(x_garch))
+             for(t in 1:H0@Tobs){
+               Pt <- .unVecl(H0$Estimated$Pt[t,])
+               # im_tv
+               I.Pt.Ptinv <- .I.P.Pinv_scale(H0,Pt,"tv","tv")
+               im_tv <- im_tv + (t(x_tv[t,,drop=FALSE]) %*% x_tv[t,,drop=FALSE]) * I.Pt.Ptinv
+               # im_garch
+               I.Pt.Ptinv <- .I.P.Pinv_scale(H0,Pt,"garch","garch")
+               im_garch <- im_garch + (t(x_garch[t,,drop=FALSE]) %*% x_garch[t,,drop=FALSE]) * I.Pt.Ptinv
+               # im_tv_garch
+               I.Pt.Ptinv <- .I.P.Pinv_scale(H0,Pt,"tv","garch")
+               im_tv_garch <- im_tv_garch + (t(x_tv[t,,drop=FALSE]) %*% x_garch[t,,drop=FALSE]) * I.Pt.Ptinv
+             }
+             im_tv <- im_tv/H0@Tobs
+             im_garch <- im_garch/H0@Tobs
+             im_tv_garch <- im_tv_garch/H0@Tobs
+             
+             
+             
+             
+             
+             # Get v_rho, dlldrho_A
+             rtn <- .v_rho(z,H0,H1,testOrder)
+             v_rho <- rtn$v_rho
+             dlldrho_A <- rtn$dlldrho_A
+             
+            
+             # Get im_garch_cor
+             im_garch_cor <- .im_garch_cor(H0,x_garch,v_rho)
+             
+        
+             # Get im_tv_cor
+             im_tv_cor <- .im_tv_cor(H0,x_tv,v_rho)
+             
+             
+             
+             # Get im_cor
+             im_cor <- .im_cor(H0,v_rho)
+             
+             # Get LM using all InfoMatrix blocks
+             IM_list <- list()
+             IM_list$IM_tv <- im_tv
+             IM_list$IM_tv_cor <- im_tv_cor
+             IM_list$IM_garch <- im_garch
+             IM_list$IM_garch_cor <- im_garch_cor
+             IM_list$IM_tv_garch <- im_tv_garch
+             IM_list$IM_cor <- im_cor
+             
+             LM <- .LM(H0,IM_list,dlldrho_A,testOrder)
+             
+             return(LM)
+             
+           }
+)
+
+
+
 
 ## ===== Test Sub Functions =====####
 
 ##=== .I.P.Pinv_scale( tv or garch ) ===####
-.I.P.Pinv_scale <- function(H0,type){
+.I.P.Pinv_scale <- function(H0,Pt,type1,type2){
 
   # H0 is the Null-Hypothesis - must be an estimated CCC object
   # type: "tv" or "garch" - case sensitive
 
   N <- H0@N
-  P <- H0$Estimated$P
   I <- diag(N,N) # NxN Identity matrix
-  I.P.Pinv <- I + P * solve(P)
+  I.P.Pinv <- I + Pt * solve(Pt)
   I.P.Pinv_scale <- NULL
 
   for (i in 1:N) {
@@ -260,7 +355,7 @@ setGeneric(name="test.CCCvSTCC1",
         # j = col index
         if (H0$mtvgarch[[i]][[type]]@nr.pars > 0){
           #TODO: Confirm this works when N contains different Garch Types
-          scaleFactor <- matrix(1,H0$mtvgarch[[i]][[type]]@nr.pars, H0$mtvgarch[[j]][[type]]@nr.pars)
+          scaleFactor <- matrix(1,H0$mtvgarch[[i]][[type1]]@nr.pars, H0$mtvgarch[[j]][[type2]]@nr.pars)
           I.P.Pinv_scale_row <- cbind(I.P.Pinv_scale_row, (I.P.Pinv[i,j] %x% scaleFactor))
         }
       } # End: for (j in 1:N)
@@ -479,7 +574,8 @@ setGeneric(name=".im_garch",
 
              # IM_garch (Num_garch_pars x Num_garch_pars), SUM OVER TIME
 
-             I.P.Pinv_scale <- .I.P.Pinv_scale(H0,"garch")
+             Pt <- H0$Estimated$P
+             I.P.Pinv_scale <- .I.P.Pinv_scale(H0,Pt,"garch","garch")
 
              IM_garch <- matrix(NA,0,0)
 
@@ -577,7 +673,8 @@ setGeneric(name=".im_tv",
            signature = c("H0","x_tv"),
            def = function(H0,x_tv){
 
-             I.P.Pinv_scale <- .I.P.Pinv_scale(H0,"tv")
+             Pt <- H0$Estimated$P
+             I.P.Pinv_scale <- .I.P.Pinv_scale(H0,Pt,"tv","tv")
 
              IM_tv <- matrix(NA,0,0)
 
@@ -677,29 +774,14 @@ setGeneric(name=".im_tv_cor",
 setGeneric(name=".im_tv_garch",
            valueClass = "matrix",
            signature = c("H0","x_tv","x_garch"),
-           def = function(H0,x_tv,x_garch){
+           def = function(H0,Pt,x_tv,x_garch){
 
              N <- H0@N
-             P <- H0$Estimated$P
+             
              I <- diag(nrow = N,ncol = N) # NxN Identity matrix
-             I.P.Pinv <- I + P * solve(P)
-             I.P.Pinv_scale <- NULL
+             I.P.Pinv <- I + Pt * solve(Pt)
+             I.P.Pinv_scale <- .I.P.Pinv_scale(H0,Pt,"tv","garch")
 
-             for (i in 1:N){
-               # i = row index
-               if (H0$mtvgarch[[i]]$tv@nr.pars > 0){
-                 I.P.Pinv_scale_row <- NULL
-                 for (j in 1:N){
-                   # j = col index
-                   if (H0$mtvgarch[[j]]$garch@nr.pars > 0){
-                     scaleFactor <- matrix(1,H0$mtvgarch[[i]]$tv@nr.pars,H0$mtvgarch[[j]]$garch@nr.pars)
-                     I.P.Pinv_scale_row <- cbind(I.P.Pinv_scale_row, (I.P.Pinv[i,j] %x% scaleFactor))
-                   }
-                 } # End for (j in 1:N)
-                 I.P.Pinv_scale <- rbind(I.P.Pinv_scale,I.P.Pinv_scale_row)  # (total of tvpars) x (total of garchpars)
-               }
-             }
-             IM_tv_garch <- matrix(NA,0,0)
              IM_tv_garch <- (t(x_tv) %*% x_garch) * (I.P.Pinv_scale/H0@Tobs)  #  (total # of tvpars)x(total # of garchpars)
 
              return(IM_tv_garch)
@@ -817,3 +899,23 @@ setGeneric(name=".LM",
            }
 )
 
+
+
+##===  .v_cor_H0 ===####
+setGeneric(name=".v_cor_H0",
+           valueClass = "matrix",
+           signature = c(H0),
+           def = function(H0){
+             
+             
+           }
+)
+##===  .v_cor_H1 ===####
+setGeneric(name=".v_cor_H1",
+           valueClass = "matrix",
+           signature = c(H0,testOrder),
+           def = function(H0,testOrder){
+             
+             
+           }
+)
