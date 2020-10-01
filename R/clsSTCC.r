@@ -69,12 +69,14 @@ setGeneric(name="stcc1",
              return(this)
            }
 )
-## -- calc.st_c -- ####
-setGeneric(name=".calc.st_c",
-           valueClass = "numeric",
+
+## -- calc.Gt -- ####
+setGeneric(name="calc.Gt",
+           valueClass = "matrix",
            signature = c("stcc1Obj"),
            def = function(stcc1Obj){
              this <- stcc1Obj
+             speed <- this$Estimated$pars["speed"]
              loc1 <- this$Estimated$pars["loc1"]
              loc2 <- this$Estimated$pars["loc2"]
 
@@ -82,17 +84,6 @@ setGeneric(name=".calc.st_c",
              if(this$shape == corrshape$single) { st_c <- this@st - loc1 }
              if(this$shape == corrshape$double) { st_c <- (this@st - loc1)*(this@st - loc2) }
              if(this$shape == corrshape$double1loc) { st_c <- (this@st - loc1)^2 }
-             return(st_c)
-           }
-)
-
-## -- calc.Gt -- ####
-setGeneric(name=".calc.Gt",
-           valueClass = "matrix",
-           signature = c("stcc1Obj","st_c"),
-           def = function(stcc1Obj,st_c){
-             this <- stcc1Obj
-             speed <- this$Estimated$pars["speed"]
 
              G <- 0
              if(this$speedopt == corrspeedopt$gamma) { G <- 1/(1+exp(-speed*st_c)) }
@@ -115,8 +106,7 @@ setGeneric(name=".calc.Pt",
              mP2 <- this$Estimated$P2
              vP2 <- mP2[lower.tri(mP2)]
 
-             st_c <- .calc.st_c(this)
-             Gt <- .calc.Gt(this,st_c)
+             Gt <- calc.Gt(this)
              Pt <- t(apply(Gt,MARGIN = 1,FUN = function(X,P1,P2) ((1-X)*P1 + X*P2), P1=vP1, P2=vP2))
 
              return(Pt)
@@ -174,9 +164,7 @@ setGeneric(name=".loglik.stcc1",
              # Check for SPD - positive-definite check:
              if (min(eig$values) <= 0) return(err_output)
 
-             st_c <- .calc.st_c(this)
-             Gt <- .calc.Gt(this,st_c)
-
+             Gt <- calc.Gt(this)
              Pt <- t(apply(Gt,MARGIN = 1,FUN = function(X,P1,P2) ((1-X)*P1 + X*P2), P1=vP1, P2=vP2))
 
              llt <- vector("numeric")

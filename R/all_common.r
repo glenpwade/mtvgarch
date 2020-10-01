@@ -13,13 +13,13 @@ corrtype <- list(CCC=1,CEC=2,STCC1=3,STEC1=4)
 corrshape <- list(single=1,double=2,double1loc=3)
 corrspeedopt <- list(gamma=1,gamma_std=2,eta=3)
 
-
-setGeneric(name=".Vecl",
+## -- Vecl -- ####
+setGeneric(name=".vecL",
            valueClass = "numeric",
            signature = c("sqrMatrix"),
            def = function(sqrMatrix){
              ## Returns the lower triangle of a square matrix in vector format.
-             ## Note: This operation can be reversed using myUnVecl()
+             ## Note: This operation can be reversed using .unVecL()
              idx = 0
              N <- ncol(sqrMatrix)
              vM <- matrix(0,N*(N-1)/2,1)
@@ -33,18 +33,19 @@ setGeneric(name=".Vecl",
            }
 )
 ## -- unVecl -- ####
-setGeneric(name=".unVecl",
+setGeneric(name=".unVecL",
            valueClass = "matrix",
            signature = c("lowerTri"),
            def = function(lowerTri){
              ## Returns a square matrix constructed using a vector of it's lower triangle.
-             ## Note: This operation can be reversed using: Matrix[lower.tri(Matrix)]
+             ## Note: This operation can be reversed using: .vecL(Matrix)
              k <- length(lowerTri)
              N <- (1+sqrt(1+8*k))/2
              M <- matrix(0,N,N)
              M[lower.tri(M)] <- lowerTri
              return(M + t(M) + diag(N))
            }
+
 )
 ## -- eigVec.EC -- ####
 setGeneric(name=".eigVec.EC",

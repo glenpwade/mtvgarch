@@ -59,7 +59,7 @@ setGeneric(name=".loglik.ccc",
              err_output <- -1e10
 
              vP <- optimpars
-             mP <- .unVecl(vP)
+             mP <- .unVecL(vP)
              eig <- eigen(mP,symmetric=TRUE,only.values = TRUE)
              if (min(eig$values) <= 0) return(err_output)
 
