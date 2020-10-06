@@ -1366,6 +1366,7 @@ setGeneric(name="tvgarch",
              this$tvObj <- tvObj
              this$garchObj <- garchObj
 
+             ## TODO:  Confirm & Fix if necessary!!!
              # Configure the tv object, based on Garch type
              if(isTRUE(this$tvObj@delta0free)){
                if(this$garchObj$type != garchtype$noGarch){

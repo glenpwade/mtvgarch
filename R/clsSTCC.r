@@ -118,6 +118,56 @@ setGeneric(name=".calc.Pt",
            }
 )
 
+
+## -- .dG_dtr(STCC) ####
+setGeneric(name=".dG_dtr",
+           valueClass = "matrix",
+           signature = c("stccObj","trNum"),
+           def =  function(stccObj,trNum){
+
+           this <- stccObj
+
+           rtn <- matrix(nrow=this@Tobs,ncol=this@nr.trPars)
+
+           G <- calc.Gt(this)  # T x 1
+
+           loc1 <- loc2 <- speed <- 0
+           if(trNum == 1){
+             loc1 <- this$Estimated$pars["loc1"]
+             loc2 <- this$Estimated$pars["loc2"]
+             speed <- this$Estimated$pars["speed"]
+           }
+
+            # corrshape$single,
+            if(this$speedopt == corrspeedopt$gamma) {
+               col_idx <- 1
+               rtn[,col_idx] <- G * (1-G) * (this@st - loc1)
+               col_idx <- 2
+               rtn[,col_idx] <- -1 * G * (1-G) * speed
+            }
+
+           if(this$speedopt == corrspeedopt$gamma_std) {
+             col_idx <- 1
+             rtn[,col_idx] <- G * (1-G) * (this@st - loc1) / sd(this@st)
+             col_idx <- 2
+             rtn[,col_idx] <- -1 * G * (1-G) * speed / sd(this@st)
+           }
+
+           if(this$speedopt == corrspeedopt$eta) {
+             col_idx <- 1
+             rtn[,col_idx] <- G * (1-G) * (this@st - loc1) * exp(speed)
+             col_idx <- 2
+             rtn[,col_idx] <- -1 * G * (1-G) * exp(speed)
+           }
+
+           # # TODO:  Complete for other corrshapes & other corr speedOpt's:
+
+           return(rtn)
+
+           }
+)
+
+
 ## -- loglik.stcc1() --####
 setGeneric(name=".loglik.stcc1",
            valueClass = "numeric",
