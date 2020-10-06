@@ -271,59 +271,122 @@ setGeneric(name="test.TVCC1vTVCC2",
              # Get x_garch - T x Total Nr.GarchPars
              x_garch <- .x_garch(w,H0,h,beta)
 
-             I <- diag(H0@N)
+             # Get v_cor - T x (2 + TestOrder)
+             v_cor <- cbind(.v_cor_H0(H0), .v_cor_H1(H0,testOrder))
+             v_cor_A <- .v_cor_H1(H0,testOrder) # T x testOrder
 
-             im_tv <- matrix(0,NCOL(x_tv),NCOL(x_tv))
-             im_garch <- matrix(0,NCOL(x_garch),NCOL(x_garch))
-             im_tv_garch <- matrix(0,NCOL(x_tv),NCOL(x_garch))
+             # T x 2 derivative of G w.r.t. tr pars (speed and loc)
+             dGdtr <- .dG_dtr(H0,trNum = 1)
+
+             I <- diag(H0@N)
+             U <- .get_U(H0@N)
+
+             # Note: this has been written with STCC (single transition) as H0, against one additional transition
+             # TO DO: generalise to have STCC (with k transitions) as H0, against one more additional transition
+
+             # Number of transitions in the Null model plus 1:
+             trH0 <- 1 + 1
+
+             im_cor_dim   <- (trH0 + testOrder) * H0@N * (H0@N-1)/2
+
+             im_tv        <- matrix(0,NCOL(x_tv),NCOL(x_tv))
+             im_tv_garch  <- matrix(0,NCOL(x_tv),NCOL(x_garch))
+             im_tv_tr     <- matrix(0,NCOL(x_tv),H0@nr.trPars)
+             im_tv_cor    <- matrix(0,NCOL(x_tv),im_cor_dim)
+
+             im_garch     <- matrix(0,NCOL(x_garch),NCOL(x_garch))
+             im_garch_tr  <- matrix(0,NCOL(x_garch),H0@nr.trPars)
+             im_garch_cor <- matrix(0,NCOL(x_garch),im_cor_dim)
+
+             im_tr        <- matrix(0,H0@nr.trPars,H0@nr.trPars)
+             im_tr_cor    <- matrix(0,H0@nr.trPars,im_cor_dim)
+             im_cor       <- matrix(0,im_cor_dim,im_cor_dim)
+
+             dlldrho_A    <- matrix(0,testOrder * H0@N * (H0@N-1)/2,1)
+
              for(t in 1:H0@Tobs){
                Pt <- .unVecL(H0$Estimated$Pt[t,])
+               Ptinv <- solve(Pt)
                # im_tv
                I.Pt.Ptinv <- .I.P.Pinv_scale(H0,Pt,"tv","tv")
                im_tv <- im_tv + (t(x_tv[t,,drop=FALSE]) %*% x_tv[t,,drop=FALSE]) * I.Pt.Ptinv
+
                # im_garch
                I.Pt.Ptinv <- .I.P.Pinv_scale(H0,Pt,"garch","garch")
                im_garch <- im_garch + (t(x_garch[t,,drop=FALSE]) %*% x_garch[t,,drop=FALSE]) * I.Pt.Ptinv
+
                # im_tv_garch
                I.Pt.Ptinv <- .I.P.Pinv_scale(H0,Pt,"tv","garch")
                im_tv_garch <- im_tv_garch + (t(x_tv[t,,drop=FALSE]) %*% x_garch[t,,drop=FALSE]) * I.Pt.Ptinv
-             }
+
+               # im_tr
+               Pinv.K <- .Pinv.K(H0,Pt)
+               x_tr <- -0.5 * t(dGdtr[t,,drop=FALSE]) %*% t(matrix(.vec(P2-P1),1,H0@N^2))  # 2 x N^2
+               im_tr <- im_tr + 0.25 * x_tr %*% Pinv.K %*% t(x_tr)
+
+               # im_tr_cor
+               im_tr_cor <- im_tr_cor + x_tr %*% Pinv.K %*% (v_cor[t,,drop=FALSE] %x% U)
+
+               # im_cor
+               U.Pinv.K.U <- .U.Pinv.K.U(H0,Pt)
+               im_cor <- im_cor + (t(v_cor[t,,drop=FALSE]) %*% v_cor[t,,drop=FALSE]) %x% U.Pinv.K.U
+
+               # im_tv_cor AND im_garch_cor AND im_tv_tr AND im_garch_tr
+               idxrange_tv <- 0
+               idxrange_garch <- 0
+               rowblock_tv = matrix(NA,nrow=0,ncol=(ncol(v_cor)*ncol(U)))
+               rowblock_garch = matrix(NA,nrow=0,ncol=(ncol(v_cor)*ncol(U)))
+               for (n in 1:H0@N){
+                 endblock <- (Ptinv[n,,drop=FALSE]%x%I[n,,drop=FALSE]+I[n,,drop=FALSE]%x%Ptinv[n,,drop=FALSE])
+                 endblock_cor <- endblock %*% (v_cor[t,,drop=FALSE]%x%U)
+                 endblock_tr  <- endblock %*% t(x_tr)
+                 idxrange_tv <- (max(idxrange_tv)+1):(max(idxrange_tv)+H0$mtvgarch[[n]]$tv@nr.pars)
+                 idxrange_garch <- (max(idxrange_tv)+1):(max(idxrange_tv)+H0$mtvgarch[[n]]$garch@nr.pars)
+                 rowblock_tv_cor <- rbind(rowblock_tv_cor,t(x_tv[t,idxrange_tv,drop=FALSE])%*%endblock_cor)
+                 rowblock_garch_cor <- rbind(rowblock_garch_cor,t(x_garch[t,idxrange_garch,drop=FALSE])%*%endblock_cor)
+                 rowblock_tv_tr <- rbind(rowblock_tv_tr,t(x_tv[t,idxrange_tv,drop=FALSE])%*%endblock_tr)
+                 rowblock_garch_tr <- rbind(rowblock_garch_tr,t(x_garch[t,idxrange_garch,drop=FALSE])%*%endblock_tr)
+
+               }
+               im_tv_cor <- im_tv_cor + rowblock_tv_cor
+               im_garch_cor <- im_garch_cor + rowblock_garch_cor
+               im_tv_tr <- im_tv_tr + rowblock_tv_tr
+               im_garch_tr <- im_garch_tr + rowblock_garch_tr
+
+               # dlldrho_A: testOrder*N(N-1)/2 x 1
+               vP_PxP_ZxZ <- .vec(Ptinv) - ((Ptinv %x% Ptinv) %*% t(z[t,,drop=FALSE]%x%z[t,,drop=FALSE]))
+               dlldrho_A <- dlldrho_A + ((t(v_cor_A[t,,drop=FALSE])%x% t(U) ) %*% vP_PxP_ZxZ)
+
+
+             }  # End of for(t in 1:Tobs)
+
              im_tv <- im_tv/H0@Tobs
-             im_garch <- im_garch/H0@Tobs
              im_tv_garch <- im_tv_garch/H0@Tobs
+             im_tv_tr <- im_tv_tr/H0@Tobs
+             im_tv_cor <- -0.5*im_tv_cor/H0@Tobs
+             im_garch <- im_garch/H0@Tobs
+             im_garch_tr <- im_garch_tr/H0@Tobs
+             im_garch_cor <- -0.5*im_garch_cor/H0@Tobs
+             im_tr <- im_tr/H0@Tobs
+             im_tr_cor <- -0.5*im_tr_cor/H0@Tobs
+             im_cor <- 0.25*im_cor/H0@Tobs
+             dlldrho_A <- -0.5* dlldrho_A
 
-
-
-
-
-             # Get v_rho, dlldrho_A
-             rtn <- .v_rho(z,H0,H1,testOrder)
-             v_rho <- rtn$v_rho
-             dlldrho_A <- rtn$dlldrho_A
-
-
-             # Get im_garch_cor
-             im_garch_cor <- .im_garch_cor(H0,x_garch,v_rho)
-
-
-             # Get im_tv_cor
-             im_tv_cor <- .im_tv_cor(H0,x_tv,v_rho)
-
-
-
-             # Get im_cor
-             im_cor <- .im_cor(H0,v_rho)
 
              # Get LM using all InfoMatrix blocks
              IM_list <- list()
              IM_list$IM_tv <- im_tv
+             IM_list$IM_tv_garch <- im_tv_garch
+             IM_list$IM_tv_tr <- im_tv_tr
              IM_list$IM_tv_cor <- im_tv_cor
              IM_list$IM_garch <- im_garch
+             IM_list$IM_garch_tr <- im_garch_tr
              IM_list$IM_garch_cor <- im_garch_cor
-             IM_list$IM_tv_garch <- im_tv_garch
+             IM_list$IM_tr <- im_tr
+             IM_list$IM_tr_cor <- im_tr_cor
              IM_list$IM_cor <- im_cor
 
-             LM <- .LM(H0,IM_list,dlldrho_A,testOrder)
+             LM <- .LM_v2(H0,IM_list,dlldrho_A,testOrder)
 
              return(LM)
 
@@ -334,6 +397,37 @@ setGeneric(name="test.TVCC1vTVCC2",
 
 
 ## ===== Test Sub Functions =====####
+
+.get_U <- function(N){
+  # Construct the U matrix:Dimensions = N^2 x N*(N-1)/2
+  U <- NULL
+  for (i in 1:(N-1)) {
+    for (j in (i+1):N) {
+      block <- matrix(0,N,N)
+      block[i,j] <- block[j,i] <- 1
+      Ucol <- as.vector(block)
+      U <- cbind(U,Ucol)
+    }
+  }
+  return(U)
+}
+
+.get_K <- function(N){
+  #Construct the K matrix: N^2 x N^2
+  K <- NULL
+  for (i in 1:N) {
+    # block rows
+    Krow <- NULL
+    for (j in 1:N) {
+      # block columns
+      block <- matrix(0,N,N)
+      block[j,i] <- 1
+      Krow <- cbind(Krow,block)
+    }
+    K <- rbind(K,Krow)
+  }
+  return(N)
+}
 
 ##=== .I.P.Pinv_scale( tv or garch ) ===####
 .I.P.Pinv_scale <- function(H0,Pt,type1,type2){
@@ -529,24 +623,16 @@ setGeneric(name=".v_rho",
            def = function(z,H0,H1,testOrder){
 
              st <- H1$st
-             if (testOrder==1) v_rho <- (-0.5)*cbind(st)
-             if (testOrder==2) v_rho <- (-0.5)*cbind(st,st^2)
-             if (testOrder==3) v_rho <- (-0.5)*cbind(st,st^2,st^3)
+             if (testOrder==1) v_rho <- cbind(st)
+             if (testOrder==2) v_rho <- cbind(st,st^2)
+             if (testOrder==3) v_rho <- cbind(st,st^2,st^3)
 
              N <- H0@N
              P <- H0$Estimated$P
              Pinv <- solve(P)
 
-             #Construct the U matrix:Dimensions = N^2 x N*(N-1)/2
-             U <- NULL
-             for (i in 1:(N-1)) {
-               for (j in (i+1):N) {
-                 block <- matrix(0,N,N)
-                 block[i,j] <- block[j,i] <- 1
-                 Ucol <- as.vector(block)
-                 U <- cbind(U,Ucol)
-               }
-             }
+             # U matrix: N^2 x N*(N-1)/2
+             U <- .get_U(H0@N)
 
              # score for rho
              zKRONz <- matrix(0,nrow=N^2,ncol=H0@Tobs)
@@ -630,16 +716,8 @@ setGeneric(name=".im_garch_cor",
              P <- H0$Estimated$P
              Pinv <- solve(P)
              I <- diag(nrow = N,ncol = N) # NxN Identity matrix
-             #Construct the U matrix:Dimensions = N^2 x N*(N-1)/2
-             U <- NULL
-             for (i in 1:(N-1)) {
-               for (j in (i+1):N) {
-                 block <- matrix(0,N,N)
-                 block[i,j] <- block[j,i] <- 1
-                 Ucol <- as.vector(block)
-                 U <- cbind(U,Ucol)
-               }
-             }
+             # U matrix: N^2 x N*(N-1)/2
+             U <- .get_U(H0@N)
 
              # IM_garch_cor, 3N x (testorder+1)*N*(N-1)/2
              mHelp1 <- matrix(0,nrow = 0,ncol=N*N)  # N x N^2
@@ -730,16 +808,8 @@ setGeneric(name=".im_tv_cor",
              N <- H0@N
              Pinv <- solve(H0$Estimated$P)
              I <- diag(nrow = N,ncol = N) # NxN Identity matrix
-             #Construct the U matrix:Dimensions = N^2 x N*(N-1)/2
-             U <- NULL
-             for (i in 1:(N-1)) {
-               for (j in (i+1):N) {
-                 block <- matrix(0,N,N)
-                 block[i,j] <- block[j,i] <- 1
-                 Ucol <- as.vector(block)
-                 U <- cbind(U,Ucol)
-               }
-             }
+             # U matrix: N^2 x N*(N-1)/2
+             U <- .get_U(H0@N)
 
              # IM_tv_cor, (#of tv pars in n,n=1...N)N x (testorder+1)*N*(N-1)/2
              mHelp1 <- matrix(0,nrow=0,ncol=N*N )
@@ -818,43 +888,54 @@ setGeneric(name=".im_cor_parsim",
            }
 )
 
+##===  .U.Pinv.K.U(...,v_rho) ===####
+setGeneric(name=".U.Pinv.K.U",
+           valueClass = "matrix",
+           signature = c("H0","Pt"),
+           def = function(H0,Pt){
+
+             N <- H0@N
+             Pinv <- solve(Pt)
+             I <- diag(nrow = N,ncol = N) # NxN Identity matrix
+
+             # U matrix: N^2 x N*(N-1)/2
+             U <- .get_U(N)
+
+             # K matrix: N^2 x N^2
+             K <- .get_K(N)
+
+             # N*(N-1)/2 x N*(N-1)/2
+             return( t(U) %*% (Pinv %x% Pinv + (Pinv %x% I) %*% K %*% (Pinv %x% I)) %*% U )
+
+           }
+)
+
+##===  .Pinv.K(...,v_rho) ===####
+setGeneric(name=".Pinv.K",
+           valueClass = "matrix",
+           signature = c("H0","Pt"),
+           def = function(H0,Pt){
+
+             N <- H0@N
+             Pinv <- solve(Pt)
+             I <- diag(nrow = N,ncol = N) # NxN Identity matrix
+
+             # K matrix: N^2 x N^2
+             K <- .get_K(N)
+
+             # N*(N-1)/2 x N*(N-1)/2
+             return( Pinv %x% Pinv + (Pinv %x% I) %*% K %*% (Pinv %x% I) )
+
+           }
+)
+
 ##===  .im_cor(...,v_rho) ===####
 setGeneric(name=".im_cor",
            valueClass = "matrix",
            signature = c("H0","v_rho"),
-           def = function(H0,v_rho){
+           def = function(H0,Pt,v_rho){
 
-             # IM_cor (testorder+1)*(N-1) x (testorder+1)*(N-1), SUM OVER TIME
-             N <- H0@N
-             Pinv <- solve(H0$Estimated$P)
-             I <- diag(nrow = N,ncol = N) # NxN Identity matrix
-
-             #Construct the U matrix:Dimensions = N^2 x N*(N-1)/2
-             U <- NULL
-             for (i in 1:(N-1)) {
-               for (j in (i+1):N) {
-                 block <- matrix(0,N,N)
-                 block[i,j] <- block[j,i] <- 1
-                 Ucol <- as.vector(block)
-                 U <- cbind(U,Ucol)
-               }
-             }
-
-             #Construct the K matrix: N^2 x N^2
-             K <- NULL
-             for (i in 1:N) {
-               # block rows
-               Krow <- NULL
-               for (j in 1:N) {
-                 # block columns
-                 block <- matrix(0,N,N)
-                 block[j,i] <- 1
-                 Krow <- cbind(Krow,block)
-               }
-               K <- rbind(K,Krow)
-             }
-
-             mHelp1 <- t(U) %*% (Pinv %x% Pinv + (Pinv %x% I) %*% K %*% (Pinv %x% I)) %*% U # N*(N-1)/2 x N*(N-1)/2
+             mHelp1 <- .U.Pinv.K.U(H0,Pt)
              mHelp2 <- t(v_rho) %*% v_rho/H0@Tobs # 2x2 or 3x3, SUM OVER TIME
              IM_cor <- 0.25*(mHelp2 %x% mHelp1) # (testorder+1)*N*(N-1)/2 x (testorder+1)*N*(N-1)/2
 
@@ -868,10 +949,7 @@ setGeneric(name=".LM",
            signature = c("H0","IM_list","dlldrho_A","testOrder"),
            def = function(H0,IM_list,dlldrho_A,testOrder){
 
-             N <- H0@N
-             P <- H0$Estimated$P
-             Pinv <- solve(P)
-             I <- diag(nrow = N,ncol = N) # NxN Identity matrix
+
 
              IM_tv <- IM_list$IM_tv
              IM_tv_cor <- IM_list$IM_tv_cor
@@ -899,23 +977,65 @@ setGeneric(name=".LM",
            }
 )
 
+##===  .LM_v2 ===####
+setGeneric(name=".LM_v2",
+           valueClass = "numeric",
+           signature = c("H0","IM_list","dlldrho_A","testOrder"),
+           def = function(H0,IM_list,dlldrho_A,testOrder){
+
+
+             IM_tv <- IM_list$IM_tv
+             IM_tv_garch <- IM_list$IM_tv_garch
+             IM_tv_tr <- IM_list$IM_tv_tr
+             IM_tv_cor <- IM_list$IM_tv_cor
+             IM_garch <- IM_list$IM_garch
+             IM_garch_tr <- IM_list$IM_garch_tr
+             IM_garch_cor <- IM_list$IM_garch_cor
+             IM_tr <- IM_list$IM_tr
+             IM_tr_cor <- IM_list$IM_tr_cor
+             IM_cor <- IM_list$IM_cor
+
+             #IM <- rbind(IM_TV, IM_GARCH, IM_COR)
+             IM <- rbind(cbind(IM_tv,IM_tv_garch,IM_tv_tr,IM_tv_cor), cbind(t(IM_tv_garch),IM_garch,IM_garch_tr,IM_garch_cor),cbind(t(IM_tv_tr),t(IM_garch_tr),IM_tr,IM_tr_cor), cbind(t(IM_tv_cor),t(IM_garch_cor),t(IM_tr_cor),IM_cor)) # the whole IM, not really needed...
+             IM_inv <- solve(IM)
+             ## The above is not necessarily very efficient - could use block inversion methods - TO DO LATER
+
+             if (!is.matrix(IM_inv)) stop("LM Test: Can't invert the information matrix IM_inv")
+
+             ##--- Block corresponding to the corr.parameters that are set to zero under null ---##
+             block_start <- 1 + NCOL(IM_inv) - NROW(dlldrho_A)
+             block_end <- NCOL(IM_inv)
+             IM_inv_SE <- IM_inv[(block_start:block_end),(block_start:block_end)]
+
+             ##--- Return LM ---##
+             LM <- (1/H0@Tobs)*t(dlldrho_A) %*% IM_inv_SE %*% dlldrho_A
+             return( as.numeric(LM[1,1]) )
+
+           }
+)
 
 
 ##===  .v_cor_H0 ===####
 setGeneric(name=".v_cor_H0",
            valueClass = "matrix",
-           signature = c(H0),
+           signature = c("H0"),
            def = function(H0){
-
+             ret <- matrix(nrow = H0@Tobs,ncol = 2)
+             ret[,1] <- 1 - calc.Gt(H0)
+             ret[,2] <- calc.Gt(H0)
+             return(ret)
 
            }
 )
 ##===  .v_cor_H1 ===####
 setGeneric(name=".v_cor_H1",
            valueClass = "matrix",
-           signature = c(H0,testOrder),
+           signature = c("H0","testOrder"),
            def = function(H0,testOrder){
-
-
+             ret <- matrix(nrow = H0@Tobs,ncol = testOrder)
+             for(n in 1:testOrder){
+               ret[,n] <- H0@st^testOrder
+             }
+             return(ret)
            }
 )
