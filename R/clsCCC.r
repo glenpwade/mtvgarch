@@ -1038,8 +1038,10 @@ setGeneric(name=".v_cor_H1",
            signature = c("H0","testOrder"),
            def = function(H0,testOrder){
              ret <- matrix(nrow = H0@Tobs,ncol = testOrder)
+             # Test requires the transition variable to have zero mean (by design)
+             H1_st <- H0@st - mean(H0@st)
              for(n in 1:testOrder){
-               ret[,n] <- H0@st^n
+               ret[,n] <- H1_st^n
              }
              return(ret)
            }
