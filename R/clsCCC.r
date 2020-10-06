@@ -447,7 +447,7 @@ setGeneric(name="test.TVCC1vTVCC2",
 
       for (j in 1:N) {
         # j = col index
-        if (H0$mtvgarch[[i]][[type]]@nr.pars > 0){
+        if (H0$mtvgarch[[i]][[type1]]@nr.pars > 0 && H0$mtvgarch[[j]][[type2]]@nr.pars > 0){
           #TODO: Confirm this works when N contains different Garch Types
           scaleFactor <- matrix(1,H0$mtvgarch[[i]][[type1]]@nr.pars, H0$mtvgarch[[j]][[type2]]@nr.pars)
           I.P.Pinv_scale_row <- cbind(I.P.Pinv_scale_row, (I.P.Pinv[i,j] %x% scaleFactor))
