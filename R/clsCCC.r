@@ -106,7 +106,7 @@ setGeneric(name="test.CCCParsim",
              objType <- class(H0)
              if(objType[1] != "ccc_class"){
                warning("This test requires a valid instance of an estimated ccc model as the null (H0)")
-               return(list())
+               return(0)
              }
 
              # Get the common variables:
@@ -177,7 +177,7 @@ setGeneric(name="test.CCCvSTCC1",
              objType <- class(H0)
              if(objType[1] != "ccc_class"){
                warning("This test requires a valid instance of an estimated ccc model as the null (H0)")
-               return(list())
+               return(0)
              }
 
              # Get the common variables:
@@ -220,7 +220,7 @@ setGeneric(name="test.CCCvSTCC1",
              im_tv_garch <- .im_tv_garch(H0,Pt,x_tv,x_garch)
 
              # Get im_cor
-             im_cor <- .im_cor(H0,v_rho)
+             im_cor <- .im_cor(H0,Pt,v_rho)
 
              # Get LM using all InfoMatrix blocks
              IM_list <- list()
@@ -248,9 +248,9 @@ setGeneric(name="test.TVCC1vTVCC2",
 
              # Validation
              objType <- class(H0)
-             if(objType[1] != "stcc_class"){
+             if(objType[1] != "stcc1_class"){
                warning("This test requires a valid instance of an estimated stcc model as the null (H0)")
-               return(list())
+               return(0)
              }
 
              # Get the common variables:
@@ -272,8 +272,8 @@ setGeneric(name="test.TVCC1vTVCC2",
              x_garch <- .x_garch(w,H0,h,beta)
 
              # Get v_cor - T x (2 + TestOrder)
-             v_cor <- cbind(.v_cor_H0(H0), .v_cor_H1(H0,testOrder))
              v_cor_A <- .v_cor_H1(H0,testOrder) # T x testOrder
+             v_cor <- cbind(.v_cor_H0(H0), v_cor_A)
 
              # T x 2 derivative of G w.r.t. tr pars (speed and loc)
              dGdtr <- .dG_dtr(H0,trNum = 1)
@@ -307,6 +307,9 @@ setGeneric(name="test.TVCC1vTVCC2",
              for(t in 1:H0@Tobs){
                Pt <- .unVecL(H0$Estimated$Pt[t,])
                Ptinv <- solve(Pt)
+               P1 <- H0$Estimated$P1
+               P2 <- H0$Estimated$P2
+
                # im_tv
                I.Pt.Ptinv <- .I.P.Pinv_scale(H0,Pt,"tv","tv")
                im_tv <- im_tv + (t(x_tv[t,,drop=FALSE]) %*% x_tv[t,,drop=FALSE]) * I.Pt.Ptinv
@@ -321,7 +324,8 @@ setGeneric(name="test.TVCC1vTVCC2",
 
                # im_tr
                Pinv.K <- .Pinv.K(H0,Pt)
-               x_tr <- -0.5 * t(dGdtr[t,,drop=FALSE]) %*% t(matrix(.vec(P2-P1),1,H0@N^2))  # 2 x N^2
+
+               x_tr <- -0.5 * t(dGdtr[t,,drop=FALSE]) %*% matrix(.vec(P2-P1),1,H0@N^2)  # nr.trPars x N^2
                im_tr <- im_tr + 0.25 * x_tr %*% Pinv.K %*% t(x_tr)
 
                # im_tr_cor
@@ -334,14 +338,16 @@ setGeneric(name="test.TVCC1vTVCC2",
                # im_tv_cor AND im_garch_cor AND im_tv_tr AND im_garch_tr
                idxrange_tv <- 0
                idxrange_garch <- 0
-               rowblock_tv = matrix(NA,nrow=0,ncol=(ncol(v_cor)*ncol(U)))
-               rowblock_garch = matrix(NA,nrow=0,ncol=(ncol(v_cor)*ncol(U)))
+               rowblock_tv_cor <- matrix(NA,nrow=0,ncol=(NCOL(v_cor)*NCOL(U)))
+               rowblock_garch_cor <- matrix(NA,nrow=0,ncol=(NCOL(v_cor)*NCOL(U)))
+               rowblock_tv_tr <- matrix(NA,nrow=0,ncol=NROW(x_tr))
+               rowblock_garch_tr <- matrix(NA,nrow=0,ncol=NROW(x_tr))
                for (n in 1:H0@N){
                  endblock <- (Ptinv[n,,drop=FALSE]%x%I[n,,drop=FALSE]+I[n,,drop=FALSE]%x%Ptinv[n,,drop=FALSE])
                  endblock_cor <- endblock %*% (v_cor[t,,drop=FALSE]%x%U)
                  endblock_tr  <- endblock %*% t(x_tr)
                  idxrange_tv <- (max(idxrange_tv)+1):(max(idxrange_tv)+H0$mtvgarch[[n]]$tv@nr.pars)
-                 idxrange_garch <- (max(idxrange_tv)+1):(max(idxrange_tv)+H0$mtvgarch[[n]]$garch@nr.pars)
+                 idxrange_garch <- (max(idxrange_garch)+1):(max(idxrange_garch)+H0$mtvgarch[[n]]$garch@nr.pars)
                  rowblock_tv_cor <- rbind(rowblock_tv_cor,t(x_tv[t,idxrange_tv,drop=FALSE])%*%endblock_cor)
                  rowblock_garch_cor <- rbind(rowblock_garch_cor,t(x_garch[t,idxrange_garch,drop=FALSE])%*%endblock_cor)
                  rowblock_tv_tr <- rbind(rowblock_tv_tr,t(x_tv[t,idxrange_tv,drop=FALSE])%*%endblock_tr)
@@ -354,8 +360,8 @@ setGeneric(name="test.TVCC1vTVCC2",
                im_garch_tr <- im_garch_tr + rowblock_garch_tr
 
                # dlldrho_A: testOrder*N(N-1)/2 x 1
-               vP_PxP_ZxZ <- .vec(Ptinv) - ((Ptinv %x% Ptinv) %*% t(z[t,,drop=FALSE]%x%z[t,,drop=FALSE]))
-               dlldrho_A <- dlldrho_A + ((t(v_cor_A[t,,drop=FALSE])%x% t(U) ) %*% vP_PxP_ZxZ)
+               vP_PxP_ZxZ <- .vec(Ptinv) - ((Ptinv %x% Ptinv) %*% t(z[t,,drop=FALSE] %x% z[t,,drop=FALSE]))
+               dlldrho_A <- dlldrho_A + ((t(v_cor_A[t,,drop=FALSE]) %x% t(U) ) %*% vP_PxP_ZxZ)
 
 
              }  # End of for(t in 1:Tobs)
@@ -426,7 +432,7 @@ setGeneric(name="test.TVCC1vTVCC2",
     }
     K <- rbind(K,Krow)
   }
-  return(N)
+  return(K)
 }
 
 ##=== .I.P.Pinv_scale( tv or garch ) ===####
@@ -442,12 +448,12 @@ setGeneric(name="test.TVCC1vTVCC2",
 
   for (i in 1:N) {
     # i = row index
-    if(H0$mtvgarch[[i]][[type]]@nr.pars > 0) {
+    if(H0$mtvgarch[[i]][[type1]]@nr.pars > 0) {
       I.P.Pinv_scale_row <- NULL
 
       for (j in 1:N) {
         # j = col index
-        if (H0$mtvgarch[[i]][[type1]]@nr.pars > 0 && H0$mtvgarch[[j]][[type1]]@nr.pars > 0){
+        if (H0$mtvgarch[[j]][[type2]]@nr.pars > 0){
           #TODO: Confirm this works when N contains different Garch Types
           scaleFactor <- matrix(1,H0$mtvgarch[[i]][[type1]]@nr.pars, H0$mtvgarch[[j]][[type2]]@nr.pars)
           I.P.Pinv_scale_row <- cbind(I.P.Pinv_scale_row, (I.P.Pinv[i,j] %x% scaleFactor))
@@ -622,7 +628,7 @@ setGeneric(name=".v_rho",
            signature = c("z","H0","H1","testOrder"),
            def = function(z,H0,H1,testOrder){
 
-             st <- H1$st
+             st <- H1@st
              if (testOrder==1) v_rho <- cbind(st)
              if (testOrder==2) v_rho <- cbind(st,st^2)
              if (testOrder==3) v_rho <- cbind(st,st^2,st^3)
@@ -843,7 +849,7 @@ setGeneric(name=".im_tv_cor",
 ##===  .im_tv_garch ===####
 setGeneric(name=".im_tv_garch",
            valueClass = "matrix",
-           signature = c("H0","x_tv","x_garch"),
+           signature = c("H0","Pt","x_tv","x_garch"),
            def = function(H0,Pt,x_tv,x_garch){
 
              N <- H0@N
@@ -888,7 +894,7 @@ setGeneric(name=".im_cor_parsim",
            }
 )
 
-##===  .U.Pinv.K.U(...,v_rho) ===####
+##===  .U.Pinv.K.U(H0,Pt) ===####
 setGeneric(name=".U.Pinv.K.U",
            valueClass = "matrix",
            signature = c("H0","Pt"),
@@ -905,6 +911,7 @@ setGeneric(name=".U.Pinv.K.U",
              K <- .get_K(N)
 
              # N*(N-1)/2 x N*(N-1)/2
+             # TODO: Fix Error = (Pinv %x% I) %*% K : non-conformable arguments
              return( t(U) %*% (Pinv %x% Pinv + (Pinv %x% I) %*% K %*% (Pinv %x% I)) %*% U )
 
            }
@@ -932,7 +939,7 @@ setGeneric(name=".Pinv.K",
 ##===  .im_cor(...,v_rho) ===####
 setGeneric(name=".im_cor",
            valueClass = "matrix",
-           signature = c("H0","v_rho"),
+           signature = c("H0","Pt","v_rho"),
            def = function(H0,Pt,v_rho){
 
              mHelp1 <- .U.Pinv.K.U(H0,Pt)
@@ -948,8 +955,6 @@ setGeneric(name=".LM",
            valueClass = "numeric",
            signature = c("H0","IM_list","dlldrho_A","testOrder"),
            def = function(H0,IM_list,dlldrho_A,testOrder){
-
-
 
              IM_tv <- IM_list$IM_tv
              IM_tv_cor <- IM_list$IM_tv_cor
@@ -1034,7 +1039,7 @@ setGeneric(name=".v_cor_H1",
            def = function(H0,testOrder){
              ret <- matrix(nrow = H0@Tobs,ncol = testOrder)
              for(n in 1:testOrder){
-               ret[,n] <- H0@st^testOrder
+               ret[,n] <- H0@st^n
              }
              return(ret)
            }

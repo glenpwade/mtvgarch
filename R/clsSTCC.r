@@ -16,6 +16,7 @@ setMethod("initialize","stcc1_class",
             .Object <- callNextMethod(.Object,...)
 
             # Default initial values
+            .Object$mtvgarch <- list()
             .Object@N <- as.integer(0)
             .Object$shape <- corrshape$single
             .Object$speedopt <- corrspeedopt$eta
@@ -41,7 +42,6 @@ setGeneric(name="stcc1",
              # End validation
 
              # Add the Estimated components from the mtvgarch
-             this$mtvgarch <- list()
              for(n in 1:mtvgarchObj@N){
                this$mtvgarch[[n]] <- list()
                this$mtvgarch[[n]]$tv <- mtvgarchObj[[n]]$Estimated$tv
@@ -105,10 +105,8 @@ setGeneric(name=".calc.Pt",
            def =   function(stcc1Obj){
 
              this <- stcc1Obj
-             mP1 <- this$Estimated$P1
-             vP1 <- mP1[lower.tri(mP1)]
-             mP2 <- this$Estimated$P2
-             vP2 <- mP2[lower.tri(mP2)]
+             vP1 <- .vecL(this$Estimated$P1)
+             vP2 <- .vecL(this$Estimated$P2)
 
              Gt <- calc.Gt(this)
              Pt <- t(apply(Gt,MARGIN = 1,FUN = function(X,P1,P2) ((1-X)*P1 + X*P2), P1=vP1, P2=vP2))
@@ -205,7 +203,7 @@ setGeneric(name=".loglik.stcc1",
              tmp.par <- optimpars
 
              vP1 <- tmp.par[1:this@nr.covPars]
-             mP <- .unVecl(vP1)
+             mP <- .unVecL(vP1)
              eig <- eigen(mP,symmetric=TRUE,only.values=TRUE)
              # Check for SPD - positive-definite check:
              if (min(eig$values) <= 0) return(err_output)
@@ -213,7 +211,7 @@ setGeneric(name=".loglik.stcc1",
              #Remove the P1 covPars, then extract the P2 covPars
              tmp.par <- tail(tmp.par,-this@nr.covPars)
              vP2 <- tmp.par[1:this@nr.covPars]
-             mP <- .unVecl(vP2)
+             mP <- .unVecL(vP2)
              eig <- eigen(mP,symmetric=TRUE,only.values=TRUE)
              # Check for SPD - positive-definite check:
              if (min(eig$values) <= 0) return(err_output)
@@ -223,7 +221,7 @@ setGeneric(name=".loglik.stcc1",
 
              llt <- vector("numeric")
              for(t in 1:this@Tobs) {
-               mPt <- .unVecl(Pt[t,])
+               mPt <- .unVecL(Pt[t,])
                llt[t] <- -0.5*log(det(mPt)) -0.5*( t(z[t,])%*%(qr.solve(mPt))%*%z[t,])
              }
              # Return:
@@ -243,7 +241,7 @@ setGeneric(name="estimateSTCC1",
 
              this$Estimated <- list()
 
-             optimpars <- c( this$P1[lower.tri(this$P1)], this$P2[lower.tri(this$P2)], this$pars )
+             optimpars <- c( .vecL(this$P1), .vecL(this$P2), this$pars )
              optimpars <- optimpars[!is.na(optimpars)]
 
              ### ---  Call optim to calculate the estimate --- ###
@@ -266,9 +264,9 @@ setGeneric(name="estimateSTCC1",
                this$Estimated$value <- tmp$value
 
                tmp.par <- tmp$par
-               this$Estimated$P1 <- .unVecl(tmp.par[1:this@nr.covPars])
+               this$Estimated$P1 <- .unVecL(tmp.par[1:this@nr.covPars])
                tmp.par <- tail(tmp.par,-this@nr.covPars)
-               this$Estimated$P2 <- .unVecl(tmp.par[1:this@nr.covPars])
+               this$Estimated$P2 <- .unVecL(tmp.par[1:this@nr.covPars])
                tmp.par <- tail(tmp.par,-this@nr.covPars)
                this$Estimated$pars <- tmp.par
                if(this$shape != corrshape$double) this$Estimated$pars <- c(this$Estimated$pars,NA)
@@ -280,9 +278,9 @@ setGeneric(name="estimateSTCC1",
                  try(vecSE <- sqrt(-diag(qr.solve(tmp$hessian))))
 
                  if(length(vecSE) > 0) {
-                   this$Estimated$P1.se <- .unVecl(vecSE[1:this@nr.covPars])
+                   this$Estimated$P1.se <- .unVecL(vecSE[1:this@nr.covPars])
                    vecSE <- tail(vecSE,-this@nr.covPars)
-                   this$Estimated$P2.se <- .unVecl(vecSE[1:this@nr.covPars])
+                   this$Estimated$P2.se <- .unVecL(vecSE[1:this@nr.covPars])
                    vecSE <- tail(vecSE,-this@nr.covPars)
 
                    this$Estimated$pars.se <- vecSE
