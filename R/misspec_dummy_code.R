@@ -31,4 +31,24 @@ SSR1 <- t(resid)%*%resid # 1x1
 # LM stat
 LM <- Tobs * (SSR0-SSR1)/SSR0
 p <- pchisq(LM,df=NCOL(v3),lower.tail=FALSE)
+
+# ROBUST
+# 1 as above
+# 2 regress r2 on r1, get residual vectors
+resid <- matrix(0,Tobs,NCOL(r2))
+X = r1
+for (i in 1:NCOL(r2)){
+  Y = r2[,i]
+  b = solve(t(X)%*%X)%*%t(X)%*%Y  # vector len=ncol(X)
+  resid[,i] <- Y-X%*%t(b)   # T x 1
+}
+# regress 1 on (z2_1)resid, get SSR
+Y = matrix(1,Tobs,1)
+X <- z2_1*resid
+b = solve(t(X)%*%X)%*%t(X)%*%Y  # vector len=ncol(X)
+resid = Y-X%*%t(b)   # T x 1
+SSR <- t(resid)%*%resid # 1x1
+# LM Robust
+LMrob <- Tobs-SSR
+prob <- (LMrob,df=NCOL(v3),lower.tail=FALSE)
 }
