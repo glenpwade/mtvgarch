@@ -115,4 +115,20 @@ setGeneric(name=".vec",
            }
 )
 
+## -- lag0 -- ####
+setGeneric(name="lag0",
+           valueClass = "matrix",
+           signature = c("vX","lagRange"),
+           def = function(vX,lagRange){
+             lags <- matrix(0,nrow=NROW(vX),ncol=length(lagRange))
+             #TODO: Replace with apply()
+             for (i in 1:length(lagRange)){
+               lags[,i] <- c(0*c(1:lagRange[i]),vX[(1:(NROW(vX)-lagRange[i]))])
+             }
+             return(lags)
+           }
+)
+
+
+
 ## ===============  End: Anna's Tricky Functions  ================== ##
