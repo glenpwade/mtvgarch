@@ -14,8 +14,6 @@
 # tvgarch$Estimated$value        -- scalar: log-liklihood value
 # tvgarch$Estimated$tv
 # tvgarch$Estimated$garch
-# tvgarch$results[[1..n]]        -- "list" - contains a tv,garch & ll_value for each estimation iteration
-
 
 
 ## --- TV_CLASS Definition --- ####
@@ -600,6 +598,8 @@ setGeneric(name=".dg_dt2",
 
            }
 )
+
+
 
 ## -- .calculate_g(tv) ####
 setGeneric(name=".calculate_g",
@@ -1574,6 +1574,83 @@ setGeneric(name="loglik.tvgarch.univar.1",
              return(ll)
            }
 )
+
+## -- .dh_dg(tvgarch) ####
+setGeneric(name=".dh_dg",
+           valueClass = "matrix",
+           signature = c("e","tvgarchObj"),
+           def =  function(e,tvgarchObj){
+
+             this <- tvgarchObj
+
+             Tobs <- this$tvObj@Tobs
+             w <- e/sqrt(this$Estimated$tv@g)
+
+             v_garch <- NULL
+             beta <- NULL
+             dhdg <- matrix(NA,0,0)  # Initialise return matrix
+
+             if (this$garch$type == garchtype$general){
+               v_garch <- cbind(v_garch,c(0,rep(1,(Tobs-1))),c(0,w[1:(Tobs-1)]^2),c(0,this$Estimated$garch@h[1:(Tobs-1)])) # T x Num_garch_pars, each row = "1~w(i,t-1)^2~h(i,t-1)", i=1,...,N
+               beta <- rep(this$Estimated$garch$Estimated$pars["beta",1],Tobs)
+
+             } else if (this$garch$type == garchtype$gjr){
+               v_garch <- cbind(v_garch,c(0,rep(1,(Tobs-1))),c(0,w[1:(Tobs-1)]^2),c(0,this$Estimated$garch@h[1:(Tobs-1)]),c(0,(min(w[1:(Tobs-1)],0))^2)) # T x Num_garch_pars, each row = "1~w(i,t-1)^2~h(i,t-1)", i=1,...,N
+               beta <- rep(this$Estimated$garch$Estimated$pars["beta",1],Tobs)
+             }
+
+             if(is.null(v_garch) && is.null(beta)){
+               # Series has noGarch
+             } else {
+               dhdg <- .ar1.Filter(v_garch,beta) # T x Num_garch_pars, each row = dh(i,t).dtvpar(i), i=1...N
+             }
+
+             return(dhdg)
+
+           }
+)
+
+## -- .dh_dt(tvgarch) ####
+setGeneric(name=".dh_dt",
+           valueClass = "matrix",
+           signature = c("e","tvgarchObj"),
+           def =  function(e,tvgarchObj){
+
+             this <- tvgarchObj
+
+             dgdt <- NULL
+             g <- NULL
+             v_tv <- NULL
+             beta <- NULL
+             Tobs <- this$tvObj@Tobs
+             w <- e/sqrt(this$Estimated$tv@g)
+
+             dhdt <- matrix(NA,0,0)  # Initialise return matrix
+
+             if(this$tv@nr.pars > 0){
+               #
+               dgdt <- .dg_dt(this$Estimated$tv)  # T x TV@nr.pars (includes d0's derivative if it is a free param)
+               g <- this$Estimated$tv@g # cbinds g(nt) as many times as g(n) has tv parameters
+             }
+
+             if (this$garch$type != garchtype$noGarch){
+               v_tv <- (-this$Estimated$garch$Estimated$pars["alpha",1] * c(0,1/g[1:(Tobs-1)])*c(0,w[1:(Tobs-1)]^2)) * dgdt
+               beta <- rep(this$Estimated$garch$Estimated$pars["beta",1],Tobs)
+             }
+
+             if(is.null(v_tv) && is.null(beta)){
+               # All series have noGarch AND noTV
+             } else {
+               dhdt <- .ar1.Filter(v_tv,beta) # T x Num_tv_pars, each row = dh(i,t).dtvpar(i), i=1...N
+             }
+
+             return(dhdt)
+
+           }
+)
+
+
+
 ## ========= estimateTVGARCH.1 ==========####
 setGeneric(name="estimateTVGARCH.1",
            valueClass = "tvgarch_class",

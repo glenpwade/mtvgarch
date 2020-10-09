@@ -284,7 +284,7 @@ setGeneric(name="test.TVCC1vTVCC2",
              # Note: this has been written with STCC (single transition) as H0, against one additional transition
              # TO DO: generalise to have STCC (with k transitions) as H0, against one more additional transition
 
-             # Number of transitions in the Null model plus 1:
+             # Number of transitions in the Null model, plus 1:
              trH0 <- 1 + 1
 
              im_cor_dim   <- (trH0 + testOrder) * H0@N * (H0@N-1)/2
@@ -439,7 +439,7 @@ setGeneric(name="test.TVCC1vTVCC2",
 .I.P.Pinv_scale <- function(H0,Pt,type1,type2){
 
   # H0 is the Null-Hypothesis - must be an estimated CCC object
-  # type: "tv" or "garch" - case sensitive
+  # typeX: "tv" or "garch" - case sensitive
 
   N <- H0@N
   I <- diag(N,N) # NxN Identity matrix
@@ -746,11 +746,6 @@ setGeneric(name=".im_garch_cor",
            }
 )
 
-
-
-
-
-
 ##===  .im_tv ===####
 setGeneric(name=".im_tv",
            valueClass = "matrix",
@@ -770,7 +765,7 @@ setGeneric(name=".im_tv",
            }
 )
 
-##===  .im_tv_cor_parsim(...,x_tau) ===####
+##===  .im_tv_cor_parsim ===####
 setGeneric(name=".im_tv_cor_parsim",
            valueClass = "matrix",
            signature = c("H0","x_tv","x_tau"),
