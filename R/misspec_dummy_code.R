@@ -23,11 +23,11 @@ r2 <- v3                 # T x (testorder+1)
 z2_1 <- (e/sqrt(h*g))^2-1
 SSR0 <- t(z2_1)%*%z2_1
 # 2: regress z2_1 on r1~r2, get SSR
-X <- cbind(r1,r2)
-Y <- z2_1
-b = solve(t(X)%*%X)%*%t(X)%*%Y
-resid = t(Y-Xb)%*%(Y-Xb)
-SSR1 <- t(resid)%*%resid
+X <- cbind(r1,r2) # T x ncol(r1)+nocl(r2)
+Y <- z2_1# T x 1
+b = solve(t(X)%*%X)%*%t(X)%*%Y  # vector len=ncol(X)
+resid = Y-X%*%t(b)   # T x 1
+SSR1 <- t(resid)%*%resid # 1x1
 # LM stat
 LM <- Tobs * (SSR0-SSR1)/SSR0
 p <- pchisq(LM,df=NCOL(v3),lower.tail=FALSE)
