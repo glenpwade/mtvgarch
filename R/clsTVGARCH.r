@@ -1595,7 +1595,7 @@ setGeneric(name=".dh_dg",
                v_garch <- cbind(c(0,rep(1,(Tobs-1))),c(0,w[1:(Tobs-1)]^2),c(0,this$Estimated$garch@h[1:(Tobs-1)]),c(0,(min(w[1:(Tobs-1)],0))^2)) # T x Num_garch_pars, each row = "1~w(i,t-1)^2~h(i,t-1)", i=1,...,N
              }
 
-             beta <- rep(this$Estimated$garch$Estimated$pars["beta",1],Tobs)
+             beta <- rep(this$Estimated$garch$Estimated$pars["beta",1],NCOL(v_garch))
              dhdg <- .ar1.Filter(v_garch,beta) # T x Num_garch_pars, each row = dh(t).dgarchpars
              return(dhdg)
 
@@ -1615,15 +1615,75 @@ setGeneric(name=".dh_dt",
              dhdt <- matrix(NA,0,0)  # Initialise return matrix
 
              dgdt <- .dg_dt(this$Estimated$tv)  # T x TV@nr.pars (includes d0's derivative if it is a free param)
-             g <- this$Estimated$tv@g # cbinds g(nt) as many times as g(n) has tv parameters
+             dgdt_l1 <- rbind(rep(0,NCOL(dgdt)),dgdt[(1:Tobs-1),])
+             g <- this$Estimated$tv@g
 
              if (this$garch$type != garchtype$noGarch){
-               v_tv <- (-this$Estimated$garch$Estimated$pars["alpha",1] * c(0,1/g[1:(Tobs-1)])*c(0,w[1:(Tobs-1)]^2)) * c(0,dgdt[1:(Tobs-1)])
-               beta <- rep(this$Estimated$garch$Estimated$pars["beta",1],Tobs)
+               v_tv <- (-this$Estimated$garch$Estimated$pars["alpha",1] * c(0,1/g[1:(Tobs-1)])*c(0,w[1:(Tobs-1)]^2)) * dgdt_l1
+               beta <- rep(this$Estimated$garch$Estimated$pars["beta",1],NCOL(v_tv))
                dhdt <- .ar1.Filter(v_tv,beta) # T x Num_tv_pars, each row = dh(t).dtvpar
              }
 
              return(dhdt)
+
+           }
+)
+
+## -- .df_dli(st) ####
+setGeneric(name=".df_dli",
+           valueClass = "matrix",
+           signature = c("st"),
+           def =  function(st){
+             ret <- matrix(nrow=NROW(st),ncol=4)
+             for(n in 1:4){
+               ret[,n] <- st^(n-1)
+             }
+             return(ret)
+
+           }
+)
+
+setGeneric(name="test.TR2.Robust",
+           valueClass = "list",
+           signature = c("z","r1","r2"),
+           def =  function(z,r1,r2){
+
+             rtn <- list()
+             z2_1 <- z
+             Tobs <- NROW(z)
+
+             SSR0 <- t(z2_1) %*% z2_1
+             # 2: regress z2_1 on r1~r2, get SSR
+             X <- cbind(r1,r2) # T x ncol(r1)+ncol(r2)
+             Y <- z2_1  # T x 1
+             b <- solve(t(X) %*% X) %*% t(X) %*% Y  # vector len=ncol(X)
+             resid <- Y - (X %*% b)   # T x 1
+             SSR1 <- t(resid) %*% resid # 1x1
+             # LM stat
+             rtn$LM <- as.numeric(Tobs * (SSR0-SSR1)/SSR0)
+             rtn$pVal <- as.numeric(pchisq(rtn$LM,df=NCOL(r2),lower.tail=FALSE))
+
+             # ROBUST
+             # 1 as above
+             # 2 regress r2 on r1, get residual vectors
+             resid <- matrix(0,Tobs,NCOL(r2))
+             X <- r1
+             for (i in 1:NCOL(r2)){
+               Y <- r2[,i,drop=FALSE]
+               b <- solve(t(X) %*% X) %*% t(X) %*% Y  # vector len=ncol(X)
+               resid[,i] <- Y-(X %*% b)   # T x 1
+             }
+             # regress 1 on (z2_1)resid, get SSR
+             Y <- matrix(1,Tobs,1)
+             X <- as.vector(z2_1) * resid
+             b <- solve(t(X) %*% X) %*% t(X) %*% Y  # vector len=ncol(X)
+             resid <- Y - (X %*% b)   # T x 1
+             SSR <- t(resid) %*% resid # 1x1
+             # LM Robust
+             rtn$LMrob <- as.numeric(Tobs-SSR)
+             rtn$pValrob <- as.numeric(pchisq(rtn$LMrob,df=NCOL(r2),lower.tail=FALSE))
+
+             return(rtn)
 
            }
 )
@@ -1644,49 +1704,20 @@ setGeneric(name="test.misSpec1",
              dg_dtv <- .dg_dt(this$Estimated$tv)     # T x nr.tv.pars
              dh_dtv <- .dh_dt(e,this)                # T x nr.tv.pars
              dh_dga <- .dh_dg(e,this)                # T x nr.garch.pars
-             df_dli <- .dg_dt2(this$tvObj@st)        # T x (testorder+1)
+             df_dli <- .df_dli(this$tvObj@st)        # T x (testorder+1)
+
+             z <- e/sqrt(g*h)
+             z2 <- z^2
+             z2_1 <- z^2 - 1
 
              # matrices
              u <- g^(-1) * dg_dtv     # (1/g)*(dg/dtvpars); T x nr.tv.pars
              x1 <- (h^(-1)) * dh_dtv  # (1/ht)*(dh/dtvpars); T x nr.tv.pars
              x2 <- (h^(-1)) * dh_dga  # (1/ht)*(dh/dgarchpars); T x nr.garch.pars
-             #x3 <- (h^(-1)) * dh_dli # (1/ht)*(dh/dlinpars); T x nr.lin.pars  DON'T THINK WE NEED THIS AT ALL
-             v3 <- (g^(-1)) * df_dli  # (1/gt)*(df/dlinpars); T x nr.lin.pars (=testorder+1)
              r1 <- cbind(u+x1,x2)     # T x (tot.tv+garch.pars)
-             r2 <- v3                 # T x (testorder+1)
+             r2 <- (g^(-1)) * df_dli  # (1/gt)*(df/dlinpars); T x nr.lin.pars (=testorder+1)
 
-             # 1 estimate tvgjrgarch, get std.residuals z=e/sqrt(gh), get SSR0 = sum(z^2-1)
-             z2_1 <- (e/sqrt(h*g))^2 - 1
-             SSR0 <- t(z2_1) %*% z2_1
-             # 2: regress z2_1 on r1~r2, get SSR
-             X <- cbind(r1,r2) # T x ncol(r1)+ncol(r2)
-             Y <- z2_1  # T x 1
-             b <- solve(t(X) %*% X) %*% t(X) %*% Y  # vector len=ncol(X)
-             resid <- Y-X %*% t(b)   # T x 1
-             SSR1 <- t(resid) %*% resid # 1x1
-             # LM stat
-             rtn$LM <- Tobs * (SSR0-SSR1)/SSR0
-             rtn$pVal <- pchisq(rtn$LM,df=NCOL(v3),lower.tail=FALSE)
-
-             # ROBUST
-             # 1 as above
-             # 2 regress r2 on r1, get residual vectors
-             resid <- matrix(0,Tobs,NCOL(r2))
-             X <- r1
-             for (i in 1:NCOL(r2)){
-               Y <- r2[,i]
-               b <- solve(t(X) %*% X) %*% t(X) %*% Y  # vector len=ncol(X)
-               resid[,i] <- Y-X %*% t(b)   # T x 1
-             }
-             # regress 1 on (z2_1)resid, get SSR
-             Y <- matrix(1,Tobs,1)
-             X <- z2_1*resid
-             b <- solve(t(X) %*% X) %*% t(X) %*% Y  # vector len=ncol(X)
-             resid <- Y-X %*% t(b)   # T x 1
-             SSR <- t(resid) %*% resid # 1x1
-             # LM Robust
-             rtn$LMrob <- Tobs-SSR
-             rtn$pValrob <- pchisq(rtn$LMrob,df=NCOL(v3),lower.tail=FALSE)
+             rtn <- test.TR2.Robust(z2_1,r1,r2)
 
              return(rtn)
            }
@@ -1733,40 +1764,11 @@ setGeneric(name="test.misSpec2",
                r2 <- (h^(-1)) * cbind(lag0(w,1),lag0(w^3,1))  # T x 2
              }
 
-             # 1 estimate tvgjrgarch, get std.residuals z=e/sqrt(gh), get SSR0 = sum(z^2-1)
-             SSR0 <- t(z2_1) %*% z2_1
-             # 2: regress z2_1 on r1~r2, get SSR
-             X <- cbind(r1,r2) # T x ncol(r1)+ncol(r2)
-             Y <- z2_1  # T x 1
-             b <- solve(t(X) %*% X) %*% t(X) %*% Y  # vector len=ncol(X)
-             resid <- Y-X %*% t(b)   # T x 1
-             SSR1 <- t(resid) %*% resid # 1x1
-             # LM stat
-             rtn$LM <- Tobs * (SSR0-SSR1)/SSR0
-             rtn$pVal <- pchisq(rtn$LM,df=NCOL(r2),lower.tail=FALSE)
-
-             # ROBUST
-             # 1 as above
-             # 2 regress r2 on r1, get residual vectors
-             resid <- matrix(0,Tobs,NCOL(r2))
-             X <- r1
-             for (i in 1:NCOL(r2)){
-               Y <- r2[,i]
-               b <- solve(t(X) %*% X) %*% t(X) %*% Y  # vector len=ncol(X)
-               resid[,i] <- Y-X %*% t(b)   # T x 1
-             }
-             # regress 1 on (z2_1)resid, get SSR
-             Y <- matrix(1,Tobs,1)
-             X <- z2_1*resid
-             b <- solve(t(X) %*% X) %*% t(X) %*% Y  # vector len=ncol(X)
-             resid <- Y-X %*% t(b)   # T x 1
-             SSR <- t(resid) %*% resid # 1x1
-             # LM Robust
-             rtn$LMrob <- Tobs-SSR
-             rtn$pValrob <- pchisq(rtn$LMrob,df=NCOL(r2),lower.tail=FALSE)
-
+             rtn <- test.TR2.Robust(z2_1,r1,r2)
              return(rtn)
-           }
+
+
+             }
 
 )
 
@@ -1791,7 +1793,6 @@ setGeneric(name="test.misSpec3",
              dg_dtv <- .dg_dt(this$Estimated$tv)     # T x nr.tv.pars
              dh_dtv <- .dh_dt(e,this)                # T x nr.tv.pars
              dh_dga <- .dh_dg(e,this)                # T x nr.garch.pars
-             df_dli <- .dg_dt2(this$tvObj@st)        # T x (testorder+1)
 
              # matrices
              u <- g^(-1) * dg_dtv         # (1/g)*(dg/dtvpars); T x nr.tv.pars
@@ -1800,42 +1801,14 @@ setGeneric(name="test.misSpec3",
              r1 <- cbind(u+x1,x2)         # T x (tot.tv+garch.pars)
              r2 <- lag0(z2,(1:maxLag))    # T x maxlag
 
-             # 1 estimate tvgjrgarch, get std.residuals z=e/sqrt(gh), get SSR0 = sum(z^2-1)
-             SSR0 <- t(z2_1) %*% z2_1
-             # 2: regress z2_1 on r1~r2, get SSR
-             X <- cbind(r1,r2) # T x ncol(r1)+ncol(r2)
-             Y <- z2_1  # T x 1
-             b <- solve(t(X) %*% X) %*% t(X) %*% Y  # vector len=ncol(X)
-             resid <- Y-X %*% t(b)   # T x 1
-             SSR1 <- t(resid) %*% resid # 1x1
-             # LM stat
-             rtn$LM <- Tobs * (SSR0-SSR1)/SSR0
-             rtn$pVal <- pchisq(rtn$LM,df=NCOL(r2),lower.tail=FALSE)
-
-             # ROBUST
-             # 1 as above
-             # 2 regress r2 on r1, get residual vectors
-             resid <- matrix(0,Tobs,NCOL(r2))
-             X <- r1
-             for (i in 1:NCOL(r2)){
-               Y <- r2[,i]
-               b <- solve(t(X) %*% X) %*% t(X) %*% Y  # vector len=ncol(X)
-               resid[,i] <- Y-X %*% t(b)   # T x 1
-             }
-             # regress 1 on (z2_1)resid, get SSR
-             Y <- matrix(1,Tobs,1)
-             X <- z2_1*resid
-             b <- solve(t(X) %*% X) %*% t(X) %*% Y  # vector len=ncol(X)
-             resid <- Y-X %*% t(b)   # T x 1
-             SSR <- t(resid) %*% resid # 1x1
-             # LM Robust
-             rtn$LMrob <- Tobs-SSR
-             rtn$pValrob <- pchisq(rtn$LMrob,df=NCOL(r2),lower.tail=FALSE)
-
+             rtn <- test.TR2.Robust(z2_1,r1,r2)
              return(rtn)
+
            }
 
 )
+
+
 
 
 
