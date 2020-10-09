@@ -1,0 +1,34 @@
+missTest1(one tvgarch obj at a time){
+#
+g <- # T x 1
+h <- # T x 1
+
+# derivatives:
+# (1/ht)*(dh/dtvpars)
+dg_dtv <- # T x nr.tv.pars
+dh_dtv <- # T x nr.tv.pars
+dh_dga <- # T x nr.garch.pars
+df_dli <- cbind(matrix(1,Tobs,1),st,st^2,st^3) # T x (testorder+1)
+
+# matrices
+u <- g^(-1) * dg_dtv     # (1/g)*(dg/dtvpars); T x nr.tv.pars
+x1 <- (h^(-1)) * dh_dtv  # (1/ht)*(dh/dtvpars); T x nr.tv.pars
+x2 <- (h^(-1)) * dh_dga  # (1/ht)*(dh/dgarchpars); T x nr.garch.pars
+#x3 <- (h^(-1)) * dh_dli # (1/ht)*(dh/dlinpars); T x nr.lin.pars  DON'T THINK WE NEED THIS AT ALL
+v3 <- (g^(-1)) * df_dli  # (1/gt)*(df/dlinpars); T x nr.lin.pars (=testorder+1)
+r1 <- cbind(u+x1,x2)     # T x (tot.tv+garch.pars)
+r2 <- v3                 # T x (testorder+1)
+
+# 1 estimate tvgjrgarch, get std.residuals z=e/sqrt(gh), get SSR0 = sum(z^2-1)
+z2_1 <- (e/sqrt(h*g))^2-1
+SSR0 <- t(z2_1)%*%z2_1
+# 2: regress z2_1 on r1~r2, get SSR
+X <- cbind(r1,r2)
+Y <- z2_1
+b = solve(t(X)%*%X)%*%t(X)%*%Y
+resid = t(Y-Xb)%*%(Y-Xb)
+SSR1 <- t(resid)%*%resid
+# LM stat
+LM <- Tobs * (SSR0-SSR1)/SSR0
+p <- pchisq(LM,df=NCOL(v3),lower.tail=FALSE)
+}
