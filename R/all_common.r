@@ -129,6 +129,102 @@ setGeneric(name="lag0",
            }
 )
 
+## -- sqrt_mat1 -- ####
+setGeneric(name="sqrt_mat1",
+           valueClass = "matrix",
+           signature = c("m"),
+           def = function(m){
+             # Note: this only works for positive semi-definite (or definite) matrices that are diagonalizable (no normal Jordan forms, etc.)
+             m.eig <- eigen(m)
+             m.sqrt <- m.eig$vectors %*% diag(sqrt(m.eig$values)) %*% solve(m.eig$vectors)
+             return(m.sqrt)
+           }
+)
+
+## -- sqrt_mat2 -- ####
+setGeneric(name="sqrt_mat2",
+           valueClass = "list",
+           signature = c("mat"),
+           def = function(mat){
+             # Using the Denman-Beavers algorithm:
+             maxit <- 50
+             stopifnot(nrow(mat) == ncol(mat))
+             niter <- 0
+             y <- mat
+             z <- diag(rep(1,nrow(mat)))
+             for (niter in 1:maxit) {
+               y.temp <- 0.5*(y+solve(z))
+               z <- 0.5*(z+solve(y))
+               y <- y.temp
+             }
+             return(list(sqrt=y,sqrt.inv=z))
+           }
+)
+
+## -- generateRefData -- ####
+setGeneric(name="generateRefData",
+           valueClass = "matrix",
+           signature = c("tvObj","garchObj","nr.series","nr.obs","corrObj"),
+           def =  function(tvObj,garchObj,nr.series,nr.obs,corrObj)
+           {
+             #z    # this will store iid data
+             #e    # this will store data with GARCH
+
+             TV <- tvObj
+             GARCH <- garchObj
+             GARCH$pars["omega",1] <- 1 - GARCH$pars["alpha",1] - GARCH$pars["beta",1]
+
+             nr.rows <- nr.obs + 2000   # discard = 2000
+             refData <- matrix(NA,nrow = nr.rows, ncol = nr.series)
+             seedstart <- 1984
+
+             #set.seed(seedstart)
+             u <- matrix(rnorm(nr.rows * nr.series),nrow=nr.rows,ncol=nr.series)
+
+             # Step1: Generate Correlated iid Data
+             # - - - CCC - - -
+             corrType <- class(corrObj)
+             if (corrType[1] == "ccc_class"){
+               CCC <- corrObj
+               P <- CCC$P
+               eig <- eigen(P)       # eigenvalues and eigenvectors
+               Psqrt <- eig$vectors %*% diag(sqrt(eig$values)) %*% t(eig$vectors)
+               e <- t(Psqrt %*% t(u))
+             } else {
+               e <- u
+             }
+             #End: Generate Correlated Data
+
+             for (b in seq(1,nr.series))
+             {
+               w <- z <- e[,b]
+               ht_1 <- 1
+               w[1] <- z[1]^2
+               for (t in 2:nr.rows) {
+                 ht <- GARCH$pars["omega",1] + GARCH$pars["alpha",1]*(w[t-1])^2 + GARCH$pars["beta",1]*ht_1
+                 if(GARCH$type == garchtype$gjr) { ht <- ht + GARCH$pars["gamma",1]*(min(w[t-1],0)^2) }
+                 ht_1 <- ht
+                 w[t] <- sqrt(ht)*z[t]
+               }
+               refData[,b] <- as.numeric(w)
+             }
+
+             # Discard the first 2000
+             startRow <- 2001
+             refData <- refData[(startRow:nr.rows),]
+             # GARCH data created
+
+             gt <- .calculate_g(TV)
+             refData <- refData*sqrt(gt)
+             # TV data created
+
+             #saveRDS(refData,"refData.RDS")
+
+             #Return:
+             refData
+
+           }
+)
 
 
-## ===============  End: Anna's Tricky Functions  ================== ##
+
