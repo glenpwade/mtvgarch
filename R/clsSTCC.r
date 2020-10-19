@@ -302,10 +302,32 @@ setGeneric(name="estimateSTCC1",
              return(this)
            }
 )
+## --- estimateSTCC1 --- ####
 setMethod("estimateSTCC1",signature = c("matrix","stcc1_class","missing"),
           function(z,stcc1Obj){
             estimationControl <- list(calcSE = TRUE,verbose = TRUE)
             estimateSTCC1(z,stcc1Obj,estimationControl)
           })
+
+## --- unCorrelateData --- ####
+setGeneric(name="unCorrelateData",
+           valueClass = "matrix",
+           signature = c("e","stcc1Obj"),
+           def = function(e,stcc1Obj){
+             this <- stcc1Obj
+             Pt <- this$Estimated$Pt
+             # Return matrix 'u' of uncorrelated data:
+             u <- matrix(0,nrow = NROW(e),ncol = NCOL(e))
+
+             for(t in 1:this@Tobs){
+               Pt_t <- .unVecL(Pt[t,])
+               Pt_t_inv <- solve(Pt_t)
+               u[t,] <- sqrt_mat1(Pt_t_inv) %*% e[t,]
+             }
+
+             return(u)
+           }
+)
+
 
 ## --- PRIVATE METHODS --- ####
