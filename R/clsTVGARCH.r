@@ -199,7 +199,7 @@ setGeneric(name="estimateTV",
                  colnames(this$Estimated$se) <- paste("se" ,1:this@nr.transitions,sep = "")
                }
              }
-             if (verbose) this$Estimated$optimoutput <- tmp
+             if (estimationControl$verbose) this$Estimated$optimoutput <- tmp
 
              return(this)
            })
@@ -896,7 +896,7 @@ setGeneric(name="estimateGARCH",
                rownames(this$Estimated$se) <- rownames(this$pars)
                colnames(this$Estimated$se) <- "se"
              }
-             if (verbose) this$Estimated$optimoutput <- tmp
+             if (estimationControl$verbose) this$Estimated$optimoutput <- tmp
 
              return(this)
            }

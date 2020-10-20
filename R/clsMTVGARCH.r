@@ -38,7 +38,7 @@ setGeneric(name="mtvgarch",
              # End validation
 
              this@N <- as.integer(length(tvgarch_list))
-             this@Tobs <- tvgarch_list[[1]]$tvObj@Tobs
+             this@Tobs <- tvgarch_list[[1]]@Tobs
 
              for(n in 1:this@N){
                # Validate the class_type:

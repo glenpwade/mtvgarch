@@ -81,9 +81,16 @@ setGeneric(name="calc.Gt",
            signature = c("stcc1Obj"),
            def = function(stcc1Obj){
              this <- stcc1Obj
-             speed <- this$Estimated$pars["speed"]
-             loc1 <- this$Estimated$pars["loc1"]
-             loc2 <- this$Estimated$pars["loc2"]
+
+             if(is.null(this$Estimated$pars)){
+               speed <- this$pars["speed"]
+               loc1 <- this$pars["loc1"]
+               loc2 <- this$pars["loc2"]
+             } else {
+               speed <- this$Estimated$pars["speed"]
+               loc1 <- this$Estimated$pars["loc1"]
+               loc2 <- this$Estimated$pars["loc2"]
+             }
 
              st_c <- 0
              if(this$shape == corrshape$single) { st_c <- this@st - loc1 }
@@ -104,13 +111,20 @@ setGeneric(name=".calc.Pt",
            valueClass = "matrix",
            signature = c("stcc1Obj"),
            def =   function(stcc1Obj){
-
              this <- stcc1Obj
-             vP1 <- .vecL(this$Estimated$P1)
-             vP2 <- .vecL(this$Estimated$P2)
+
+             if(is.null(this$Estimated$P1)){
+               vP1 <- .vecL(this$P1)
+               vP2 <- .vecL(this$P2)
+             } else {
+               vP1 <- .vecL(this$Estimated$P1)
+               vP2 <- .vecL(this$Estimated$P2)
+             }
 
              Gt <- calc.Gt(this)
-             Pt <- t(apply(Gt,MARGIN = 1,FUN = function(X,P1,P2) ((1-X)*P1 + X*P2), P1=vP1, P2=vP2))
+             Pt <- apply(Gt,MARGIN = 1,FUN = function(X,P1,P2) ((1-X)*P1 + X*P2), P1=vP1, P2=vP2)
+
+             if(is.vector(Pt)) Pt <- matrix(Pt,ncol = 1)
 
              return(Pt)
 
@@ -177,28 +191,6 @@ setGeneric(name=".loglik.stcc1",
              this <- stcc1Obj
 
              #### ======== constraint checks ======== ####
-
-             # # Check 1: Confirm we have a valid shape
-
-
-             # # Check 2: Check the boundary values for speed params:
-             # #speedoption -- 1=gamma, 2=gamma/std(st), 3=exp(eta), 4=1/lambda^2
-             # maxSpeed <- switch(speedoption,1000,(1000/sd(st)),7.0,0.30)
-             # if (speed > maxSpeed) return(err_output)
-             # if (speed < 0) return(err_output)
-             #
-             # # Check 3: Check the locations fall within min-max values of st
-             # # We must have at least 1 loc1 to be inside this shape..loop, so no need to check if loc1 contains a valid value:
-             # if (loc1 < min(st)) return(err_output)
-             # if (loc1 > max(st)) return(err_output)
-             # if (numTRpars==3) {
-             #   if (loc2 < min(st)) return(err_output)
-             #   if (loc2 > max(st)) return(err_output)
-             # }
-
-
-             #### ======== calculate loglikelihood ======== ####
-
              this$Estimated$pars <- tail(optimpars,this@nr.trPars)
 
              tmp.par <- optimpars
@@ -217,13 +209,31 @@ setGeneric(name=".loglik.stcc1",
              # Check for SPD - positive-definite check:
              if (min(eig$values) <= 0) return(err_output)
 
-             Gt <- calc.Gt(this)
-             Pt <- t(apply(Gt,MARGIN = 1,FUN = function(X,P1,P2) ((1-X)*P1 + X*P2), P1=vP1, P2=vP2))
+
+             # Check 2: Check the boundary values for speed params:
+             speed <- this$Estimated$pars["speed"]
+             maxSpeed <- switch(this$speedopt,1000,(1000/sd(this@st)),7.0,0.30)
+             if (speed > maxSpeed) return(err_output)
+             if (speed < 0) return(err_output)
+
+             # Check 3: Check the locations fall within min-max values of st
+             loc1 <- this$Estimated$pars["loc1"]
+             if(this$shape == corrshape$double) loc2 <- this$Estimated$pars["loc2"] else loc2 <- NA
+             if (loc1 < min(this@st)) return(err_output)
+             if (loc1 > max(this@st)) return(err_output)
+             if (!is.na(loc2)) {
+               if (loc2 < min(this@st)) return(err_output)
+               if (loc2 > max(this@st)) return(err_output)
+             }
+
+
+             #### ======== calculate loglikelihood ======== ####
+             Pt <- .calc.Pt(this)  # T x nr.covPars
 
              llt <- vector("numeric")
              for(t in 1:this@Tobs) {
-               mPt <- .unVecL(Pt[t,])
-               llt[t] <- -0.5*log(det(mPt)) -0.5*( t(z[t,])%*%(qr.solve(mPt))%*%z[t,])
+               mPt <- .unVecL(Pt[t,,drop=FALSE])
+               llt[t] <- -0.5*log(det(mPt)) -0.5*( z[t,,drop=FALSE] %*% (qr.solve(mPt)) %*% t(z[t,,drop=FALSE]) )
              }
              # Return:
              return(sum(llt))
