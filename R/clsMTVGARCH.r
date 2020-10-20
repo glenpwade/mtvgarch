@@ -4,7 +4,7 @@
 
 ## --- mtvgarch_class Definition --- ####
 mtvgarch <- setClass(Class = "mtvgarch_class",
-               slots = c(N="integer",Tobs="integer"),
+               slots = c(Tobs="integer",N="integer"),
                contains = c("namedList")
                )
 
@@ -12,6 +12,9 @@ mtvgarch <- setClass(Class = "mtvgarch_class",
 setMethod("initialize","mtvgarch_class",
           function(.Object,...){
             .Object <- callNextMethod(.Object,...)
+            # Default initial values
+            .Object@N <- as.integer(0)
+            .Object@Tobs <- as.integer(0)
             # Return:
             .Object
           })

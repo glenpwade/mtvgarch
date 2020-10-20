@@ -1,4 +1,4 @@
-## --- Correlation Structures --- ####
+## --- Correlation Structures --- ##
 ##
 ## -- We have a number of Correlation objects, with many common properties
 ## -- This class file maintains the Structure for STCC1 (STCC with One Transition)
@@ -18,6 +18,7 @@ setMethod("initialize","stcc1_class",
             # Default initial values
             .Object$mtvgarch <- list()
             .Object@N <- as.integer(0)
+            .Object@Tobs <- as.integer(0)
             .Object$shape <- corrshape$single
             .Object$speedopt <- corrspeedopt$eta
             .Object$optimcontrol <- list(fnscale = -1, maxit = 1000, reltol = 1e-5)

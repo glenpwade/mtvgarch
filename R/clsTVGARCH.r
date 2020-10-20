@@ -19,7 +19,7 @@
 ## --- TV_CLASS Definition --- ####
 
 tv <- setClass(Class = "tv_class",
-               slots = c(st="numeric",g="numeric",delta0free="logical",nr.pars="integer", nr.transitions="integer",Tobs="integer",taylor.order="integer"),
+               slots = c(Tobs="integer",st="numeric",g="numeric",delta0free="logical",nr.pars="integer", nr.transitions="integer",taylor.order="integer"),
                contains = c("namedList")
 )
 
@@ -97,10 +97,6 @@ setGeneric(name="estimateTV",
              this$Estimated <- list()
              if(is.null(this$Estimated$delta0)) this$Estimated$delta0 <- this$delta0
 
-             if(!is.list(estimationControl)) estimationControl <- list()
-             if(!is.null(estimationControl$calcSE)) calcSE <- estimationControl$calcSE else calcSE <- FALSE
-             if(!is.null(estimationControl$verbose)) verbose <- estimationControl$verbose else verbose <- FALSE
-
              # Check for the simple case of just delta0 provided, no TV$pars
              if(this@nr.transitions == 0){
                if(this@delta0free){
@@ -119,7 +115,7 @@ setGeneric(name="estimateTV",
              }
 
              # Set verbose tracing:
-             if (verbose) {
+             if (estimationControl$verbose) {
                this$optimcontrol$trace <- 10
                cat("\nEstimating TV object...\n")
              } else this$optimcontrol$trace <- 0
@@ -141,7 +137,7 @@ setGeneric(name="estimateTV",
 
              # Now call optim:
              tmp <- NULL
-             try(tmp <- optim(optimpars,loglik.tv.univar,gr=NULL,e,this,method="BFGS",control=this$optimcontrol,hessian=calcSE))
+             try(tmp <- optim(optimpars,loglik.tv.univar,gr=NULL,e,this,method="BFGS",control=this$optimcontrol,hessian=estimationControl$calcSE))
 
              ## --- Attach results of estimation to the object --- ##
 
@@ -180,7 +176,7 @@ setGeneric(name="estimateTV",
              this$Estimated$delta0_se <- NULL
              this$Estimated$se <- NULL
 
-             if (calcSE) {
+             if (estimationControl$calcSE) {
                this$Estimated$hessian <- round(tmp$hessian,5)
                stdErrors <- NULL
                try(stdErrors <- sqrt(-diag(qr.solve(tmp$hessian))))
@@ -210,10 +206,7 @@ setGeneric(name="estimateTV",
 
 setMethod("estimateTV",signature = c("numeric","tv_class","missing"),
           function(e,tvObj){
-            estControl <- list()
-            estControl$calcSE <- FALSE
-            estControl$verbose <- FALSE
-            estControl$taylor.order <- as.integer(0)
+            estControl <- list(calcSE <- TRUE,verbose <- TRUE)
             estimateTV(e,tvObj,estControl)
           })
 
@@ -855,11 +848,7 @@ setGeneric(name="estimateGARCH",
              this$Estimated <- list()
              this$Estimated$method <- "MLE"
 
-             #
-             if(!is.list(estimationControl)) estimationControl <- list()
-             if(!is.null(estimationControl$calcSE)) calcSE <- estimationControl$calcSE else calcSE <- FALSE
-             if(!is.null(estimationControl$verbose)) verbose <- estimationControl$verbose else verbose <- FALSE
-             if (verbose) {
+             if (estimationControl$verbose) {
                this$optimcontrol$trace <- 10
                cat("\nEstimating GARCH object...\n")
              } else this$optimcontrol$trace <- 0
@@ -870,7 +859,7 @@ setGeneric(name="estimateGARCH",
 
              # Now call optim:
              tmp <- NULL
-             try(tmp <- optim(optimpars,loglik.garch.univar,gr=NULL,e,this, method="BFGS",control=this$optimcontrol,hessian=calcSE))
+             try(tmp <- optim(optimpars,loglik.garch.univar,gr=NULL,e,this, method="BFGS",control=this$optimcontrol,hessian=estimationControl$calcSE))
 
              # An unhandled error could result in a NULL being returned by optim()
              if (is.null(tmp)) {
@@ -895,7 +884,7 @@ setGeneric(name="estimateGARCH",
              this@h <- .calculate_h(this,e)
 
              # Calc Std Errors
-             if (calcSE) {
+             if (estimationControl$calcSE) {
                this$Estimated$hessian <- round(tmp$hessian,5)
                StdErrors <- NULL
                try(StdErrors <- sqrt(-diag(qr.solve(tmp$hessian))))
@@ -915,11 +904,8 @@ setGeneric(name="estimateGARCH",
 
 setMethod("estimateGARCH",signature = c("numeric","garch_class","missing"),
           function(e,garchObj){
-            estimationControl <- list()
-            estimationControl$calcSE <- FALSE
-            estimationControl$verbose <- FALSE
-            estimationControl$vartargetWindow <- 0
-            estimateGARCH(e,garchObj,estimationControl)
+            estControl <- list(calcSE <- TRUE,verbose <- TRUE)
+            estimateGARCH(e,garchObj,estControl)
           }
 )
 
@@ -938,28 +924,23 @@ setGeneric(name="estimateGARCH_RollingWindow",
              }
 
              if(!is.list(estimationControl)){
-               message("A valid estimationControl list is required - see Help")
-               return(this)
-             } else {
-               if(is.null(estimationControl$vartargetWindow)) {
-                 message("A valid estimationControl$vartargetWindow length is required - see Help")
-                 return(this)
-               }else {
-                 if(estimationControl$vartargetWindow <= 0) {
-                   message("estimationControl$vartargetWindow length must be a positive value - see Help")
-                   return(this)
-                 }
-               }
+               warning("A valid estimationControl list is required - see Help")
              }
-             vartargetWindow <- estimationControl$vartargetWindow
+
+             if(is.null(estimationControl$vartargetWindow)) {
+               warning("A valid estimationControl$vartargetWindow length is required.\nA default value of 500 observations will be used - see Help for details.")
+               vartargetWindow <- 500
+             } else if(estimationControl$vartargetWindow <= 0) {
+               vartargetWindow <- 500
+             } else vartargetWindow <- estimationControl$vartargetWindow
              # == End: Validations == #
 
              # Attach results of estimation to the object
              this$Estimated <- list()
 
              #
-             if(!is.null(estimationControl$calcSE)) calcSE <- estimationControl$calcSE else calcSE <- FALSE
-             if(!is.null(estimationControl$verbose)) verbose <- estimationControl$verbose else verbose <- FALSE
+             if(!is.null(estimationControl$calcSE)) calcSE <- estimationControl$calcSE else calcSE <- TRUE
+             if(!is.null(estimationControl$verbose)) verbose <- estimationControl$verbose else verbose <- TRUE
 
              if (verbose) {
                this$optimcontrol$trace <- 10
@@ -1335,7 +1316,7 @@ setMethod("summary",signature="garch_class",
 
 ## --- tvgarch_CLASS Definition --- ####
 tvgarch <- setClass(Class = "tvgarch_class",
-                    slots = c(IsEstimated="logical"),
+                    slots = c(Tobs="integer",IsEstimated="logical"),
                     contains = c("namedList")
 )
 
@@ -1344,6 +1325,7 @@ setMethod("initialize","tvgarch_class",
           function(.Object){
             .Object$tvObj <- new("tv_class")
             .Object$garchObj <- new("garch_class")
+            .Object@Tobs <- as.integer(0)
             .Object@IsEstimated <- FALSE
             # Return:
             .Object
@@ -1365,8 +1347,8 @@ setGeneric(name="tvgarch",
 
              this$tvObj <- tvObj
              this$garchObj <- garchObj
+             this@Tobs <- tvObj@Tobs
 
-             ## TODO:  Confirm & Fix if necessary!!!
              # Configure the tv object, based on Garch type
              if(isTRUE(this$tvObj@delta0free)){
                if(this$garchObj$type != garchtype$noGarch){
@@ -1487,10 +1469,15 @@ setGeneric(name="estimateTVGARCH",
 
 
 ## -- loglik.tvgarch.univar.1 ####
-setGeneric(name="loglik.tvgarch.univar.1",
+setGeneric(name=".loglik.tvgarch.univar.1",
            valueClass = "numeric",
            signature = c("optimpars","e","tvgarchObj"),
            def =  function(optimpars,e,tvgarchObj){
+             ##
+             ## --- This is an attempt to estimate the tv&garch components in a single optim() call
+             ## --- We found that the optimiser converges, but the hessians usually don't invert well (NaN's)
+             ##
+
              this <- tvgarchObj
 
              TV <- this$tvObj

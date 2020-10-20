@@ -164,45 +164,57 @@ setGeneric(name="sqrt_mat2",
 ## -- generateRefData -- ####
 setGeneric(name="generateRefData",
            valueClass = "matrix",
-           signature = c("tvObj","garchObj","nr.series","nr.obs","corrObj"),
-           def =  function(tvObj,garchObj,nr.series,nr.obs,corrObj)
+           signature = c("nr.series","nr.obs","tvObj","garchObj","corrObj"),
+           def =  function(nr.series,nr.obs,tvObj,garchObj,corrObj)
            {
-             #z    # this will store iid data
-             #e    # this will store data with GARCH
 
-             TV <- tvObj
-             GARCH <- garchObj
-             GARCH$pars["omega",1] <- 1 - GARCH$pars["alpha",1] - GARCH$pars["beta",1]
+             garchObj$pars["omega",1] <- ( 1 - garchObj$pars["alpha",1] - garchObj$pars["beta",1] )
 
              nr.rows <- nr.obs + 2000   # discard = 2000
              refData <- matrix(NA,nrow = nr.rows, ncol = nr.series)
-             seedstart <- 1984
 
-             #set.seed(seedstart)
+             # u = un-correlated data
              u <- matrix(rnorm(nr.rows * nr.series),nrow=nr.rows,ncol=nr.series)
 
              # Step1: Generate Correlated iid Data
-             # - - - CCC - - -
+
+             # e = correlated data (defaults to 'u' if there is no correlation object)
+             e <- u
+
              corrType <- class(corrObj)
+
+             # - - - CCC - - -
              if (corrType[1] == "ccc_class"){
-               CCC <- corrObj
-               P <- CCC$P
-               eig <- eigen(P)       # eigenvalues and eigenvectors
-               Psqrt <- eig$vectors %*% diag(sqrt(eig$values)) %*% t(eig$vectors)
-               e <- t(Psqrt %*% t(u))
-             } else {
-               e <- u
+               if(is.null(corrObj$Estimated)) {
+                 P <- corrObj$P
+               } else P <- corrObj$Estimated$P
+               P.sqrt <-  sqrt_mat1(P)
+               e <- t(P.sqrt %*% t(u))
              }
+
+             if (corrType[1] == "stcc1_class"){
+               if(is.null(corrObj$Estimated)) {
+                 corrObj$Estimated$P1 <- corrObj$P1
+                 corrObj$Estimated$P2 <- corrObj$P2
+               }
+               Pt <- .calc.Pt(corrObj)
+               for (t in 1:corrObj@Tobs){
+                 mPt <- .unVecL(P[t,])
+                 mPt.sqrt <- sqrt_mat1(mPt)
+                 e[t,] <- t( mPt.sqrt %*% t(u[t,]) )
+               }
+             }
+
              #End: Generate Correlated Data
 
-             for (b in seq(1,nr.series))
+             for (b in 1:nr.series)
              {
                w <- z <- e[,b]
                ht_1 <- 1
                w[1] <- z[1]^2
                for (t in 2:nr.rows) {
-                 ht <- GARCH$pars["omega",1] + GARCH$pars["alpha",1]*(w[t-1])^2 + GARCH$pars["beta",1]*ht_1
-                 if(GARCH$type == garchtype$gjr) { ht <- ht + GARCH$pars["gamma",1]*(min(w[t-1],0)^2) }
+                 ht <- garchObj$pars["omega",1] + garchObj$pars["alpha",1]*(w[t-1])^2 + garchObj$pars["beta",1]*ht_1
+                 if(garchObj$type == garchtype$gjr) { ht <- ht + garchObj$pars["gamma",1]*(min(w[t-1],0)^2) }
                  ht_1 <- ht
                  w[t] <- sqrt(ht)*z[t]
                }
@@ -214,7 +226,7 @@ setGeneric(name="generateRefData",
              refData <- refData[(startRow:nr.rows),]
              # GARCH data created
 
-             gt <- .calculate_g(TV)
+             gt <- .calculate_g(tvObj)
              refData <- refData*sqrt(gt)
              # TV data created
 
