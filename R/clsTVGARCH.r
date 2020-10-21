@@ -1616,13 +1616,18 @@ setGeneric(name=".dh_dt",
            }
 )
 
-## -- .df_dli(st) ####
+## -- .df_dli(tvObj) ####
 setGeneric(name=".df_dli",
            valueClass = "matrix",
-           signature = c("st"),
-           def =  function(st){
-             ret <- matrix(nrow=NROW(st),ncol=4)
-             for(n in 1:4){
+           signature = c("tvObj"),
+           def =  function(tvObj){
+             this <- tvObj
+
+             st <- this@st
+             testOrd <- this@taylor.order + 1
+             ret <- matrix(nrow=NROW(st),ncol=testOrd)
+
+             for(n in 1:testOrd){
                ret[,n] <- st^(n-1)
              }
              return(ret)
@@ -1691,7 +1696,7 @@ setGeneric(name="test.misSpec1",
              dg_dtv <- .dg_dt(this$Estimated$tv)     # T x nr.tv.pars
              dh_dtv <- .dh_dt(e,this)                # T x nr.tv.pars
              dh_dga <- .dh_dg(e,this)                # T x nr.garch.pars
-             df_dli <- .df_dli(this$tvObj@st)        # T x (testorder+1)
+             df_dli <- .df_dli(this$tvObj)           # T x (testorder+1)
 
              z <- e/sqrt(g*h)
              z2 <- z^2
