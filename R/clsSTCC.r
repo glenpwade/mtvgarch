@@ -82,15 +82,9 @@ setGeneric(name="calc.Gt",
            def = function(stcc1Obj){
              this <- stcc1Obj
 
-             if(is.null(this$Estimated$pars)){
-               speed <- this$pars["speed"]
-               loc1 <- this$pars["loc1"]
-               loc2 <- this$pars["loc2"]
-             } else {
-               speed <- this$Estimated$pars["speed"]
-               loc1 <- this$Estimated$pars["loc1"]
-               loc2 <- this$Estimated$pars["loc2"]
-             }
+             speed <- this$Estimated$pars["speed"]
+             loc1 <- this$Estimated$pars["loc1"]
+             loc2 <- this$Estimated$pars["loc2"]
 
              st_c <- 0
              if(this$shape == corrshape$single) { st_c <- this@st - loc1 }
@@ -113,13 +107,8 @@ setGeneric(name=".calc.Pt",
            def =   function(stcc1Obj){
              this <- stcc1Obj
 
-             if(is.null(this$Estimated$P1)){
-               vP1 <- .vecL(this$P1)
-               vP2 <- .vecL(this$P2)
-             } else {
-               vP1 <- .vecL(this$Estimated$P1)
-               vP2 <- .vecL(this$Estimated$P2)
-             }
+             vP1 <- .vecL(this$Estimated$P1)
+             vP2 <- .vecL(this$Estimated$P2)
 
              Gt <- calc.Gt(this)
              Pt <- apply(Gt,MARGIN = 1,FUN = function(X,P1,P2) ((1-X)*P1 + X*P2), P1=vP1, P2=vP2)
@@ -200,6 +189,7 @@ setGeneric(name=".loglik.stcc1",
              eig <- eigen(mP,symmetric=TRUE,only.values=TRUE)
              # Check for SPD - positive-definite check:
              if (min(eig$values) <= 0) return(err_output)
+             this$Estimated$P1 <- mP
 
              #Remove the P1 covPars, then extract the P2 covPars
              tmp.par <- tail(tmp.par,-this@nr.covPars)
@@ -208,6 +198,7 @@ setGeneric(name=".loglik.stcc1",
              eig <- eigen(mP,symmetric=TRUE,only.values=TRUE)
              # Check for SPD - positive-definite check:
              if (min(eig$values) <= 0) return(err_output)
+             this$Estimated$P2 <- mP
 
 
              # Check 2: Check the boundary values for speed params:
@@ -233,7 +224,7 @@ setGeneric(name=".loglik.stcc1",
              llt <- vector("numeric")
              for(t in 1:this@Tobs) {
                mPt <- .unVecL(Pt[t,,drop=FALSE])
-               llt[t] <- -0.5*log(det(mPt)) -0.5*( z[t,,drop=FALSE] %*% (qr.solve(mPt)) %*% t(z[t,,drop=FALSE]) )
+               llt[t] <- -0.5*log(det(mPt)) -0.5*( z[t,,drop=FALSE] %*% (solve(mPt)) %*% t(z[t,,drop=FALSE]) )
              }
              # Return:
              return(sum(llt))
