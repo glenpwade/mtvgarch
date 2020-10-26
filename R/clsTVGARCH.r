@@ -213,12 +213,12 @@ setMethod("estimateTV",signature = c("numeric","tv_class","missing"),
 ## -- test.LM.TR2(e,tv) ####
 setGeneric(name="test.LM.TR2",
            valueClass = "numeric",
-           signature = c("e","tvObj"),
-           def=function(e,tvObj){
+           signature = c("e","tvObj","testOrder"),
+           def=function(e,tvObj,testOrder){
              this <- tvObj
 
-             if(this@taylor.order == 0){
-               message("Cannot execute test with no alternate hypothesis. Please set a valid taylor.order")
+             if(testOrder <= 0){
+               message("Cannot execute test with no alternate hypothesis. Please set a valid testOrder")
                return(NaN)
              }
 
@@ -228,8 +228,7 @@ setGeneric(name="test.LM.TR2",
              dgdt <- .dg_dt(this)
 
              # 2. Calc derivatives of taylor pars (linearised component) under the null
-             dgdt2 <- .dg_dt2(this@st)
-             dgdt2 <- dgdt2[,(1:this@taylor.order),drop=FALSE]
+             dgdt2 <- .dg_dt2(this@st,testOrder)
 
              g <- .calculate_g(this)
              X <- cbind(dgdt,dgdt2)/g
@@ -263,12 +262,12 @@ setGeneric(name="test.LM.TR2",
 ## -- test.LM.Robust(e,tv) ####
 setGeneric(name="test.LM.Robust",
            valueClass = "numeric",
-           signature = c("e","tvObj"),
-           def = function(e,tvObj){
+           signature = c("e","tvObj","testOrder"),
+           def = function(e,tvObj,testOrder){
              this <- tvObj
 
-             if(this@taylor.order == 0){
-               message("Cannot execute test with no alternate hypothesis. Please set a valid taylor.order")
+             if(testOrder <= 0){
+               message("Cannot execute test with no alternate hypothesis. Please set a valid testOrder")
                return(NaN)
              }
              # 1. Calc derivatives of params dgdt = Tx1 or Tx4 or Tx7 or...
@@ -276,8 +275,7 @@ setGeneric(name="test.LM.Robust",
              dgdt <- .dg_dt(this)
 
              # 2. Calc derivatives of taylor pars (linearised component) under the null
-             dgdt2 <- .dg_dt2(this@st)
-             dgdt2 <- dgdt2[,(1:this@taylor.order),drop=FALSE]
+             dgdt2 <- .dg_dt2(this@st,testOrder)
 
              g <- .calculate_g(this)
              X <- dgdt/g
@@ -578,17 +576,15 @@ setGeneric(name=".dg_dt",
 ## -- .dg_dt2(tv@st) ####
 setGeneric(name=".dg_dt2",
            valueClass = "matrix",
-           signature = c("st"),
-           def =  function(st){
+           signature = c("st","testOrder"),
+           def =  function(st,testOrder){
 
-             rtn <- matrix(1,NROW(st),4)
-             rtn[,1] <- st
-             rtn[,2] <- st^2
-             rtn[,3] <- st^3
-             rtn[,4] <- st^4
+             rtn <- matrix(nrow=NROW(st),ncol=testOrder)
+             for(n in 1:testOrder){
+               rtn[,n] <- st^n
+             }
              # Return:
-             rtn
-
+             return(rtn)
            }
 )
 
