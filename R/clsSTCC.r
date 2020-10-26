@@ -6,7 +6,7 @@
 
 ## --- stcc1_class Definition --- ####
 stcc1 <- setClass(Class = "stcc1_class",
-               slots = c(st="numeric",nr.covPars="integer",nr.trPars="integer",Tobs="integer",N="integer"),
+               slots = c(st="numeric",nr.corPars="integer",nr.trPars="integer",Tobs="integer",N="integer"),
                contains = c("namedList")
                )
 
@@ -65,7 +65,7 @@ setGeneric(name="stcc1",
              names(this$pars) <- c("speed","loc1","loc2")
 
              N <- this@N
-             this@nr.covPars <- as.integer((N^2-N)/2)
+             this@nr.corPars <- as.integer((N^2-N)/2)
              this$P1 <- matrix(0.3,N,N)
              diag(this$P1) <- 1
              this$P2 <- matrix(0.7,N,N)
@@ -184,16 +184,16 @@ setGeneric(name=".loglik.stcc1",
 
              tmp.par <- optimpars
 
-             vP1 <- tmp.par[1:this@nr.covPars]
+             vP1 <- tmp.par[1:this@nr.corPars]
              mP <- unVecL(vP1)
              eig <- eigen(mP,symmetric=TRUE,only.values=TRUE)
              # Check for SPD - positive-definite check:
              if (min(eig$values) <= 0) return(err_output)
              this$Estimated$P1 <- mP
 
-             #Remove the P1 covPars, then extract the P2 covPars
-             tmp.par <- tail(tmp.par,-this@nr.covPars)
-             vP2 <- tmp.par[1:this@nr.covPars]
+             #Remove the P1 corPars, then extract the P2 corPars
+             tmp.par <- tail(tmp.par,-this@nr.corPars)
+             vP2 <- tmp.par[1:this@nr.corPars]
              mP <- unVecL(vP2)
              eig <- eigen(mP,symmetric=TRUE,only.values=TRUE)
              # Check for SPD - positive-definite check:
@@ -219,7 +219,7 @@ setGeneric(name=".loglik.stcc1",
 
 
              #### ======== calculate loglikelihood ======== ####
-             Pt <- .calc.Pt(this)  # T x nr.covPars
+             Pt <- .calc.Pt(this)  # T x nr.corPars
 
              llt <- vector("numeric")
              for(t in 1:this@Tobs) {
@@ -266,10 +266,10 @@ setGeneric(name="estimateSTCC1",
                this$Estimated$value <- tmp$value
 
                tmp.par <- tmp$par
-               this$Estimated$P1 <- unVecL(tmp.par[1:this@nr.covPars])
-               tmp.par <- tail(tmp.par,-this@nr.covPars)
-               this$Estimated$P2 <- unVecL(tmp.par[1:this@nr.covPars])
-               tmp.par <- tail(tmp.par,-this@nr.covPars)
+               this$Estimated$P1 <- unVecL(tmp.par[1:this@nr.corPars])
+               tmp.par <- tail(tmp.par,-this@nr.corPars)
+               this$Estimated$P2 <- unVecL(tmp.par[1:this@nr.corPars])
+               tmp.par <- tail(tmp.par,-this@nr.corPars)
                this$Estimated$pars <- tmp.par
                if(this$shape != corrshape$double) this$Estimated$pars <- c(this$Estimated$pars,NA)
                names(this$Estimated$pars) <- names(this$pars)
@@ -280,10 +280,10 @@ setGeneric(name="estimateSTCC1",
                  try(vecSE <- sqrt(-diag(qr.solve(tmp$hessian))))
 
                  if(length(vecSE) > 0) {
-                   this$Estimated$P1.se <- unVecL(vecSE[1:this@nr.covPars])
-                   vecSE <- tail(vecSE,-this@nr.covPars)
-                   this$Estimated$P2.se <- unVecL(vecSE[1:this@nr.covPars])
-                   vecSE <- tail(vecSE,-this@nr.covPars)
+                   this$Estimated$P1.se <- unVecL(vecSE[1:this@nr.corPars])
+                   vecSE <- tail(vecSE,-this@nr.corPars)
+                   this$Estimated$P2.se <- unVecL(vecSE[1:this@nr.corPars])
+                   vecSE <- tail(vecSE,-this@nr.corPars)
 
                    this$Estimated$pars.se <- vecSE
                    if(this$shape != corrshape$double) this$Estimated$pars.se <- c(this$Estimated$pars.se,NA)

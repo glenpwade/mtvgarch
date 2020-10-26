@@ -629,11 +629,31 @@ setGeneric(name=".calculate_g",
            }
 )
 
+## -- get_g ####
 setGeneric(name="get_g",
            valueClass = "numeric",
-           signature = c("tvObj"),
-           def = function(tvObj){
-            .calculate_g(tvObj)
+           signature = c("Obj"),
+           def = function(Obj){
+
+             objType <- class(Obj)
+             if(objType[1] == "tv_class"){
+               rtn <- .calculate_g(tvObj)
+               return(rtn)
+             }
+             #
+             if(objType[1] != "stcc1_class"){
+               this <- Obj
+               this$Estimated$pars <- this$pars
+               this$Estimated$P1 <- this$P1
+               this$Estimated$P2 <- this$P2
+               rtn <- calc.Gt(this)
+               return(as.vector(rtn))
+
+             }
+             # Else:
+             warning("Only tv & stcc1 objects are supported")
+             return(NaN)
+
           }
 )
 
