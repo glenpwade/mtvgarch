@@ -14,12 +14,12 @@ corrshape <- list(single=1,double=2,double1loc=3)
 corrspeedopt <- list(gamma=1,gamma_std=2,eta=3)
 
 ## -- vecl -- ####
-setGeneric(name=".vecL",
+setGeneric(name="vecL",
            valueClass = "numeric",
            signature = c("sqrMatrix"),
            def = function(sqrMatrix){
              ## Returns the lower triangle of a square matrix in vector format.
-             ## Note: This operation can be reversed using .unVecL()
+             ## Note: This operation can be reversed using unVecL()
              idx = 0
              N <- ncol(sqrMatrix)
              vM <- matrix(0,N*(N-1)/2,1)
@@ -33,12 +33,12 @@ setGeneric(name=".vecL",
            }
 )
 ## -- unVecl -- ####
-setGeneric(name=".unVecL",
+setGeneric(name="unVecL",
            valueClass = "matrix",
            signature = c("lowerTri"),
            def = function(lowerTri){
              ## Returns a square matrix constructed using a vector of it's lower triangle.
-             ## Note: This operation can be reversed using: .vecL(Matrix)
+             ## Note: This operation can be reversed using: vecL(Matrix)
              k <- length(lowerTri)
              N <- (1+sqrt(1+8*k))/2
              M <- matrix(0,N,N)
@@ -203,7 +203,7 @@ setGeneric(name="generateRefData",
                }
                Pt <- .calc.Pt(corrObj)
                for (t in 1:corrObj@Tobs){
-                 mPt <- .unVecL(Pt[t,,drop=FALSE])
+                 mPt <- unVecL(Pt[t,,drop=FALSE])
                  mPt.sqrt <- sqrt_mat1(mPt)
                  e[t,] <- t( mPt.sqrt %*% t(u[t,,drop=FALSE]) )
                }

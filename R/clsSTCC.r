@@ -107,8 +107,8 @@ setGeneric(name=".calc.Pt",
            def =   function(stcc1Obj){
              this <- stcc1Obj
 
-             vP1 <- .vecL(this$Estimated$P1)
-             vP2 <- .vecL(this$Estimated$P2)
+             vP1 <- vecL(this$Estimated$P1)
+             vP2 <- vecL(this$Estimated$P2)
 
              Gt <- calc.Gt(this)
              Pt <- apply(Gt,MARGIN = 1,FUN = function(X,P1,P2) ((1-X)*P1 + X*P2), P1=vP1, P2=vP2)
@@ -185,7 +185,7 @@ setGeneric(name=".loglik.stcc1",
              tmp.par <- optimpars
 
              vP1 <- tmp.par[1:this@nr.covPars]
-             mP <- .unVecL(vP1)
+             mP <- unVecL(vP1)
              eig <- eigen(mP,symmetric=TRUE,only.values=TRUE)
              # Check for SPD - positive-definite check:
              if (min(eig$values) <= 0) return(err_output)
@@ -194,7 +194,7 @@ setGeneric(name=".loglik.stcc1",
              #Remove the P1 covPars, then extract the P2 covPars
              tmp.par <- tail(tmp.par,-this@nr.covPars)
              vP2 <- tmp.par[1:this@nr.covPars]
-             mP <- .unVecL(vP2)
+             mP <- unVecL(vP2)
              eig <- eigen(mP,symmetric=TRUE,only.values=TRUE)
              # Check for SPD - positive-definite check:
              if (min(eig$values) <= 0) return(err_output)
@@ -223,7 +223,7 @@ setGeneric(name=".loglik.stcc1",
 
              llt <- vector("numeric")
              for(t in 1:this@Tobs) {
-               mPt <- .unVecL(Pt[t,,drop=FALSE])
+               mPt <- unVecL(Pt[t,,drop=FALSE])
                llt[t] <- -0.5*log(det(mPt)) -0.5*( z[t,,drop=FALSE] %*% (solve(mPt)) %*% t(z[t,,drop=FALSE]) )
              }
              # Return:
@@ -243,7 +243,7 @@ setGeneric(name="estimateSTCC1",
 
              this$Estimated <- list()
 
-             optimpars <- c( .vecL(this$P1), .vecL(this$P2), this$pars )
+             optimpars <- c( vecL(this$P1), vecL(this$P2), this$pars )
              optimpars <- optimpars[!is.na(optimpars)]
 
              ### ---  Call optim to calculate the estimate --- ###
@@ -266,9 +266,9 @@ setGeneric(name="estimateSTCC1",
                this$Estimated$value <- tmp$value
 
                tmp.par <- tmp$par
-               this$Estimated$P1 <- .unVecL(tmp.par[1:this@nr.covPars])
+               this$Estimated$P1 <- unVecL(tmp.par[1:this@nr.covPars])
                tmp.par <- tail(tmp.par,-this@nr.covPars)
-               this$Estimated$P2 <- .unVecL(tmp.par[1:this@nr.covPars])
+               this$Estimated$P2 <- unVecL(tmp.par[1:this@nr.covPars])
                tmp.par <- tail(tmp.par,-this@nr.covPars)
                this$Estimated$pars <- tmp.par
                if(this$shape != corrshape$double) this$Estimated$pars <- c(this$Estimated$pars,NA)
@@ -280,9 +280,9 @@ setGeneric(name="estimateSTCC1",
                  try(vecSE <- sqrt(-diag(qr.solve(tmp$hessian))))
 
                  if(length(vecSE) > 0) {
-                   this$Estimated$P1.se <- .unVecL(vecSE[1:this@nr.covPars])
+                   this$Estimated$P1.se <- unVecL(vecSE[1:this@nr.covPars])
                    vecSE <- tail(vecSE,-this@nr.covPars)
-                   this$Estimated$P2.se <- .unVecL(vecSE[1:this@nr.covPars])
+                   this$Estimated$P2.se <- unVecL(vecSE[1:this@nr.covPars])
                    vecSE <- tail(vecSE,-this@nr.covPars)
 
                    this$Estimated$pars.se <- vecSE
@@ -322,7 +322,7 @@ setGeneric(name="unCorrelateData",
              u <- matrix(0,nrow = NROW(e),ncol = NCOL(e))
 
              for(t in 1:this@Tobs){
-               Pt_t <- .unVecL(Pt[t,])
+               Pt_t <- unVecL(Pt[t,])
                Pt_t_inv <- solve(Pt_t)
                u[t,] <- sqrt_mat1(Pt_t_inv) %*% e[t,]
              }

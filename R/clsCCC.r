@@ -59,7 +59,7 @@ setGeneric(name=".loglik.ccc",
              err_output <- -1e10
 
              vP <- optimpars
-             mP <- .unVecL(vP)
+             mP <- unVecL(vP)
              eig <- eigen(mP,symmetric=TRUE,only.values = TRUE)
              if (min(eig$values) <= 0) return(err_output)
 
@@ -305,7 +305,7 @@ setGeneric(name="test.TVCC1vTVCC2",
              dlldrho_A    <- matrix(0,testOrder * H0@N * (H0@N-1)/2,1)
 
              for(t in 1:H0@Tobs){
-               Pt <- .unVecL(H0$Estimated$Pt[t,])
+               Pt <- unVecL(H0$Estimated$Pt[t,])
                Ptinv <- solve(Pt)
                P1 <- H0$Estimated$P1
                P2 <- H0$Estimated$P2

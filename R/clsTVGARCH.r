@@ -1619,23 +1619,23 @@ setGeneric(name=".dh_dt",
 ## -- .df_dli(tvObj) ####
 setGeneric(name=".df_dli",
            valueClass = "matrix",
-           signature = c("tvObj"),
-           def =  function(tvObj){
+           signature = c("tvObj","testOrder"),
+           def =  function(tvObj,testOrder){
              this <- tvObj
 
              st <- this@st
-             testOrd <- this@taylor.order + 1
-             ret <- matrix(nrow=NROW(st),ncol=testOrd)
+             nrDerivs <- testOrder + 1
+             ret <- matrix(nrow=NROW(st),ncol=nrDerivs)
 
-             for(n in 1:testOrd){
+             for(n in 1:nrDerivs){
                ret[,n] <- st^(n-1)
              }
              return(ret)
 
            }
 )
-
-setGeneric(name="test.TR2.Robust",
+## -- .test.misSpec.Robust ####
+setGeneric(name=".test.misSpec.Robust",
            valueClass = "list",
            signature = c("z","r1","r2"),
            def =  function(z,r1,r2){
@@ -1683,8 +1683,8 @@ setGeneric(name="test.TR2.Robust",
 ## -- test.misSpec1(tvgarch) ####
 setGeneric(name="test.misSpec1",
            valueClass = "list",
-           signature = c("e","tvgarchObj"),
-           def =  function(e,tvgarchObj){
+           signature = c("e","tvgarchObj","testOrder"),
+           def =  function(e,tvgarchObj,testOrder){
              this <- tvgarchObj
              rtn <- list()
 
@@ -1693,10 +1693,10 @@ setGeneric(name="test.misSpec1",
              h <- this$Estimated$garch@h
 
              # derivatives:
-             dg_dtv <- .dg_dt(this$Estimated$tv)     # T x nr.tv.pars
-             dh_dtv <- .dh_dt(e,this)                # T x nr.tv.pars
-             dh_dga <- .dh_dg(e,this)                # T x nr.garch.pars
-             df_dli <- .df_dli(this$tvObj)           # T x (testorder+1)
+             dg_dtv <- .dg_dt(this$Estimated$tv)        # T x nr.tv.pars
+             dh_dtv <- .dh_dt(e,this)                   # T x nr.tv.pars
+             dh_dga <- .dh_dg(e,this)                   # T x nr.garch.pars
+             df_dli <- .df_dli(this$tvObj,testOrder)    # T x (testorder+1)
 
              z <- e/sqrt(g*h)
              z2 <- z^2
@@ -1709,7 +1709,7 @@ setGeneric(name="test.misSpec1",
              r1 <- cbind(u+x1,x2)     # T x (tot.tv+garch.pars)
              r2 <- (g^(-1)) * df_dli  # (1/gt)*(df/dlinpars); T x nr.lin.pars (=testorder+1)
 
-             rtn <- test.TR2.Robust(z2_1,r1,r2)
+             rtn <- .test.misSpec.Robust(z2_1,r1,r2)
 
              return(rtn)
            }
@@ -1756,7 +1756,7 @@ setGeneric(name="test.misSpec2",
                r2 <- (h^(-1)) * cbind(lag0(w,1),lag0(w^3,1))  # T x 2
              }
 
-             rtn <- test.TR2.Robust(z2_1,r1,r2)
+             rtn <- .test.misSpec.Robust(z2_1,r1,r2)
              return(rtn)
 
 
@@ -1793,7 +1793,7 @@ setGeneric(name="test.misSpec3",
              r1 <- cbind(u+x1,x2)         # T x (tot.tv+garch.pars)
              r2 <- lag0(z2,(1:maxLag))    # T x maxlag
 
-             rtn <- test.TR2.Robust(z2_1,r1,r2)
+             rtn <- .test.misSpec.Robust(z2_1,r1,r2)
              return(rtn)
 
            }
