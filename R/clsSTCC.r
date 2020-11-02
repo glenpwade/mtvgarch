@@ -55,21 +55,25 @@ setGeneric(name="stcc1",
              this@st <- (1:mtvgarchObj@Tobs)/mtvgarchObj@Tobs
              this@Tobs <- mtvgarchObj@Tobs
 
-             if(this$shape==corrshape$double) {
-               this@nr.trPars <- as.integer(3)
-               this$pars <- c(2.5,0.33,0.66)
-             }else {
-               this@nr.trPars <- as.integer(2)
-               this$pars <- c(2.5,0.5,NA)
-             }
-             names(this$pars) <- c("speed","loc1","loc2")
-
              N <- this@N
              this@nr.corPars <- as.integer((N^2-N)/2)
              this$P1 <- matrix(0.3,N,N)
              diag(this$P1) <- 1
-             this$P2 <- matrix(0.7,N,N)
-             diag(this$P2) <- 1
+
+             if(this$shape==corrshape$double) {
+               this@nr.trPars <- as.integer(3)
+               this$pars <- c(2.5,0.33,0.66)
+               this$P2 <- matrix(0.4,N,N)
+               diag(this$P2) <- 1
+             }else {
+               this@nr.trPars <- as.integer(2)
+               this$pars <- c(2.5,0.5,NA)
+               this$P2 <- matrix(0.7,N,N)
+               diag(this$P2) <- 1
+             }
+             names(this$pars) <- c("speed","loc1","loc2")
+
+
 
              return(this)
            }
