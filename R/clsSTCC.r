@@ -61,19 +61,18 @@ setGeneric(name="stcc1",
              diag(this$P1) <- 1
 
              if(this$shape==corrshape$double) {
-               this@nr.trPars <- as.integer(3)
-               this$pars <- c(2.5,0.33,0.66)
                this$P2 <- matrix(0.4,N,N)
                diag(this$P2) <- 1
+               this@nr.trPars <- as.integer(3)
+               this$pars <- c(2.5,0.33,0.66)
+
              }else {
-               this@nr.trPars <- as.integer(2)
-               this$pars <- c(2.5,0.5,NA)
                this$P2 <- matrix(0.7,N,N)
                diag(this$P2) <- 1
+               this@nr.trPars <- as.integer(2)
+               this$pars <- c(2.5,0.5,NA)
              }
              names(this$pars) <- c("speed","loc1","loc2")
-
-
 
              return(this)
            }
@@ -117,9 +116,21 @@ setGeneric(name=".calc.Pt",
              Gt <- calc.Gt(this)
              Pt <- apply(Gt,MARGIN = 1,FUN = function(X,P1,P2) ((1-X)*P1 + X*P2), P1=vP1, P2=vP2)
 
-             if(is.vector(Pt)) Pt <- matrix(Pt,ncol = 1)
+             if(is.vector(Pt)) Pt <- matrix(Pt,ncol = 1) else Pt <- t(Pt)
 
              return(Pt)
+
+           }
+)
+
+## -- set.St -- ####
+setGeneric(name="set.St",
+           valueClass = "stcc1_class",
+           signature = c("st","stcc1Obj"),
+           def = function(st,stcc1Obj){
+             this <- stcc1Obj
+             this@st <- st
+             return(this)
 
            }
 )
@@ -334,6 +345,8 @@ setGeneric(name="unCorrelateData",
              return(u)
            }
 )
+
+
 
 
 ## --- PRIVATE METHODS --- ####
