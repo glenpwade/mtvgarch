@@ -110,7 +110,7 @@ setGeneric(name="estimateTV",
                  this@nr.pars <- as.integer(0)
                }
                this@g <- rep(this$Estimated$delta0,this@Tobs)
-               if(calcSE) this$Estimated$delta0_se <- NaN
+               if(estimationControl$calcSE) this$Estimated$delta0_se <- NaN
                this$Estimated$pars <- c(NA,NA,NA,NA)
                this$Estimated$value <- sum(-0.5*log(2*pi) - 0.5*log(this@g) - (0.5*e^2)/this@g)
                this$Estimated$error <- FALSE
