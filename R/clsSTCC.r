@@ -332,14 +332,15 @@ setGeneric(name="unCorrelateData",
            signature = c("e","stcc1Obj"),
            def = function(e,stcc1Obj){
              this <- stcc1Obj
-             Pt <- this$Estimated$Pt
+
              # Return matrix 'u' of uncorrelated data:
              u <- matrix(0,nrow = NROW(e),ncol = NCOL(e))
 
+             Pt <- this$Estimated$Pt
              for(t in 1:this@Tobs){
-               Pt_t <- unVecL(Pt[t,])
-               Pt_t_inv <- solve(Pt_t)
-               u[t,] <- sqrt_mat1(Pt_t_inv) %*% e[t,]
+               P <- unVecL(Pt[t,,drop=FALSE])
+               P.sqrt <- sqrt_mat1(P)
+               u[t,] <- t(solve(P.sqrt) %*% t(e[t,,drop=FALSE]))
              }
 
              return(u)
