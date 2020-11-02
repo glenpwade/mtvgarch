@@ -497,7 +497,6 @@ setGeneric(name=".x_garch",
                  beta_scale <- beta_scale <- c(beta_scale,(beta[1,n] %x% c(1,1,1,1)))    # vector, length 3
                  scaleFactor <- matrix(1,nrow=1,ncol=4)
                  h_scale <- cbind(h_scale,h[,n,drop=FALSE] %x% scaleFactor)    # T x Num_garch_pars
-                 #warning("Annastiina - please confirm this matrix is correct for GJR garch!")
                }
 
              } # End: For..loop

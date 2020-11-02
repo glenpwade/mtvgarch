@@ -4,9 +4,9 @@
 
 ## --- mtvgarch_class Definition --- ####
 mtvgarch <- setClass(Class = "mtvgarch_class",
-               slots = c(Tobs="integer",N="integer"),
-               contains = c("namedList")
-               )
+                     slots = c(Tobs="integer",N="integer"),
+                     contains = c("namedList")
+)
 
 ## === Initialise  ===####
 setMethod("initialize","mtvgarch_class",
@@ -15,6 +15,7 @@ setMethod("initialize","mtvgarch_class",
             # Default initial values
             .Object@N <- as.integer(0)
             .Object@Tobs <- as.integer(0)
+            .Object$corrType <- corrtype$CCC
             # Return:
             .Object
           })
@@ -22,8 +23,8 @@ setMethod("initialize","mtvgarch_class",
 ## === Constructor  ===####
 setGeneric(name="mtvgarch",
            valueClass = "mtvgarch_class",
-           signature = c("tvgarch_list","series.names"),
-           def = function(tvgarch_list,series.names){
+           signature = c("tvgarch_list","series.names","corr.type"),
+           def = function(tvgarch_list,series.names,corr.type){
              this <- new("mtvgarch_class")
 
              # Do basic validation checks:
@@ -37,9 +38,15 @@ setGeneric(name="mtvgarch",
              }
              # End validation
 
+             # Set Defaults
              this@N <- as.integer(length(tvgarch_list))
              this@Tobs <- tvgarch_list[[1]]@Tobs
+             this$corrType <- corr.type
 
+             # Set the CORR object first - we will populate it later
+             this$CORR <- list()
+
+             # Setup the ntvgarch object next
              for(n in 1:this@N){
                # Validate the class_type:
                objType <- class(tvgarch_list[[n]])
@@ -50,6 +57,28 @@ setGeneric(name="mtvgarch",
 
                this[[series.names[n]]] <- tvgarch_list[[n]]
              }
+
+             # Populate the CORR object
+
+             ntvg <- ntvgarch(tvgarch_list,series.names)
+
+             if(corr.type == corrtype$CCC){
+               corr <- ccc(ntvg)
+             }
+             if(corr.type == corrtype$STCC1){
+               corr <- stcc1(ntvg)
+             }
+             if(corr.type == corrtype$STCC2){
+               warning("This correlation type is not implemented in this package version")
+             }
+             if(corr.type == corrtype$STEC1){
+               warning("This correlation type is not implemented in this package version")
+             }
+             if(corr.type == corrtype$STEC2){
+               warning("This correlation type is not implemented in this package version")
+             }
+             #
+             this$CORR <- corr
 
              return(this)
            }
@@ -91,4 +120,27 @@ setGeneric(name="filterData",
 
            }
 )
+
+## === estimateMTVGARCH  ===####
+setGeneric(name="estimateMTVGARCH",
+           valueClass = "mtvgarch_class",
+           signature = c(e,mtvgarchObj,estimationCtrl),
+           def = function(e,mtvgarchObj,estimationCtrl){
+             this <- mtvgarchObj
+
+             if(this$corrType == corrtype$CCC){
+               this$CORR <- estimateCCC(e,this$CORR,estimationCtrl)
+             }
+             #
+             if(this$corrType == corrtype$STCC1){
+               this$CORR <- estimateSTCC1(e,this$CORR,estimationCtrl)
+             }
+
+             return(this)
+
+           }
+)
+
+
+
 
