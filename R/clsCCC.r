@@ -128,6 +128,8 @@ setGeneric(name="test.CCCParsim",
              x_tv <- .x_tv(z,H0,g,h,beta)
 
              # Get x_tau, dlldrho_A
+             ## The transition variable must be de-meaned for the test
+             H1@st <- H1@st - mean(H1@st)
              rtn <- .x_tau(z,H0,H1,testOrder)
              x_tau <- rtn$x_tau
              dlldrho_A <- rtn$dlldrho_A
@@ -199,6 +201,8 @@ setGeneric(name="test.CCCvSTCC1",
              x_tv <- .x_tv(z,H0,g,h,beta)
 
              # Get v_rho, dlldrho_A
+             ## The transition variable must be de-meaned for the test
+             H1@st <- H1@st - mean(H1@st)
              rtn <- .v_rho(z,H0,H1,testOrder)
              v_rho <- rtn$v_rho
              dlldrho_A <- rtn$dlldrho_A
