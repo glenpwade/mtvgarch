@@ -94,8 +94,11 @@ setGeneric(name="estimateTV",
            signature = c("e","tvObj","estimationControl"),
            def=function(e,tvObj,estimationControl){
              this <- tvObj
-             this$Estimated <- list()
-             if(is.null(this$Estimated$delta0)) this$Estimated$delta0 <- this$delta0
+
+             if(is.null(this$Estimated$delta0)){
+               this$Estimated <- list()
+               this$Estimated$delta0 <- this$delta0
+             }
 
              # Check for the simple case of just delta0 provided, no TV$pars
              if(this@nr.transitions == 0){
@@ -131,8 +134,8 @@ setGeneric(name="estimateTV",
              }else{
                # Estimating a TVGARCH_class object - (delta0 is fixed to the passed-in estimated value)
                optimpars <- parsVec
-               this$optimcontrol$nDeps <- tail(this$optimcontrol$nDeps,this@nr.pars)
-               this$optimcontrol$parscale <- tail(this$optimcontrol$nDeps,this@nr.pars)
+               this$optimcontrol$ndeps <- tail(this$optimcontrol$ndeps,this@nr.pars)
+               this$optimcontrol$parscale <- tail(this$optimcontrol$parscale,this@nr.pars)
              }
 
              # Now call optim:
@@ -164,7 +167,7 @@ setGeneric(name="estimateTV",
                this$Estimated$delta0 <- as.numeric(tmp$par[1])
                this <- .estimatedParsToMatrix(this,tail(tmp$par,-1))
              } else{
-               if (is.null(this$Estimated$delta0)) this$Estimated$delta0 <- this$delta0
+               if(is.null(this$Estimated$delta0)) this$Estimated$delta0 <- this$delta0
                this <- .estimatedParsToMatrix(this,tmp$par)
              }
              colnames(this$Estimated$pars) <- paste("st" ,1:this@nr.transitions,sep = "")
@@ -1412,25 +1415,36 @@ setGeneric(name="estimateTVGARCH",
            signature = c("e","tvgarchObj","estimationControl"),
            def = function(e,tvgarchObj,estimationControl){
              this <- tvgarchObj
-
-             # Use the same starting params each time
              TV <- this$tvObj
              GARCH <- this$garchObj
-             estCtrl <- estimationControl
 
-             cat("\nStarting Estimation...")
+             estCtrl <- estimationControl
+             verbose <- estCtrl$verbose
+
+             cat("\nStarting TVGARCH Estimation...\n")
 
              #==  First time being estimated ==#
              if(!isTRUE(this@IsEstimated)){
-               this$Estimated <- list()
-               GARCH <- estimateGARCH(e/sqrt(TV@g),GARCH,estCtrl)
-               cat(".")
 
-               # Put the initial best model into the Estimated list
+               this$Estimated <- list()
+
+               TV <- estimateTV(e,TV,estCtrl)
+               if(verbose) cat(".")
+               w <- e/sqrt(TV@g)
+               GARCH <- estimateGARCH(w,GARCH,estCtrl)
+               if(verbose) cat(".")
+               cat("\nInitial round of estimation complete - BUT tv estimates not yet consistent")
+               w <- e/sqrt(GARCH@h)
+               TV <- estimateTV(w,TV,estCtrl)
+               if(verbose) cat(".")
+               z <- e/sqrt(TV@g)
+               GARCH <- estimateGARCH(z,GARCH,estCtrl)
+
+               # Put the final model into the Estimated list
                this$Estimated$tv <- TV
                this$Estimated$garch <- GARCH
-               this$Estimated$startValue <- loglik.tvgarch.univar(e,TV@g,GARCH@h)
-               this$Estimated$finalValue <- this$Estimated$startValue
+               this$Estimated$startValue <- NA
+               this$Estimated$finalValue <- loglik.tvgarch.univar(e,TV@g,GARCH@h)
 
                cat("\nTVGARCH Estimation Completed")
                cat("\n")
@@ -1438,48 +1452,54 @@ setGeneric(name="estimateTVGARCH",
                this@IsEstimated <- TRUE
 
                return(this)
-
-             } else {
-               TV <- this$Estimated$tv
-               GARCH <- this$Estimated$garch
-               this$Estimated$startValue <- this$Estimated$finalValue
-               this$Estimated$finalValue <- NA
              }
+             #==  END: First time being estimated ==#
+
 
              #== Every other time being estimated ==#
 
+             TV$pars <- this$Estimated$tv$Estimated$pars
+             GARCH$pars <- this$Estimated$garch$Estimated$pars
+             this$Estimated$startValue <- this$Estimated$finalValue
+
              w <- e/sqrt(GARCH@h)
-             #TV$pars <-  TV$Estimated$pars * 0.9
-             TV$optimcontrol$reltol <- TV$optimcontrol$reltol / 10
-             TV$optimcontrol$ndeps <- TV$optimcontrol$ndeps / 10
              TV <- estimateTV(w,TV,estCtrl)
-             cat(".")
+             if(verbose) cat(".")
 
-             if(!TV$Estimated$error){
-               LL.tv <- max(loglik.tvgarch.univar(e,TV@g,GARCH@h),-1e100)
-             } else LL.tv <- -1e100
-
-             # If loglik value does not improve, override TV with old "best" pars
-             if(LL.tv < this$Estimated$startValue) TV <- this$Estimated$tv else cat("\nTV Estimate Improved, now re-estimating Garch...\n")
+             if(TV$Estimated$error){
+               # On error, Reset to start
+               TV <- this$Estimated$tv
+             } else {
+               # Confirm LL has improved - to avoid divergence
+               tvg.value <- loglik.tvgarch.univar(e,TV@g,GARCH@h)
+               if(tvg.value < this$Estimated$startValue) {
+                 TV <- this$Estimated$tv
+                 cat("\nTV Estimate could not be Improved, now re-estimating Garch with original TV...\n")
+                 }else cat("\nTV Estimate Improved, now re-estimating Garch...\n")
+             }
 
              z <- e/sqrt(TV@g)
-             #GARCH$pars <-  GARCH$Estimated$pars * 0.95
-             GARCH$optimcontrol$reltol <- GARCH$optimcontrol$reltol / 10
-             GARCH$optimcontrol$ndeps <- GARCH$optimcontrol$ndeps / 10
              GARCH <- estimateGARCH(z,GARCH,estCtrl)
-             cat(".")
+             if(verbose) cat(".")
 
-             LL.garch <- max(loglik.tvgarch.univar(e,TV@g,GARCH@h),-1e100)
-             this$Estimated$finalValue <- LL.garch
-             if(LL.garch - this$Estimated$startValue > 0.001) {
-               this$Estimated$tv <- TV
-               this$Estimated$garch <- GARCH
-               cat("\nTVGARCH Estimation Completed - Improved",fill = TRUE)
-             }else {
-               cat("\nTVGARCH Estimation Completed - could not be improved",fill = TRUE)
+             if(GARCH$Estimated$error){
+               cat("\nTVGARCH Estimation Completed - could not be improved (GARCH estimation failed)")
+             } else {
+               # Confirm LL has improved - to avoid divergence
+               tvg.value <- loglik.tvgarch.univar(e,TV@g,GARCH@h)
+               if(tvg.value < this$Estimated$startValue) {
+                 this$Estimated$finalValue <- tvg.value
+                 this$Estimated$tv <- TV
+                 this$Estimated$garch <- GARCH
+                 cat("\nTVGARCH Estimation Completed - Improved")
+
+               } else cat("\nTVGARCH Estimation Completed - could not be improved")
+
              }
 
              return(this)
+
+             #== End: Every other time being estimated ==#
            }
 )
 
