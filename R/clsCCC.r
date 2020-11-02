@@ -21,30 +21,30 @@ setMethod("initialize","ccc_class",
 ## -- Constructor:ccc -- ####
 setGeneric(name="ccc",
            valueClass = "ccc_class",
-           signature = c("mtvgarchObj"),
-           def = function(mtvgarchObj){
+           signature = c("ntvgarchObj"),
+           def = function(ntvgarchObj){
              this <- new("ccc_class")
 
              ## -- Do validation checks -- ##
-             objType <- class(mtvgarchObj)
-             if(objType[1] != "mtvgarch_class"){
-               warning("a valid instance of the mtvgarch_class is required to create a ccc model")
+             objType <- class(ntvgarchObj)
+             if(objType[1] != "ntvgarch_class"){
+               warning("a valid instance of the ntvgarch_class is required to create a ccc model")
                return(this)
              }
              # End validation
 
-             # Add the Estimated components from the mtvgarch
-             this$mtvgarch <- list()
-             for(n in 1:mtvgarchObj@N){
-               this$mtvgarch[[n]] <- list()
-               this$mtvgarch[[n]]$tv <- mtvgarchObj[[n]]$Estimated$tv
-               this$mtvgarch[[n]]$garch <- mtvgarchObj[[n]]$Estimated$garch
+             # Add the Estimated components from the ntvgarch
+             this$ntvgarch <- list()
+             for(n in 1:ntvgarchObj@N){
+               this$ntvgarch[[n]] <- list()
+               this$ntvgarch[[n]]$tv <- ntvgarchObj[[n]]$Estimated$tv
+               this$ntvgarch[[n]]$garch <- ntvgarchObj[[n]]$Estimated$garch
              }
-             names(this$mtvgarch) <- names(mtvgarchObj)
+             names(this$ntvgarch) <- names(ntvgarchObj)
 
              # Set Default Values:
-             this@N <- mtvgarchObj@N
-             this@Tobs <- mtvgarchObj@Tobs
+             this@N <- ntvgarchObj@N
+             this@Tobs <- ntvgarchObj@Tobs
 
              return(this)
            }
@@ -114,9 +114,9 @@ setGeneric(name="test.CCCParsim",
              h <- matrix(1,H0@Tobs,H0@N)
              beta <- matrix(1,1,H0@N)
              for (n in 1:H0@N) {
-               g[,n] <- H0$mtvgarch[[n]]$tv@g
-               h[,n] <- H0$mtvgarch[[n]]$garch@h
-               beta[1,n] <- H0$mtvgarch[[n]]$garch$Estimated$pars["beta",1]
+               g[,n] <- H0$ntvgarch[[n]]$tv@g
+               h[,n] <- H0$ntvgarch[[n]]$garch@h
+               beta[1,n] <- H0$ntvgarch[[n]]$garch$Estimated$pars["beta",1]
              }
              w <- e/sqrt(g)
              z <- w/sqrt(h)
@@ -185,9 +185,9 @@ setGeneric(name="test.CCCvSTCC1",
              h <- matrix(1,H0@Tobs,H0@N)
              beta <- matrix(1,1,H0@N)
              for (n in 1:H0@N) {
-               g[,n] <- H0$mtvgarch[[n]]$tv@g
-               h[,n] <- H0$mtvgarch[[n]]$garch@h
-               beta[1,n] <- H0$mtvgarch[[n]]$garch$Estimated$pars["beta",1]
+               g[,n] <- H0$ntvgarch[[n]]$tv@g
+               h[,n] <- H0$ntvgarch[[n]]$garch@h
+               beta[1,n] <- H0$ntvgarch[[n]]$garch$Estimated$pars["beta",1]
              }
              w <- e/sqrt(g)
              z <- w/sqrt(h)
@@ -258,9 +258,9 @@ setGeneric(name="test.TVCC1vTVCC2",
              h <- matrix(1,H0@Tobs,H0@N)
              beta <- matrix(1,1,H0@N)
              for (n in 1:H0@N) {
-               g[,n] <- H0$mtvgarch[[n]]$tv@g
-               h[,n] <- H0$mtvgarch[[n]]$garch@h
-               beta[1,n] <- H0$mtvgarch[[n]]$garch$Estimated$pars["beta",1]
+               g[,n] <- H0$ntvgarch[[n]]$tv@g
+               h[,n] <- H0$ntvgarch[[n]]$garch@h
+               beta[1,n] <- H0$ntvgarch[[n]]$garch$Estimated$pars["beta",1]
              }
              w <- e/sqrt(g)
              z <- w/sqrt(h)
@@ -346,8 +346,8 @@ setGeneric(name="test.TVCC1vTVCC2",
                  endblock <- (Ptinv[n,,drop=FALSE]%x%I[n,,drop=FALSE]+I[n,,drop=FALSE]%x%Ptinv[n,,drop=FALSE])
                  endblock_cor <- endblock %*% (v_cor[t,,drop=FALSE]%x%U)
                  endblock_tr  <- endblock %*% t(x_tr)
-                 idxrange_tv <- (max(idxrange_tv)+1):(max(idxrange_tv)+H0$mtvgarch[[n]]$tv@nr.pars)
-                 idxrange_garch <- (max(idxrange_garch)+1):(max(idxrange_garch)+H0$mtvgarch[[n]]$garch@nr.pars)
+                 idxrange_tv <- (max(idxrange_tv)+1):(max(idxrange_tv)+H0$ntvgarch[[n]]$tv@nr.pars)
+                 idxrange_garch <- (max(idxrange_garch)+1):(max(idxrange_garch)+H0$ntvgarch[[n]]$garch@nr.pars)
                  rowblock_tv_cor <- rbind(rowblock_tv_cor,t(x_tv[t,idxrange_tv,drop=FALSE])%*%endblock_cor)
                  rowblock_garch_cor <- rbind(rowblock_garch_cor,t(x_garch[t,idxrange_garch,drop=FALSE])%*%endblock_cor)
                  rowblock_tv_tr <- rbind(rowblock_tv_tr,t(x_tv[t,idxrange_tv,drop=FALSE])%*%endblock_tr)
@@ -448,14 +448,14 @@ setGeneric(name="test.TVCC1vTVCC2",
 
   for (i in 1:N) {
     # i = row index
-    if(H0$mtvgarch[[i]][[type1]]@nr.pars > 0) {
+    if(H0$ntvgarch[[i]][[type1]]@nr.pars > 0) {
       I.P.Pinv_scale_row <- NULL
 
       for (j in 1:N) {
         # j = col index
-        if (H0$mtvgarch[[j]][[type2]]@nr.pars > 0){
+        if (H0$ntvgarch[[j]][[type2]]@nr.pars > 0){
           #TODO: Confirm this works when N contains different Garch Types
-          scaleFactor <- matrix(1,H0$mtvgarch[[i]][[type1]]@nr.pars, H0$mtvgarch[[j]][[type2]]@nr.pars)
+          scaleFactor <- matrix(1,H0$ntvgarch[[i]][[type1]]@nr.pars, H0$ntvgarch[[j]][[type2]]@nr.pars)
           I.P.Pinv_scale_row <- cbind(I.P.Pinv_scale_row, (I.P.Pinv[i,j] %x% scaleFactor))
         }
       } # End: for (j in 1:N)
@@ -482,16 +482,16 @@ setGeneric(name=".x_garch",
              # Loop over every series:
              for (n in 1:H0@N){
 
-               if(H0$mtvgarch[[n]]$garch$type==garchtype$noGarch ) {
+               if(H0$ntvgarch[[n]]$garch$type==garchtype$noGarch ) {
                  # Do nothing, move on to next series
 
-               } else if(H0$mtvgarch[[n]]$garch$type==garchtype$general) {
+               } else if(H0$ntvgarch[[n]]$garch$type==garchtype$general) {
                  # General GARCH(1,1) case
                  v_garch <- cbind(v_garch,c(0,rep(1,(H0@Tobs-1))),c(0,w[1:(H0@Tobs-1),n]^2),c(0,h[1:(H0@Tobs-1),n])) # T x Num_garch_pars, each row = "1~w(i,t-1)^2~h(i,t-1)", i=1,...,N
                  beta_scale <- beta_scale <- c(beta_scale,(beta[1,n] %x% c(1,1,1)))    # vector, length 3
                  scaleFactor <- matrix(1,nrow=1,ncol=3)
                  h_scale <- cbind(h_scale,h[,n,drop=FALSE] %x% scaleFactor)    # T x Num_garch_pars
-               } else if (H0$mtvgarch[[n]]$garch$type == garchtype$gjr) {
+               } else if (H0$ntvgarch[[n]]$garch$type == garchtype$gjr) {
                  # GJR GARCH(1,1) case
                  v_garch <- cbind(v_garch,c(0,rep(1,(H0@Tobs-1))),c(0,w[1:(H0@Tobs-1),n]^2),c(0,h[1:(H0@Tobs-1),n]),c(0,(min(w[1:(H0@Tobs-1),n],0))^2) ) # T x Num_garch_pars, each row = "1~w(i,t-1)^2~h(i,t-1)~min[w(i,t-1),0]^2", i=1,...,N
                  beta_scale <- beta_scale <- c(beta_scale,(beta[1,n] %x% c(1,1,1,1)))    # vector, length 3
@@ -531,24 +531,24 @@ setGeneric(name=".x_tv",
              # partial derivatives of g1,g2,...,gN w.r.t tv_pars
              for (n in 1:H0@N){
 
-               if(H0$mtvgarch[[n]]$tv@nr.pars == 0 && H0$mtvgarch[[n]]$garch@nr.pars == 0){
+               if(H0$ntvgarch[[n]]$tv@nr.pars == 0 && H0$ntvgarch[[n]]$garch@nr.pars == 0){
                  break  #Goto next 'n' in for..loop
                }
 
                ## All code below is assured that there are tv parameters, so always calc dgdt
 
-               dgdt_n <- .dg_dt(H0$mtvgarch[[n]]$tv)  # T x #of TVpars in TV[n], includes d0's derivative if it is a free param
+               dgdt_n <- .dg_dt(H0$ntvgarch[[n]]$tv)  # T x #of TVpars in TV[n], includes d0's derivative if it is a free param
                scaleFactor <- matrix(1,nrow=1,ncol=NCOL(dgdt_n))
                g_scale <- cbind( g_scale,g[,n,drop=FALSE] %x% scaleFactor ) # cbinds g(nt) as many times as g(n) has tv parameters
                dgdt <- cbind(dgdt,dgdt_n)
 
-               if (H0$mtvgarch[[n]]$garch$type==garchtype$noGarch){
+               if (H0$ntvgarch[[n]]$garch$type==garchtype$noGarch){
                  # Has TV, but noGarch => no beta_ or h_scale to calculate
 
 
                } else {
                  # all other GARCH(1,1) cases
-                 v_tv_n <- ((-H0$mtvgarch[[n]]$garch$Estimated$pars["alpha",1] * c(0,1/g[1:(H0@Tobs-1),n])*c(0,w[1:(H0@Tobs-1),n]^2)) %x% scaleFactor) * dgdt_n
+                 v_tv_n <- ((-H0$ntvgarch[[n]]$garch$Estimated$pars["alpha",1] * c(0,1/g[1:(H0@Tobs-1),n])*c(0,w[1:(H0@Tobs-1),n]^2)) %x% scaleFactor) * dgdt_n
                  v_tv <- cbind(v_tv,v_tv_n)
 
                  beta_scale_n <- as.vector(beta[,n,drop=FALSE] %x% scaleFactor)
@@ -697,7 +697,7 @@ setGeneric(name=".im_garch_cor_parsim",
              mHelp1 <- matrix(0,nrow=0,ncol=(N - 1) )
 
              for (n in 1:H0@N) {
-               scaleFactor <- matrix(1, nrow=H0$mtvgarch[[n]]$garch@nr.pars, ncol=1)
+               scaleFactor <- matrix(1, nrow=H0$ntvgarch[[n]]$garch@nr.pars, ncol=1)
                mHelp1 <- rbind(mHelp1, scaleFactor %x% (2*Q[n,1:(N-1),drop=FALSE]^2 %*% L.inv[1:(N-1),1:(N-1)] - 2*Q[n,N]^2 * L.inv[N,N] * One_1.N_1))
              }
              mHelp2 <- t(x_garch) %*% x_tau
@@ -732,7 +732,7 @@ setGeneric(name=".im_garch_cor",
              mHelp1 <- -0.5*(mHelp1 %*% U)
              mHelp1_scale <- matrix(0,nrow = 0,ncol=N*(N-1)/2)  # (Num_Garch_Pars x N*(N-1)/2), required for rbind() below to work
              for (n in 1:N) {
-               scaleFactor <- matrix(1, nrow=H0$mtvgarch[[n]]$garch@nr.pars, ncol=1)
+               scaleFactor <- matrix(1, nrow=H0$ntvgarch[[n]]$garch@nr.pars, ncol=1)
                mHelp1_scale <- rbind(mHelp1_scale, (mHelp1[n, ,drop=FALSE] %x% scaleFactor))
              }
 
@@ -781,8 +781,8 @@ setGeneric(name=".im_tv_cor_parsim",
              # IM_tv_cor, (total #of tv pars in model) x (testorder+1)*(N-1)
              mHelp1 <- matrix(0,nrow=0,ncol=(N-1) )
              for (n in 1:N) {
-               if (H0$mtvgarch[[n]]$tv@nr.pars > 0){
-                 scaleFactor <- matrix(1,nrow=H0$mtvgarch[[n]]$tv@nr.pars,ncol=1)
+               if (H0$ntvgarch[[n]]$tv@nr.pars > 0){
+                 scaleFactor <- matrix(1,nrow=H0$ntvgarch[[n]]$tv@nr.pars,ncol=1)
                  mHelp1 <- rbind(mHelp1, scaleFactor %x% (2*Q[n,1:(N-1),drop=FALSE]^2 %*% L.inv[1:(N-1),1:(N-1)] - 2*Q[n,N]^2 * L.inv[N,N] * One_1.N_1) )
                }
              } # End: for (n in 1:N)
@@ -815,15 +815,15 @@ setGeneric(name=".im_tv_cor",
              # IM_tv_cor, (#of tv pars in n,n=1...N)N x (testorder+1)*N*(N-1)/2
              mHelp1 <- matrix(0,nrow=0,ncol=N*N )
              for (n in 1:N) {
-               if (H0$mtvgarch[[n]]$tv@nr.pars > 0){
+               if (H0$ntvgarch[[n]]$tv@nr.pars > 0){
                  mHelp1 <- rbind(mHelp1, (Pinv[n,,drop=FALSE] %x% I[n,,drop=FALSE] + I[n,,drop=FALSE] %x% Pinv[n,,drop=FALSE])) # N x N^2
                }
              } # End: for (n in 1:N)
              mHelp1 <- -0.5*(mHelp1 %*% U)  # N x N*(N-1)/2
              mHelp1_scale <- matrix(0,nrow=0,ncol=(N*(N-1)/2))  # Total Num_tv_Pars x N*(N-1)/2
              for (n in 1:N) {
-               if (H0$mtvgarch[[n]]$tv@nr.pars > 0){
-                 scaleFactor <- matrix(1,nrow=H0$mtvgarch[[n]]$tv@nr.pars,ncol=1)
+               if (H0$ntvgarch[[n]]$tv@nr.pars > 0){
+                 scaleFactor <- matrix(1,nrow=H0$ntvgarch[[n]]$tv@nr.pars,ncol=1)
                  mHelp1_scale <- rbind(mHelp1_scale, mHelp1[n,,drop=FALSE] %x% scaleFactor)
                }
              }

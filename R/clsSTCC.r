@@ -16,7 +16,7 @@ setMethod("initialize","stcc1_class",
             .Object <- callNextMethod(.Object,...)
 
             # Default initial values
-            .Object$mtvgarch <- list()
+            .Object$ntvgarch <- list()
             .Object@N <- as.integer(0)
             .Object@Tobs <- as.integer(0)
             .Object$shape <- corrshape$single
@@ -30,30 +30,30 @@ setMethod("initialize","stcc1_class",
 ## -- Constructor:stcc1 -- ####
 setGeneric(name="stcc1",
            valueClass = "stcc1_class",
-           signature = c("mtvgarchObj"),
-           def = function(mtvgarchObj){
+           signature = c("ntvgarchObj"),
+           def = function(ntvgarchObj){
              this <- new("stcc1_class")
 
              ## -- Do validation checks -- ####
-             objType <- class(mtvgarchObj)
-             if(objType[1] != "mtvgarch_class"){
-               warning("a valid instance of the mtvgarch_class is required to create an STCC1 model")
+             objType <- class(ntvgarchObj)
+             if(objType[1] != "ntvgarch_class"){
+               warning("a valid instance of the ntvgarch_class is required to create an STCC1 model")
                return(this)
              }
              # End validation
 
-             # Add the Estimated components from the mtvgarch
-             for(n in 1:mtvgarchObj@N){
-               this$mtvgarch[[n]] <- list()
-               this$mtvgarch[[n]]$tv <- mtvgarchObj[[n]]$Estimated$tv
-               this$mtvgarch[[n]]$garch <- mtvgarchObj[[n]]$Estimated$garch
+             # Add the Estimated components from the ntvgarch
+             for(n in 1:ntvgarchObj@N){
+               this$ntvgarch[[n]] <- list()
+               this$ntvgarch[[n]]$tv <- ntvgarchObj[[n]]$Estimated$tv
+               this$ntvgarch[[n]]$garch <- ntvgarchObj[[n]]$Estimated$garch
              }
-             names(this$mtvgarch) <- names(mtvgarchObj)
+             names(this$ntvgarch) <- names(ntvgarchObj)
 
              # Set Default Values:
-             this@N <- mtvgarchObj@N
-             this@st <- (1:mtvgarchObj@Tobs)/mtvgarchObj@Tobs
-             this@Tobs <- mtvgarchObj@Tobs
+             this@N <- ntvgarchObj@N
+             this@st <- (1:ntvgarchObj@Tobs)/ntvgarchObj@Tobs
+             this@Tobs <- ntvgarchObj@Tobs
 
              N <- this@N
              this@nr.corPars <- as.integer((N^2-N)/2)
