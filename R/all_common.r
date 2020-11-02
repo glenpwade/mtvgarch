@@ -9,7 +9,7 @@ speedopt <- list(none=0,gamma=1,gamma_std=2,eta=3,lamda2_inv=4)
 ## GARCH
 garchtype <- list(noGarch=0,general=1,gjr=2)
 ## COR
-corrtype <- list(CCC=1,CEC=2,STCC1=3,STEC1=4)
+corrtype <- list(CCC=1,STCC1=2,STCC2=3,STEC1=4,STEC2=5)
 corrshape <- list(single=1,double=2,double1loc=3)
 corrspeedopt <- list(gamma=1,gamma_std=2,eta=3)
 
