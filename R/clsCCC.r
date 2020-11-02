@@ -585,7 +585,7 @@ setGeneric(name=".x_tau",
            valueClass = "list",
            signature = c("z","H0","H1","testOrder"),
            def = function(z,H0,H1,testOrder){
-             st <- H1$st
+             st <- H1@st
              if (testOrder==1) x_tau <- (-0.5)*cbind(st)
              if (testOrder==2) x_tau <- (-0.5)*cbind(st,st^2)
              if (testOrder==3) x_tau <- (-0.5)*cbind(st,st^2,st^3)
