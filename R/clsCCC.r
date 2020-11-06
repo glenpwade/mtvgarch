@@ -1,4 +1,7 @@
-## --- ccc_class Definition --- ####
+## -- The MTVGARCH package supports a number of Correlation objects
+## -- This class file maintains the structure for CCC (Constant Conditional Correlation)
+
+## Note:  The so-called 'CEC' (Constant Equi-Correlation) Model can be implemented using this class.
 
 ccc <- setClass(Class = "ccc_class",
                   slots = c(Tobs="integer",N="integer"),
@@ -94,7 +97,7 @@ setGeneric(name="estimateCCC",
 
 
 
-##====  TESTS  ====####
+##====  CCC TESTS:  ====####
 
 ##===  test.CCCParsim ===####
 setGeneric(name="test.CCCParsim",
@@ -406,7 +409,7 @@ setGeneric(name="test.TVCC1vTVCC2",
 
 
 
-## ===== Test Sub Functions =====####
+## ===== TESTS Sub Functions: =====####
 
 .get_U <- function(N){
   # Construct the U matrix:Dimensions = N^2 x N*(N-1)/2
@@ -439,7 +442,6 @@ setGeneric(name="test.TVCC1vTVCC2",
   return(K)
 }
 
-##=== .I.P.Pinv_scale( tv or garch ) ===####
 .I.P.Pinv_scale <- function(H0,Pt,type1,type2){
 
   # H0 is the Null-Hypothesis - must be an estimated CCC object

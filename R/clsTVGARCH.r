@@ -1,19 +1,4 @@
-## --- tvgarch_class Structure --- ####
-
-## --- When created:
-
-# Slots (internal variables for use in methods - should only be set by pkg_code)
-
-# tvgarch@tvObj                     -- initial tv object used to create the multiplicative object
-# tvgarch@garchObj                  -- initial garch object used to create the multiplicative object
-# tvgarch@value                  -- "numeric" - starting log-liklihood value
-# tvgarch@e                      -- "numeric" - starting data set
-
-# properties (external variables, visible to user)
-
-# tvgarch$Estimated$value        -- scalar: log-liklihood value
-# tvgarch$Estimated$tv
-# tvgarch$Estimated$garch
+## --- Contains class definitions & methods for the tv_class, garch_class and tvgarch_class
 
 
 ## --- TV_CLASS Definition --- ####
@@ -1504,100 +1489,6 @@ setGeneric(name="estimateTVGARCH",
 )
 
 
-## -- loglik.tvgarch.univar.1 ####
-setGeneric(name=".loglik.tvgarch.univar.1",
-           valueClass = "numeric",
-           signature = c("optimpars","e","tvgarchObj"),
-           def =  function(optimpars,e,tvgarchObj){
-             ##
-             ## --- This is an attempt to estimate the tv&garch components in a single optim() call
-             ## --- We found that the optimiser converges, but the hessians usually don't invert well (NaN's)
-             ##
-
-             this <- tvgarchObj
-
-             TV <- this$tvObj
-             GARCH <- this$garchObj
-             error <- -1e10
-
-             # Calc g first:
-             start <- GARCH@nr.pars + 1
-             end <- length(optimpars)
-             tvPars <- optimpars[start:end]
-
-             ## ======== TV constraint checks ======== ##
-             if(T){
-               # Copy the optimpars into a local tv_object
-               TV <- .estimatedParsToMatrix(TV,tvPars)
-
-               # Do paramater boundary checks:
-
-               if (TV@nr.transitions > 0){
-                 # We have some Tv$pars
-                 vecSpeed <- TV$Estimated$pars["speedN",(1:TV@nr.transitions)]
-                 vecLoc1 <- TV$Estimated$pars["locN1",(1:TV@nr.transitions)]
-                 vecLoc2 <- TV$Estimated$pars["locN2",(1:TV@nr.transitions)]
-
-                 # Check 2: Check the boundary values for speed params:
-                 #speedoptions: 1=gamma, 2=gamma/std(st), 3=exp(eta), 4=1/lambda^2
-                 maxSpeed <- switch(TV$speedopt,1000,(1000/sd(TV@st)),7.0,0.30)
-                 if (max(vecSpeed) > maxSpeed) return(error)
-                 if (min(vecSpeed) < 0) return(error)
-
-                 # Check 3: Check the loc1 locations fall within min-max values of st
-                 # We must have at least 1 loc1 to be inside this shape..loop, so no need to check if loc1 contains a valid value:
-                 if (min(vecLoc1) < min(TV@st)) return(error)
-                 if (max(vecLoc1) > max(TV@st)) return(error)
-
-                 # Check 4: Check that loc1.1 < loc1.2 .. locN.1 < locN.2 for all G(i)
-                 # Method: Subtract loc1_pos vector from loc2_pos vector and ensure it is positive:
-                 tmp <- vecLoc2 - vecLoc1
-                 # Note: tmp will contain NA wherever a loc2 element was NA - we can strip these out:
-                 if (sum(tmp < 0,na.rm = TRUE) > 0) return(error)
-
-                 # Check 5: Check the loc2 locations fall within min-max values of st
-                 # Confirm we have at least one valid numeric loc 2, before checking min & max:
-                 if (any(!is.na(vecLoc2))) {
-                   if (min(vecLoc2,na.rm = TRUE) < min(TV@st)) return(error)
-                   if (max(vecLoc2,na.rm = TRUE) > max(TV@st)) return(error)
-                 }
-
-                 # Check 6: Check that loc1.1 < loc2.1 where 2 locations exist... for all G(i)
-                 # We do need to have at least 2 locations for this error check
-                 if (NROW(vecLoc1) > 1) {
-                   v1 <- head(vecLoc1,-1)
-                   v2 <- tail(vecLoc1,-1)
-                   if (sum(v2-v1 < 0) > 0) return(error)
-                 }
-
-               }# End: paramater boundary checks:
-             }
-
-             g <- .calculate_g(TV)
-             if (min(g,na.rm = TRUE) < 0) return(error)
-
-             # Filter g out of the returns data & Calculate h
-             w <- e/sqrt(g)
-             garchPars <- optimpars[1:GARCH@nr.pars]
-             names(garchPars) <- rownames(GARCH$pars)
-
-             ## ======== GARCH constraint checks ======== ##
-             if(T){
-               # Check if any parameter is negative:
-               if(min(garchPars,na.rm = TRUE) <= 0) return(error)
-               if (garchPars["alpha"] + garchPars["beta"] >= 1) return(error)
-             }
-
-             GARCH$Estimated$pars <- .parsVecToMatrix(GARCH,garchPars)
-             h <- .calculate_h(GARCH,w)
-             if (min(h,na.rm = TRUE) < 0) return(error)
-
-             ll <- sum( -0.5*log(2*pi) - 0.5*log(g) - 0.5*log(h) - 0.5*(e^2/(h*g) ) )
-             names(ll) <- "Loglik.Value"
-             return(ll)
-           }
-)
-
 ## -- .dh_dg(tvgarch) ####
 setGeneric(name=".dh_dg",
            valueClass = "matrix",
@@ -1836,59 +1727,6 @@ setGeneric(name="test.misSpec3",
 
 )
 
-
-
-
-
-## ========= estimateTVGARCH.1 ==========####
-setGeneric(name="estimateTVGARCH.1",
-           valueClass = "tvgarch_class",
-           signature = c("e","tvgarchObj"),
-           def = function(e,tvgarchObj){
-             this <- tvgarchObj
-
-             # Use the same starting params each time
-             TV <- this$tvObj
-             GARCH <- this$garchObj
-             this$Estimated <- list()
-             estCtrl <- list(calcSE = TRUE, verbose = TRUE)
-             calcSE <- TRUE
-
-             optimpars <- c(as.vector(GARCH$pars), as.vector(TV$pars))
-             optimpars <- optimpars[!is.na(optimpars)]
-
-             cat("\nStarting Estimation...\n")
-
-             # Now call optim:
-             tmp <- NULL
-             try(tmp <- optim(optimpars,loglik.tvgarch.univar.1,gr=NULL,e,this, method="BFGS",control=this$optimcontrol,hessian=calcSE))
-
-             # An unhandled error could result in a NULL being returned by optim()
-             if (is.null(tmp)) {
-               this$Estimated$value <- -Inf
-               this$Estimated$error <- TRUE
-               warning("estimateTVGARCH() - optim failed unexpectedly and returned NULL. Check the optim controls & starting params")
-               return(this)
-             }
-             if (tmp$convergence!=0) {
-               this$Estimated$value <- -Inf
-               this$Estimated$error <- TRUE
-               this$Estimated$optimoutput <- tmp
-               warning("estimateTVGARCH() - failed to converge. Check the optim controls & starting params")
-               return(this)
-             }
-
-             if(isTRUE(calcSE)) this$Estimated$hessian <- tmp$hessian
-             this$Estimated$value <- tmp$value
-             this$Estimated$error <- FALSE
-             this$Estimated$delta0 <- TV$Estimated$delta0
-             this$Estimated$pars <- c(tmp$par)
-             this$Estimated$optimoutput <- tmp
-
-             return(this)
-
-           }
-)
 
 ## ========= summary ==========####
 setMethod("summary",signature="tvgarch_class",

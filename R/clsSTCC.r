@@ -1,7 +1,5 @@
-## --- Correlation Structures --- ##
-##
-## -- We have a number of Correlation objects, with many common properties
-## -- This class file maintains the Structure for STCC1 (STCC with One Transition)
+## -- The MTVGARCH package supports a number of Correlation objects
+## -- This class file maintains the structure for STCC1 (STCC with One Transition)
 
 
 ## --- stcc1_class Definition --- ####
@@ -349,5 +347,3 @@ setGeneric(name="unCorrelateData",
 
 
 
-
-## --- PRIVATE METHODS --- ####
