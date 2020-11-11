@@ -1,15 +1,15 @@
-\name{mtvgarch_class-class}
+\name{ntvgarch_class-class}
 \Rdversion{1.1}
 \docType{class}
-\alias{mtvgarch_class-class}
+\alias{ntvgarch_class-class}
 
-\title{Class \code{"mtvgarch_class"}}
+\title{Class \code{"ntvgarch_class"}}
 \description{
 %%  ~~ A concise (1-5 lines) description of what the class is. ~~
 }
 \section{Objects from the Class}{
-Objects can be created by calls of the form \code{new("mtvgarch_class", ...)}.
-%%  ~~ describe objects here ~~ 
+Objects can be created by calls of the form \code{new("ntvgarch_class", ...)}.
+%%  ~~ describe objects here ~~
 }
 \section{Slots}{
   \describe{
@@ -27,7 +27,7 @@ Class \code{"\linkS4class{list}"}, by class "namedList", distance 2.
 Class \code{"\linkS4class{vector}"}, by class "namedList", distance 3.
 }
 \section{Methods}{
-No methods defined with class "mtvgarch_class" in the signature.
+No methods defined with class "ntvgarch_class" in the signature.
 }
 \references{
 %%  ~~put references to the literature/web site here~~
@@ -46,6 +46,6 @@ No methods defined with class "mtvgarch_class" in the signature.
 %%  ~~or \code{\linkS4class{CLASSNAME}} for links to other classes ~~~
 }
 \examples{
-showClass("mtvgarch_class")
+showClass("ntvgarch_class")
 }
 \keyword{classes}

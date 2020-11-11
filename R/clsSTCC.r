@@ -288,6 +288,7 @@ setGeneric(name="estimateSTCC1",
                names(this$Estimated$pars) <- names(this$pars)
 
                if (calcSE) {
+                 cat("\nCalculating STCC standard errors...\n")
                  this$Estimated$hessian <- tmp$hessian
                  vecSE <- vector("numeric")
                  try(vecSE <- sqrt(-diag(qr.solve(tmp$hessian))))
