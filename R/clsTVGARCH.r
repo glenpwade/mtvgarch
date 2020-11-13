@@ -99,8 +99,8 @@ estimateGARCH <- function(e,garchObj,estimationControl,tvObj){0}
              this@h <- .calculate_h(this,e)
 
              # Calc Std Errors
+             if (estimationControl$calcSE) cat("\nCalculating GARCH standard errors...\n")
              if (estimationControl$calcSE) {
-               cat("\nCalculating GARCH standard errors...\n")
                this$Estimated$hessian <- tmp$hessian
                StdErrors <- NULL
                try(StdErrors <- sqrt(-diag(qr.solve(tmp$hessian))))
@@ -644,7 +644,7 @@ setGeneric(name=".estimatedParsToMatrix",
 
 
 
-## -- estimateTV(e,tv,garch,ctrl) ####
+## -- estimateTV(e,tv,ctrl,garch) ####
 
 estimateTV <- function(e,tvObj,estimationControl,garchObj){0}
 .estimateTV <- function(e,tvObj,estimationControl,garchObj){
@@ -701,13 +701,13 @@ estimateTV <- function(e,tvObj,estimationControl,garchObj){0}
 
   # An unhandled error could result in a NULL being returned by optim()
   if (is.null(tmp)) {
-    this$Estimated$value <- -Inf
+    this$Estimated$value <- NA
     this$Estimated$error <- TRUE
     warning("estimateTV() - optim failed and returned NULL. Check the optim controls & starting params")
     return(this)
   }
   if (tmp$convergence != 0) {
-    this$Estimated$value <- -Inf
+    this$Estimated$value <- NA
     this$Estimated$error <- TRUE
     this$Estimated$optimoutput <- tmp
     warning("estimateTV() - failed to converge. Check the optim controls & starting params")
@@ -731,13 +731,13 @@ estimateTV <- function(e,tvObj,estimationControl,garchObj){0}
   this@g <- .calculate_g(this)
 
   # Calc the std errors
-  this$Estimated$delta0_se <- NULL
-  this$Estimated$se <- NULL
-
+  if (estimationControl$calcSE) cat("\nCalculating TV standard errors...\n")
   if (estimationControl$calcSE) {
-    cat("\nCalculating TV standard errors...\n")
-    this$Estimated$hessian <- tmp$hessian
+
+    this$Estimated$se <- NULL
     stdErrors <- NULL
+    this$Estimated$hessian <- tmp$hessian
+
     try(stdErrors <- sqrt(-diag(qr.solve(tmp$hessian))))
     if(!is.null(stdErrors)){
       parsVec <-  as.vector(this$pars)
@@ -745,7 +745,7 @@ estimateTV <- function(e,tvObj,estimationControl,garchObj){0}
       if (this@delta0free){
         this$Estimated$delta0_se <- stdErrors[1]
         stdErrors <- tail(stdErrors,-1)
-      }
+      } else this$Estimated$delta0_se <- NaN
 
       seIndex <- 1
       for(n in seq_along(parsVec)){
@@ -1443,9 +1443,6 @@ estimateTVGARCH <- function(e,tvgarchObj,estimationControl){0}
              TV <- this$tvObj
              GARCH <- this$garchObj
 
-             estCtrl <- estimationControl
-             verbose <- estCtrl$verbose
-
              cat("\nStarting TVGARCH Estimation...\n")
 
              #==  First time being estimated ==#
@@ -1454,17 +1451,14 @@ estimateTVGARCH <- function(e,tvgarchObj,estimationControl){0}
                this$Estimated <- list()
 
                garchObj <- garch(garchtype$noGarch)
-               TV <- estimateTV(e,TV,estCtrl,garchObj)
-               if(verbose) cat(".")
-               w <- e/sqrt(TV@g)
-               GARCH <- estimateGARCH(w,GARCH,estCtrl,TV)
-               if(verbose) cat(".")
-               cat("\nInitial round of estimation complete - BUT tv estimates not yet consistent")
-               w <- e/sqrt(GARCH@h)
-               TV <- estimateTV(w,TV,estCtrl,GARCH)
-               if(verbose) cat(".")
-               z <- e/sqrt(TV@g)
-               GARCH <- estimateGARCH(z,GARCH,estCtrl,TV)
+               TV <- estimateTV(e,TV,estimationControl,garchObj)
+               if(estimationControl$verbose) cat(".")
+               GARCH <- estimateGARCH(e,GARCH,estimationControl,TV)
+               if(estimationControl$verbose) cat(".")
+               cat("\nInitial round of estimation complete - BUT tv estimated with h(t)=1...\n")
+               TV <- estimateTV(e,TV,estimationControl,GARCH)
+               if(estimationControl$verbose) cat(".")
+               GARCH <- estimateGARCH(e,GARCH,estimationControl,TV)
 
                # Put the final model into the Estimated list
                this$Estimated$tv <- TV
@@ -1488,8 +1482,8 @@ estimateTVGARCH <- function(e,tvgarchObj,estimationControl){0}
              GARCH$pars <- this$Estimated$garch$Estimated$pars
              this$Estimated$startValue <- this$Estimated$finalValue
 
-             TV <- estimateTV(e,TV,estCtrl,GARCH)
-             if(verbose) cat(".")
+             TV <- estimateTV(e,TV,estimationControl,GARCH)
+             if(estimationControl$verbose) cat(".")
 
              if(TV$Estimated$error){
                # On error, Reset to start
@@ -1503,9 +1497,8 @@ estimateTVGARCH <- function(e,tvgarchObj,estimationControl){0}
                  }else cat("\nTV Estimate Improved, now re-estimating Garch...\n")
              }
 
-             z <- e/sqrt(TV@g)
-             GARCH <- estimateGARCH(z,GARCH,estCtrl,TV)
-             if(verbose) cat(".")
+             GARCH <- estimateGARCH(e,GARCH,estimationControl,TV)
+             if(estimationControl$verbose) cat(".")
 
              if(GARCH$Estimated$error){
                cat("\nTVGARCH Estimation Completed - could not be improved (GARCH estimation failed)")
