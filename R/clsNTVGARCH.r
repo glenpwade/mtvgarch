@@ -83,7 +83,7 @@ setGeneric(name="filterData",
 
              for(n in 1:this@N){
 
-               filteredData[,n] <- e[,n]/sqrt(this[[n]]$Estimated$tv@g * this[[n]]$Estimated$garch@h)
+               filteredData[,n] <- e[,n]/sqrt(this[[n]]$Estimated$tv$g * this[[n]]$Estimated$garch$h)
              }
              colnames(filteredData) <- names(this)
 
