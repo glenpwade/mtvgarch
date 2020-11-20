@@ -1050,7 +1050,7 @@ setGeneric(name=".setInitialPars",
                  locNum <- locNum + 2
                } else {
                  loc2 <- NA
-                 locNum <- locNum + 2
+                 locNum <- locNum + 1
                }
                pars <- c(pars,1,3,loc1,loc2)
              }
@@ -1493,6 +1493,10 @@ estimateTVGARCH <- function(e,tvgarchObj,estimationControl){0}
                # Finally re-estimate the Garch
                GARCH <- estimateGARCH(e,GARCH,estimationControl,TV)
 
+               # Update the internal objects with the Estimated objects:
+               this@tvObj <- TV
+               this@garchObj <- GARCH
+
                # Put the final model into the Estimated list
                this$Estimated$tv <- TV$Estimated
                this$Estimated$tv$g <- TV@g
@@ -1512,15 +1516,20 @@ estimateTVGARCH <- function(e,tvgarchObj,estimationControl){0}
 
              TV <- estimateTV(e,TV,estimationControl,GARCH)
              cat(".")
+             tvg.value <- loglik.tvgarch.univar(e,TV@g,GARCH@h)
 
-             if(isFALSE(TV$Estimated$error)){
-               # Confirm LL has improved - to avoid divergence
-               tvg.value <- loglik.tvgarch.univar(e,TV@g,GARCH@h)
-               if(tvg.value > this$Estimated$value) cat("\nTV Estimate Improved, now re-estimating Garch...\n")
+             # If we are re-estimating the same data, then...
+             if(identical(e,this@e)){
 
-             } else {
+               if(isFALSE(TV$Estimated$error)){
+                 # Confirm LL has improved - to avoid divergence
+                 if(tvg.value > this$Estimated$value) cat("\nTV Estimate Improved, now re-estimating Garch...\n")
+
+               } else {
                  TV <- this$Estimated$tv
                  cat("\nTV Estimate could not be Improved, now re-estimating Garch with original TV...\n")
+               }
+
              }
 
              if (interactive())
@@ -1531,19 +1540,37 @@ estimateTVGARCH <- function(e,tvgarchObj,estimationControl){0}
 
              GARCH <- estimateGARCH(e,GARCH,estimationControl,TV)
              cat(".")
+             tvg.value <- loglik.tvgarch.univar(e,TV@g,GARCH@h)
 
-             if(isFALSE(GARCH$Estimated$error)){
-               # Confirm LL has improved - to avoid divergence
-               tvg.value <- loglik.tvgarch.univar(e,TV@g,GARCH@h)
-               if(tvg.value > this$Estimated$value) {
-                 this$Estimated$tv <- TV$Estimated
-                 this$Estimated$tv$g <- TV@g
-                 this$Estimated$garch <- GARCH$Estimated
-                 this$Estimated$garch$h <- GARCH@h
-                 this$Estimated$value <- tvg.value
-                 cat("\nTVGARCH Estimation Completed - Improved\n")
-               } else cat("\nTVGARCH Estimation Completed - could not be improved\n")
+             # If we are re-estimating the same data, then...
+             if(identical(e,this@e)){
 
+               if(isFALSE(GARCH$Estimated$error)){
+                 # Confirm LL has improved - to avoid divergence
+                 if(tvg.value > this$Estimated$value) {
+                   # Update the internal objects with the Estimated objects:
+                   this@tvObj <- TV
+                   this@garchObj <- GARCH
+
+                   # Put the final model into the Estimated list
+                   this$Estimated$tv <- TV$Estimated
+                   this$Estimated$tv$g <- TV@g
+                   this$Estimated$garch <- GARCH$Estimated
+                   this$Estimated$garch$h <- GARCH@h
+                   this$Estimated$value <- tvg.value
+                   cat("\nTVGARCH Estimation Completed - Improved\n")
+                 } else cat("\nTVGARCH Estimation Completed - could not be improved\n")
+
+               }
+             } else {
+
+               # Put the final model into the Estimated list
+               this$Estimated$tv <- TV$Estimated
+               this$Estimated$tv$g <- TV@g
+               this$Estimated$garch <- GARCH$Estimated
+               this$Estimated$garch$h <- GARCH@h
+               this$Estimated$value <- tvg.value
+               cat("\nTVGARCH Estimation Completed\n")
              }
 
              return(this)
