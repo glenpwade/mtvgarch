@@ -1,9 +1,75 @@
 ## --- Contains class definitions & methods for the garch_class, tv_class and tvgarch_class
 
+## --- TV_CLASS Definition --- ####
+
+tv <- setClass(Class = "tv_class",
+               slots = c(Tobs="integer",st="numeric",g="numeric",delta0free="logical",nr.pars="integer", nr.transitions="integer",taylor.order="integer"),
+               contains = c("namedList")
+)
+
+setMethod("initialize","tv_class",
+          function(.Object,...){
+            .Object <- callNextMethod(.Object,...)
+            # Slots
+            .Object@st <- c(NaN)
+            .Object@g <- c(NaN)
+            .Object@delta0free <- TRUE
+            .Object@nr.pars <- as.integer(1)
+            .Object@nr.transitions <- as.integer(0)
+            .Object@Tobs <- as.integer(0)
+            .Object@taylor.order <- as.integer(0)
+
+            # Properties
+            .Object$shape <- tvshape$delta0only
+            .Object$speedopt <- speedopt$none
+            .Object$delta0 <- 1.0
+            .Object$pars <- matrix(NA,4,1)
+            .Object$optimcontrol <- list(fnscale = -1, reltol = 1e-7)
+
+            # Return:
+            .Object
+          })
+
+setGeneric(name="tv",
+           valueClass = "tv_class",
+           signature = c("st","shape"),
+           def = function(st,shape){
+
+             # Validate shape:
+             if(length(shape) > 1){
+               if(any(shape == tvshape$delta0only)) stop("Invalid shape: delta0only / 0 is not a valid transition shape")
+             }
+
+             this <- new("tv_class")
+             this$shape <- shape
+             this@st <- st
+             this@Tobs <- length(st)
+             this@g <- rep(this$delta0,this@Tobs)
+
+             if(shape[1] == tvshape$delta0only){
+               this@nr.transitions <- as.integer(0)
+               this$optimcontrol$ndeps <- c(1e-5)
+               this$optimcontrol$parscale <- c(1)
+             }else {
+               this$speedopt <- speedopt$eta
+               this@nr.transitions <- length(shape)
+               # Create the starting Pars matrix
+               this  <- .setInitialPars(this)
+               rownames(this$pars) <- c("deltaN","speedN","locN1","locN2")
+               this@nr.pars <- as.integer(length(this$pars[!is.na(this$pars)]) + 1)  # +1 for delta0
+               this$optimcontrol$ndeps <- rep(1e-5,this@nr.pars)
+               #TODO: Improve the parScale to better manage different Speed Options
+               parScale <- rep(c(3,3,1,1),this@nr.transitions)
+               # Tricky bit of 'maths' below to produce NA's in the NA locations  :P
+               parScale <- parScale + (as.vector(this$pars) - as.vector(this$pars))
+               this$optimcontrol$parscale <- c(3,parScale[!is.na(parScale)])
+
+             }
+             return(this)
+           }
+)
 
 ## --- GARCH_CLASS Definition --- ####
-## ---- * * * * * * * * * * * * * * * ####
-
 garch <- setClass(Class = "garch_class",
                   slots = c(h="numeric",nr.pars="integer",order="numeric"),
                   contains = c("namedList")
@@ -50,6 +116,80 @@ setMethod("garch",signature = c("numeric","missing"),
             # Create a GARCH(1,1) model
             garch(type,c(1,1))
           })
+
+
+## --- tvgarch_CLASS Definition --- ####
+tvgarch <- setClass(Class = "tvgarch_class",
+                    slots = c(Tobs="integer",tvObj="tv_class",garchObj="garch_class",e="numeric"),
+                    contains = c("namedList")
+)
+
+setMethod("initialize","tvgarch_class",
+          function(.Object){
+            .Object@Tobs <- as.integer(0)
+            .Object@tvObj <- new("tv_class")
+            .Object@garchObj <- new("garch_class")
+            .Object@e <- vector("numeric")
+            # TV properties
+            .Object$shape <- tvshape$delta0only
+            .Object$speedopt <- speedopt$none
+            .Object$delta0 <- 1
+            .Object$tvpars <- matrix(NA,4,1)
+            .Object$tvOptimcontrol <- list(fnscale = -1, reltol = 1e-7)
+            # GARCH properties
+            .Object$garchtype <- garchtype$noGarch
+            .Object$garchpars <- 1
+            .Object$garchOptimcontrol <- list(fnscale = -1, reltol = 1e-7)
+
+            # Return:
+            .Object
+          })
+
+setGeneric(name="tvgarch",
+           valueClass = "tvgarch_class",
+           signature = c("tvObj","garchType"),
+           def = function(tvObj,garchType){
+
+             this <- new("tvgarch_class")
+
+             # Validate: Spit dummy if TV is not estimated (We need the delta0 estimate)
+             if(is.null(tvObj$Estimated) ) {
+               message("tvgarch-class objects require the tv component to be estimated before initialising.")
+               return(this)
+             }
+
+             this@Tobs <- tvObj@Tobs
+             this@tvObj <- tvObj
+
+             this$shape <- tvObj$shape
+             this$speedopt <- tvObj$speedopt
+             this$delta0 <- tvObj$Estimated$delta0
+             this$tvpars <- tvObj$pars
+
+             # Reconfigure the tv object, based on Garch type
+             if(garchType != garchtype$noGarch){
+               if(isTRUE(this@tvObj@delta0free)){
+                 this@tvObj$optimcontrol$ndeps <- tvObj$optimcontrol$ndeps[2:tvObj@nr.pars]
+                 this@tvObj$optimcontrol$parscale <- tvObj$optimcontrol$parscale[2:tvObj@nr.pars]
+                 this@tvObj@nr.pars <- tvObj@nr.pars - as.integer(1)
+                 this@tvObj@delta0free <- FALSE
+               }
+             } else this@tvObj@delta0free <- TRUE
+
+             this$tvOptimcontrol <- this@tvObj$optimcontrol
+
+             # Configure the garch object
+             this@garchObj <- garch(garchType)
+             this$garchtype <- garchType
+             this$garchpars <- this@garchObj$pars
+             this$garchOptimcontrol <- this@garchObj$optimcontrol
+
+             cat("\ntvgarch object created successfully!\n")
+
+             return(this)
+           }
+)
+
 
 
 ## --- Public GARCH Methods --- ####
@@ -558,75 +698,6 @@ setMethod("summary",signature="garch_class",
 )
 
 
-## --- TV_CLASS Definition --- ####
-## ---- * * * * * * * * * * * * * * * ####
-
-tv <- setClass(Class = "tv_class",
-               slots = c(Tobs="integer",st="numeric",g="numeric",delta0free="logical",nr.pars="integer", nr.transitions="integer",taylor.order="integer"),
-               contains = c("namedList")
-)
-
-setMethod("initialize","tv_class",
-          function(.Object,...){
-            .Object <- callNextMethod(.Object,...)
-            # Slots
-            .Object@st <- c(NaN)
-            .Object@g <- c(NaN)
-            .Object@delta0free <- TRUE
-            .Object@nr.pars <- as.integer(1)
-            .Object@nr.transitions <- as.integer(0)
-            .Object@Tobs <- as.integer(0)
-            .Object@taylor.order <- as.integer(0)
-
-            # Properties
-            .Object$shape <- tvshape$delta0only
-            .Object$speedopt <- speedopt$none
-            .Object$delta0 <- 1.0
-            .Object$pars <- matrix(NA,4,1)
-            .Object$optimcontrol <- list(fnscale = -1, reltol = 1e-7)
-
-            # Return:
-            .Object
-          })
-
-setGeneric(name="tv",
-           valueClass = "tv_class",
-           signature = c("st","shape"),
-           def = function(st,shape){
-
-             # Validate shape:
-             if(length(shape) > 1){
-               if(any(shape == tvshape$delta0only)) stop("Invalid shape: delta0only / 0 is not a valid transition shape")
-             }
-
-             this <- new("tv_class")
-             this$shape <- shape
-             this@st <- st
-             this@Tobs <- length(st)
-             this@g <- rep(this$delta0,this@Tobs)
-
-             if(shape[1] == tvshape$delta0only){
-               this@nr.transitions <- as.integer(0)
-               this$optimcontrol$ndeps <- c(1e-5)
-               this$optimcontrol$parscale <- c(1)
-             }else {
-               this$speedopt <- speedopt$eta
-               this@nr.transitions <- length(shape)
-               # Create the starting Pars matrix
-               this  <- .setInitialPars(this)
-               rownames(this$pars) <- c("deltaN","speedN","locN1","locN2")
-               this@nr.pars <- as.integer(length(this$pars[!is.na(this$pars)]) + 1)  # +1 for delta0
-               this$optimcontrol$ndeps <- rep(1e-5,this@nr.pars)
-               #TODO: Improve the parScale to better manage different Speed Options
-               parScale <- rep(c(3,3,1,1),this@nr.transitions)
-               # Tricky bit of 'maths' below to produce NA's in the NA locations  :P
-               parScale <- parScale + (as.vector(this$pars) - as.vector(this$pars))
-               this$optimcontrol$parscale <- c(3,parScale[!is.na(parScale)])
-
-             }
-             return(this)
-           }
-)
 
 ## --- Public TV Methods --- ####
 
@@ -1376,80 +1447,8 @@ setMethod("summary",signature="tv_class",
 
 
 
-## --- tvgarch_CLASS Definition --- ####
-## ---- * * * * * * * * * * * * * * * ####
-tvgarch <- setClass(Class = "tvgarch_class",
-                    slots = c(Tobs="integer",tvObj="tv_class",garchObj="garch_class",e="numeric"),
-                    contains = c("namedList")
-)
+## --- Public TV-GARCH Methods --- ####
 
-## -- Initialise -- ####
-setMethod("initialize","tvgarch_class",
-          function(.Object){
-            .Object@Tobs <- as.integer(0)
-            .Object@tvObj <- new("tv_class")
-            .Object@garchObj <- new("garch_class")
-            .Object@e <- vector("numeric")
-            # TV properties
-            .Object$shape <- tvshape$delta0only
-            .Object$speedopt <- speedopt$none
-            .Object$delta0 <- 1
-            .Object$tvpars <- matrix(NA,4,1)
-            .Object$tvOptimcontrol <- list(fnscale = -1, reltol = 1e-7)
-            # GARCH properties
-            .Object$garchtype <- garchtype$noGarch
-            .Object$garchpars <- 1
-            .Object$garchOptimcontrol <- list(fnscale = -1, reltol = 1e-7)
-
-            # Return:
-            .Object
-          })
-
-## -- Constructor: tvgarch -- ####
-setGeneric(name="tvgarch",
-           valueClass = "tvgarch_class",
-           signature = c("tvObj","garchType"),
-           def = function(tvObj,garchType){
-
-             this <- new("tvgarch_class")
-
-             # Validate: Spit dummy if TV is not estimated (We need the delta0 estimate)
-             if(is.null(tvObj$Estimated) ) {
-               message("tvgarch-class objects require the tv component to be estimated before initialising.")
-               return(this)
-             }
-
-             this@Tobs <- tvObj@Tobs
-             this@tvObj <- tvObj
-
-             this$shape <- tvObj$shape
-             this$speedopt <- tvObj$speedopt
-             this$delta0 <- tvObj$Estimated$delta0
-             this$tvpars <- tvObj$pars
-
-             # Reconfigure the tv object, based on Garch type
-             if(garchType != garchtype$noGarch){
-               if(isTRUE(this@tvObj@delta0free)){
-                 this@tvObj$optimcontrol$ndeps <- tvObj$optimcontrol$ndeps[2:tvObj@nr.pars]
-                 this@tvObj$optimcontrol$parscale <- tvObj$optimcontrol$parscale[2:tvObj@nr.pars]
-                 this@tvObj@nr.pars <- tvObj@nr.pars - as.integer(1)
-                 this@tvObj@delta0free <- FALSE
-               }
-             } else this@tvObj@delta0free <- TRUE
-
-             this$tvOptimcontrol <- this@tvObj$optimcontrol
-
-             # Configure the garch object
-             this@garchObj <- garch(garchType)
-             this$garchtype <- garchType
-             this$garchpars <- this@garchObj$pars
-             this$garchOptimcontrol <- this@garchObj$optimcontrol
-
-             cat("\ntvgarch object created successfully!\n")
-
-             return(this)
-           }
-)
 
 ## -- loglik.tvgarch.univar() ####
 setGeneric(name="loglik.tvgarch.univar",
