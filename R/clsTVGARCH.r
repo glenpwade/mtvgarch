@@ -348,28 +348,34 @@ setGeneric(name=".parsVecToMatrix",
            }
 )
 
-## -- .calculate_h() ####
-setGeneric(name=".calculate_h",
-           valueClass = "numeric",
-           signature = c("garchObj","e"),
-           def = function(garchObj,e){
-             this <- garchObj
+## -- calculate_h() ####
+calculate_h <- function(garchObj,e){0}
+setGeneric("calculate_h",valueClass = "numeric")
 
-             if(this$type == garchtype$noGarch) return(this@h)
+.calculate_h <- function(garchObj,e){
+  this <- garchObj
 
-             Tobs <- NROW(e)
-             h <- rep(0,Tobs)
-             h[1] <- sum(e*e)/Tobs
+  if(this$type == garchtype$noGarch) return(this@h)
 
-             # TODO: Extend the below to handle more lags (higher order Garch)
-             for(t in 2:Tobs) {
-               h[t] <- this$Estimated$pars["omega",1] + this$Estimated$pars["alpha",1]*(e[t-1])^2 + this$Estimated$pars["beta",1]*h[t-1]
-               if(this$type == garchtype$gjr) h[t] <- h[t] + this$Estimated$pars["gamma",1]*(min(e[t-1],0))^2
-             }
+  Tobs <- NROW(e)
+  h <- rep(0,Tobs)
+  h[1] <- sum(e*e)/Tobs
 
-             return(h)
+  # TODO: Extend the below to handle more lags (higher order Garch)
+  for(t in 2:Tobs) {
+    h[t] <- this$Estimated$pars["omega",1] + this$Estimated$pars["alpha",1]*(e[t-1])^2 + this$Estimated$pars["beta",1]*h[t-1]
+    if(this$type == garchtype$gjr) h[t] <- h[t] + this$Estimated$pars["gamma",1]*(min(e[t-1],0))^2
+  }
+
+  return(h)
+
+}
+
+setMethod("calculate_h",
+           signature = c(garchObj="garch_class",e="numeric"),
+           function(garchObj,e){
+           .calculate_h(garchObj,e)
            }
-
 )
 
 setGeneric(name="get_h",
@@ -418,7 +424,8 @@ setGeneric(name="loglik.garch.univar",
              g <- tvObj@g
 
              #Return the LogLiklihood value:
-             sum( -0.5*log(2*pi) - 0.5*log(g) - 0.5*log(h) - 0.5*(e^2/(g*h) ) )
+             ll <- loglik.tvgarch.univar(e,g,h)
+             return(ll)
 
            }
 )
@@ -468,7 +475,9 @@ setGeneric(name=".loglik.garch.rollingWin",
              # End: Get conditional variance - 'h'
 
              #Return the LogLiklihood value:
-             sum( -0.5*log(2*pi) - 0.5*log(h) - 0.5*(e*e)/h )
+             g <- 1
+             ll <- loglik.tvgarch.univar(e,g,h)
+             return(ll)
 
            }
 )
@@ -1196,7 +1205,7 @@ setGeneric(name="get_g",
 
              objType <- class(Obj)
              if(objType[1] == "tv_class"){
-               rtn <- .calculate_g(tvObj)
+               rtn <- .calculate_g(Obj)
                return(rtn)
              }
              #
@@ -1286,7 +1295,9 @@ setGeneric(name="loglik.tv.univar",
              if (min(h,na.rm = TRUE) <= 0) return(error)
 
              #Return the LogLiklihood value:
-             sum( -0.5*log(2*pi) - 0.5*log(g) - 0.5*log(h) - 0.5*(e^2/(g*h) ) )
+             ll <- loglik.tvgarch.univar(e,g,h)
+             return(ll)
+
 
            }
 )
@@ -1840,22 +1851,16 @@ setMethod("summary",signature="tvgarch_class",
               #cat("\n\nPlease estimate the TVGARCH Model first")
               return("Please estimate the TVGARCH Model first")
             }
+
             cat("\n -- TVGARCH Model Specification --\n")
             cat("\nMultiplicative Model Log-Likelihood Value: ", this$Estimated$value)
             cat("\n\nTVGARCH Model Parameters:")
-            this@tvObj$Estimated <- this$Estimated$tv
-            this@garchObj$Estimated <- this$Estimated$garch
-
             summary(this@garchObj)
             summary(this@tvObj)
             cat("\n\n -- End of TVGARCH Model Specification --")
+
           }
 )
 
-setMethod("plot",signature=c(x="tvgarch_class",y="missing"),
-          function(x,...){
-            this <- x
-            plot.default(x$Estimated$tv$g,type='l')
-          }
-)
+
 
