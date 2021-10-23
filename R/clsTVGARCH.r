@@ -752,7 +752,7 @@ estimateTV <- function(e,tvObj,estimationControl,garchObj){0}
       this@nr.pars <- as.integer(0)
     }
     this@g <- rep(this$Estimated$delta0,this@Tobs)
-    if(estimationControl$calcSE) this$Estimated$delta0_se <- NaN
+    if(isTRUE(estimationControl$calcSE)) this$Estimated$delta0_se <- NaN
     this$Estimated$pars <- c(NA,NA,NA,NA)
     this$Estimated$value <- sum(-0.5*log(2*pi) - 0.5*log(this@g) - (0.5*e^2)/this@g)
     this$Estimated$error <- FALSE
@@ -1042,7 +1042,7 @@ setGeneric(name="testStatDist",
              saveAs <- paste0(file.path("Sim_Dist",saveAs),".RDS")
 
              # 3. Load the generated data with Garch and add the 'g' from our TV object
-             refdata <- refdata*sqrt(this@g)
+             refdata <- refdata[1:this@Tobs,]*sqrt(this@g)
 
              # 4. Setup the matrix to store the simulation results
              testStats <- matrix(NA,nrow=numLoops,ncol=8)
@@ -1066,8 +1066,8 @@ setGeneric(name="testStatDist",
                sim_e <- as.vector(refdata[,b])
                TV <- estimateTV(sim_e,this,estCtrl)    # Note: The tv params don't change, only the sim_e changes
                if (!TV$Estimated$error) {
-                 if(is.nan(reftests$TR2)) simTEST1 <- NaN else simTEST1 <- test.LM.TR2(sim_e,TV)
-                 if(is.nan(reftests$Robust)) simTEST2 <- NaN else simTEST2 <- test.LM.Robust(sim_e,TV)
+                 if(is.nan(reftests$TR2)) simTEST1 <- NaN else simTEST1 <- test.LM.TR2(sim_e,TV,TV@taylor.order)
+                 if(is.nan(reftests$Robust)) simTEST2 <- NaN else simTEST2 <- test.LM.Robust(sim_e,TV,TV@taylor.order)
                  runSimrow <- c(b,reftests$TR2,simTEST1,as.integer(simTEST1 > reftests$TR2),reftests$Robust,simTEST2,as.integer(simTEST2 > reftests$Robust),TV$Estimated$value)
                }
                # Progress indicator:
