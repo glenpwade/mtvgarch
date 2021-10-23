@@ -1212,7 +1212,7 @@ setGeneric(name=".dg_dt",
 )
 
 
-## -- .dg_dt2(tv@st) ####
+## -- .dg_dt2(st,testOrder) ####
 setGeneric(name=".dg_dt2",
            valueClass = "matrix",
            signature = c("st","testOrder"),
@@ -1854,6 +1854,8 @@ setMethod("summary",signature="tvgarch_class",
             cat("\n -- TVGARCH Model Specification --\n")
             cat("\nMultiplicative Model Log-Likelihood Value: ", this$Estimated$value)
             cat("\n\nTVGARCH Model Parameters:")
+            this@tvObj$Estimated <- this$Estimated$tv
+            this@garchObj$Estimated <- this$Estimated$garch
             summary(this@garchObj)
             summary(this@tvObj)
             cat("\n\n -- End of TVGARCH Model Specification --")
