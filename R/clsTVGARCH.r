@@ -24,7 +24,7 @@ setMethod("initialize","tv_class",
             .Object$speedopt <- speedopt$none
             .Object$delta0 <- 1.0
             .Object$pars <- matrix(NA,4,1)
-            .Object$optimcontrol <- list(fnscale = -1, reltol = 1e-7)
+            .Object$optimcontrol <- list(fnscale = -1, reltol = 1e-5)
 
             # Return:
             .Object
@@ -83,7 +83,7 @@ setMethod("initialize","garch_class",
             .Object@order <- 0
             .Object$type <- garchtype$noGarch
             .Object$pars <- matrix(NA,4,1)
-            .Object$optimcontrol <- list(fnscale = -1, reltol = 1e-7)
+            .Object$optimcontrol <- list(fnscale = -1, reltol = 1e-5)
 
             # Return:
             .Object
@@ -289,12 +289,9 @@ setMethod("estimateGARCH",
           }
 )
 
-
 ## == estimateGARCH_RollingWindow == ####
-setGeneric(name="estimateGARCH_RollingWindow",
-           valueClass = "garch_class",
-           signature = c("e","garchObj","estimationControl"),
-           def =  function(e,garchObj,estimationControl){
+estimateGARCH_RollingWindow <- function(e,garchObj,estimationControl){0}
+.estimateGARCH_RollingWindow <- function(e,garchObj,estimationControl){
              this <- garchObj
 
              # == Validations == #
@@ -335,6 +332,8 @@ setGeneric(name="estimateGARCH_RollingWindow",
              names(optimpars) <- rownames(this$pars)
              # When var-targetting, omega is calculated, so...
              optimpars <- tail(optimpars,-1)
+             this$optimcontrol$ndeps <- tail(this$optimcontrol$ndeps,-1)
+             this$optimcontrol$parscale <- tail(this$optimcontrol$parscale,-1)
 
              # Now call optim:
              tmp <- NULL
@@ -403,8 +402,22 @@ setGeneric(name="estimateGARCH_RollingWindow",
 
              return(this)
            }
-)
 
+setGeneric("estimateGARCH_RollingWindow",valueClass = "garch_class")
+
+setMethod("estimateGARCH_RollingWindow",
+          signature = c(e="numeric",garchObj="garch_class",estimationControl="list"),
+          function(e,garchObj,estimationControl){
+            .estimateGARCH_RollingWindow(e,garchObj,estimationControl)
+          }
+)
+setMethod("estimateGARCH_RollingWindow",
+          signature = c(e="numeric",garchObj="garch_class",estimationControl="missing"),
+          function(e,garchObj){
+            estimationControl <- list(calcSE <- TRUE,verbose <- TRUE,vartargetWindow <- 500)
+            .estimateGARCH_RollingWindow(e,garchObj,estimationControl)
+          }
+)
 
 ## --- PRIVATE GARCH METHODS --- ####
 
