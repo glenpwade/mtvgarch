@@ -1043,7 +1043,7 @@ setGeneric(name="testStatDist",
 
              # 2. Create SimDist folder (if not there) & set Save filename
              if (!dir.exists(file.path(getwd(),"SimDist"))) dir.create(file.path(getwd(),"SimDist"))
-             saveAs <- paste0(file.path("SimDist",saveAs),".RDS")
+             saveAs <- file.path("SimDist",saveAs)
 
              # 3. Load the generated data with Garch and add the 'g' from our TV object
              refdata <- refdata[1:this@Tobs,]*sqrt(this@g)
@@ -1081,7 +1081,7 @@ setGeneric(name="testStatDist",
                    if(is.nan(reftests[[testOrder]]$Robust)) simTEST2 <- NA else simTEST2 <- test.LM.Robust(sim_e,TV,testOrder)
                    runSimrow <- c(runSimrow,b,reftests[[testOrder]]$TR2,simTEST1,as.integer(simTEST1 > reftests[[testOrder]]$TR2),reftests[[testOrder]]$Robust,simTEST2,as.integer(simTEST2 > reftests[[testOrder]]$Robust),TV$Estimated$value)
                  }else{
-                   runSimrow <- c(b,reftests$TR2,NA,NA,reftests$Robust,NA,NA,NA)
+                   runSimrow <- c(runSimrow,b,reftests$TR2,NA,NA,reftests$Robust,NA,NA,NA)
                   }
                  testOrder = 3
                  if(testOrder <= simcontrol$maxTestorder){
@@ -1089,7 +1089,7 @@ setGeneric(name="testStatDist",
                    if(is.nan(reftests[[testOrder]]$Robust)) simTEST2 <- NA else simTEST2 <- test.LM.Robust(sim_e,TV,testOrder)
                    runSimrow <- c(runSimrow,b,reftests[[testOrder]]$TR2,simTEST1,as.integer(simTEST1 > reftests[[testOrder]]$TR2),reftests[[testOrder]]$Robust,simTEST2,as.integer(simTEST2 > reftests[[testOrder]]$Robust),TV$Estimated$value)
                  }else{
-                   runSimrow <- c(b,reftests$TR2,NA,NA,reftests$Robust,NA,NA,NA)
+                   runSimrow <- c(runSimrow,b,reftests$TR2,NA,NA,reftests$Robust,NA,NA,NA)
                  }
                  testOrder = 4
                  if(testOrder <= simcontrol$maxTestorder){
@@ -1097,7 +1097,7 @@ setGeneric(name="testStatDist",
                    if(is.nan(reftests[[testOrder]]$Robust)) simTEST2 <- NA else simTEST2 <- test.LM.Robust(sim_e,TV,testOrder)
                    runSimrow <- c(runSimrow,b,reftests[[testOrder]]$TR2,simTEST1,as.integer(simTEST1 > reftests[[testOrder]]$TR2),reftests[[testOrder]]$Robust,simTEST2,as.integer(simTEST2 > reftests[[testOrder]]$Robust),TV$Estimated$value)
                  }else{
-                   runSimrow <- c(b,reftests$TR2,NA,NA,reftests$Robust,NA,NA,NA)
+                   runSimrow <- c(runSimrow,b,reftests$TR2,NA,NA,reftests$Robust,NA,NA,NA)
                  }
                }else{
                  runSimrow <- rep(c(b,reftests$TR2,NA,NA,reftests$Robust,NA,NA,NA),4)
@@ -1108,29 +1108,29 @@ setGeneric(name="testStatDist",
              } # End: testStats <- foreach(b = 1:numloops,...
 
              # Extract Test P_Values from Results & express as decimal to 4dp
-             colnamesResults <- c("TestOrd_1","Ref$LMTR2","Stat_TR2","Pval_TR2.1","Ref$LMRobust","Stat_Robust","Pval_Robust.1","Estimated_LL")
-             colnamesResults <- c(colnamesResults,"TestOrd_2","Ref$LMTR2","Stat_TR2","Pval_TR2.2","Ref$LMRobust","Stat_Robust","Pval_Robust.2","Estimated_LL")
-             colnamesResults <- c(colnamesResults,"TestOrd_3","Ref$LMTR2","Stat_TR2","Pval_TR2.3","Ref$LMRobust","Stat_Robust","Pval_Robust.3","Estimated_LL")
-             colnamesResults <- c(colnamesResults,"TestOrd_4","Ref$LMTR2","Stat_TR2","Pval_TR2.4","Ref$LMRobust","Stat_Robust","Pval_Robust.4","Estimated_LL")
+             colnamesResults <- c("TestOrd_1","Ref$LMTR2","Stat_TR2.1","Pval_TR2.1","Ref$LMRobust","Stat_Robust.1","Pval_Robust.1","Estimated_LL")
+             colnamesResults <- c(colnamesResults,"TestOrd_2","Ref$LMTR2","Stat_TR2.2","Pval_TR2.2","Ref$LMRobust","Stat_Robust.2","Pval_Robust.2","Estimated_LL")
+             colnamesResults <- c(colnamesResults,"TestOrd_3","Ref$LMTR2","Stat_TR2.3","Pval_TR2.3","Ref$LMRobust","Stat_Robust.3","Pval_Robust.3","Estimated_LL")
+             colnamesResults <- c(colnamesResults,"TestOrd_4","Ref$LMTR2","Stat_TR2.4","Pval_TR2.4","Ref$LMRobust","Stat_Robust.4","Pval_Robust.4","Estimated_LL")
              colnames(testStats) <- colnamesResults
 
              Results <- list()
              Results$Order1 <- list()
              Results$Order1$pVal_TR2 <- round(mean(testStats[,"Pval_TR2.1"],na.rm = TRUE),4)
              Results$Order1$pVal_ROB <- round(mean(testStats[,"Pval_Robust.1"],na.rm = TRUE),4)
-             Results$Order1$TestStatDist <- testStats
+             #
              Results$Order2 <- list()
              Results$Order2$pVal_TR2 <- round(mean(testStats[,"Pval_TR2.2"],na.rm = TRUE),4)
              Results$Order2$pVal_ROB <- round(mean(testStats[,"Pval_Robust.2"],na.rm = TRUE),4)
-             Results$Order2$TestStatDist <- testStats
+             #
              Results$Order3 <- list()
              Results$Order3$pVal_TR2 <- round(mean(testStats[,"Pval_TR2.3"],na.rm = TRUE),4)
              Results$Order3$pVal_ROB <- round(mean(testStats[,"Pval_Robust.3"],na.rm = TRUE),4)
-             Results$Order3$TestStatDist <- testStats
+             #
              Results$Order4 <- list()
              Results$Order4$pVal_TR2 <- round(mean(testStats[,"Pval_TR2.4"],na.rm = TRUE),4)
              Results$Order4$pVal_ROB <- round(mean(testStats[,"Pval_Robust.4"],na.rm = TRUE),4)
-             Results$Order4$TestStatDist <- testStats
+             Results$TestStatDist <- testStats
 
              # 8. Save the distribution & stop the parallel cluster
              if(!is.na(saveAs)) try(saveRDS(Results,saveAs))
