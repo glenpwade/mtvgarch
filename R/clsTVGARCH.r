@@ -1051,8 +1051,8 @@ setGeneric(name="testStatDist",
              if(!is.null(simcontrol$numCores)) numCores <- simcontrol$numCores else numCores <- detectCores() - 1
 
              # 2. Create Sim_Dist folder (if not there) & set Save filename
-             if (!dir.exists(file.path(getwd(),"Sim_Dist"))) dir.create(file.path(getwd(),"Sim_Dist"))
-             saveAs <- paste0(file.path("Sim_Dist",saveAs),".RDS")
+             if (!dir.exists(file.path(getwd(),"SimDist"))) dir.create(file.path(getwd(),"SimDist"))
+             saveAs <- paste0(file.path("SimDist",saveAs),".RDS")
 
              # 3. Load the generated data with Garch and add the 'g' from our TV object
              refdata <- refdata[1:this@Tobs,]*sqrt(this@g)
