@@ -3,7 +3,7 @@
 ## --- TV_CLASS Definition --- ####
 
 tv <- setClass(Class = "tv_class",
-               slots = c(Tobs="integer",st="numeric",g="numeric",delta0free="logical",nr.pars="integer", nr.transitions="integer",taylor.order="integer"),
+               slots = c(Tobs="integer",st="numeric",g="numeric",delta0free="logical",nr.pars="integer", nr.transitions="integer"),
                contains = c("namedList")
 )
 
@@ -17,7 +17,6 @@ setMethod("initialize","tv_class",
             .Object@nr.pars <- as.integer(1)
             .Object@nr.transitions <- as.integer(0)
             .Object@Tobs <- as.integer(0)
-            .Object@taylor.order <- as.integer(0)
 
             # Properties
             .Object$shape <- tvshape$delta0only
@@ -995,22 +994,6 @@ setGeneric(name="test.LM.Robust",
            }
 )
 
-## -- SetTaylorOrder(tv) ####
-setGeneric(name="setTaylorOrder",
-           valueClass = "tv_class",
-           signature = c("taylor.order","tvObj"),
-           def = function(taylor.order,tvObj){
-             this <- tvObj
-
-             if(taylor.order > 0 && taylor.order < 5){
-               this@taylor.order <- as.integer(taylor.order)
-             } else{
-               message("Invalid Taylor Order: Values 1 to 4 are supported")
-             }
-             return(this)
-           }
-)
-
 ## -- getTestStats(tv) ####
 setGeneric(name="getTestStats",
            valueClass = "list",
@@ -1040,6 +1023,14 @@ setGeneric(name="testStatDist",
            def = function(refdata,tvObj,reftests,simcontrol){
              this <- tvObj
 
+             # Validate: Check that the testorder & reftests match
+             if(!is.null(simcontrol$maxTestorder)){
+               if(length(reftests) != simcontrol$maxTestorder) {
+                 warning("Maximum Test Order is mis-matched with the number of Reference Tests provided")
+                 return(list())
+               }
+             }
+
              # 1. Setup the default params
              library(doParallel)
              if(!is.null(simcontrol$saveAs)) {
@@ -1050,57 +1041,100 @@ setGeneric(name="testStatDist",
              if(!is.null(simcontrol$numLoops)) numLoops <- simcontrol$numLoops else numLoops <- 1100
              if(!is.null(simcontrol$numCores)) numCores <- simcontrol$numCores else numCores <- detectCores() - 1
 
-             # 2. Create Sim_Dist folder (if not there) & set Save filename
+             # 2. Create SimDist folder (if not there) & set Save filename
              if (!dir.exists(file.path(getwd(),"SimDist"))) dir.create(file.path(getwd(),"SimDist"))
              saveAs <- paste0(file.path("SimDist",saveAs),".RDS")
 
              # 3. Load the generated data with Garch and add the 'g' from our TV object
              refdata <- refdata[1:this@Tobs,]*sqrt(this@g)
 
-             # 4. Setup the matrix to store the simulation results
-             testStats <- matrix(NA,nrow=numLoops,ncol=8)
-
-             # 5. Setup the parallel backend
+             # 4. Setup the parallel backend
              Sys.setenv("MC_CORES" = numCores)
              cl <- makeCluster(numCores)
              registerDoParallel(cl, cores = numCores)
-             #
 
-             # 6. Perform the simulation - in parallel
+             # 5. Set the estimation controls to suppress SE & console output
              estCtrl <- list(calcSE = FALSE, verbose = FALSE)
-             if(is.null(reftests$TR2)) reftests$TR2 <- NaN
-             if(is.null(reftests$Robust)) reftests$Robust <- NaN
+
+             # 6. Setup the matrix to store the simulation results
+             testStats <- matrix(NA,nrow=numLoops,ncol=32)
 
              tmr <- proc.time()
              timestamp(prefix = "Starting to build Test Stat Distribution - ",suffix = "\nPlease be patient as this may take a while...\n")
 
+             # 7. Calculate Results for all test orders required
              testStats <- foreach(b = 1:numLoops, .inorder=FALSE, .combine=rbind, .verbose = FALSE) %dopar% {
 
                sim_e <- as.vector(refdata[,b])
                TV <- estimateTV(sim_e,this,estCtrl)    # Note: The tv params don't change, only the sim_e changes
                if (!TV$Estimated$error) {
-                 if(is.nan(reftests$TR2)) simTEST1 <- NaN else simTEST1 <- test.LM.TR2(sim_e,TV,TV@taylor.order)
-                 if(is.nan(reftests$Robust)) simTEST2 <- NaN else simTEST2 <- test.LM.Robust(sim_e,TV,TV@taylor.order)
-                 runSimrow <- c(b,reftests$TR2,simTEST1,as.integer(simTEST1 > reftests$TR2),reftests$Robust,simTEST2,as.integer(simTEST2 > reftests$Robust),TV$Estimated$value)
+
+                 testOrder = 1
+                 if(testOrder <= simcontrol$maxTestorder){
+                   if(is.nan(reftests[[testOrder]]$TR2)) simTEST1 <- NA else simTEST1 <- test.LM.TR2(sim_e,TV,testOrder)
+                   if(is.nan(reftests[[testOrder]]$Robust)) simTEST2 <- NA else simTEST2 <- test.LM.Robust(sim_e,TV,testOrder)
+                   runSimrow <- c(b,reftests[[testOrder]]$TR2,simTEST1,as.integer(simTEST1 > reftests[[testOrder]]$TR2),reftests[[testOrder]]$Robust,simTEST2,as.integer(simTEST2 > reftests[[testOrder]]$Robust),TV$Estimated$value)
+                 }
+                 testOrder = 2
+                 if(testOrder <= simcontrol$maxTestorder){
+                   if(is.nan(reftests[[testOrder]]$TR2)) simTEST1 <- NA else simTEST1 <- test.LM.TR2(sim_e,TV,testOrder)
+                   if(is.nan(reftests[[testOrder]]$Robust)) simTEST2 <- NA else simTEST2 <- test.LM.Robust(sim_e,TV,testOrder)
+                   runSimrow <- c(runSimrow,b,reftests[[testOrder]]$TR2,simTEST1,as.integer(simTEST1 > reftests[[testOrder]]$TR2),reftests[[testOrder]]$Robust,simTEST2,as.integer(simTEST2 > reftests[[testOrder]]$Robust),TV$Estimated$value)
+                 }else{
+                   runSimrow <- c(b,reftests$TR2,NA,NA,reftests$Robust,NA,NA,NA)
+                  }
+                 testOrder = 3
+                 if(testOrder <= simcontrol$maxTestorder){
+                   if(is.nan(reftests[[testOrder]]$TR2)) simTEST1 <- NA else simTEST1 <- test.LM.TR2(sim_e,TV,testOrder)
+                   if(is.nan(reftests[[testOrder]]$Robust)) simTEST2 <- NA else simTEST2 <- test.LM.Robust(sim_e,TV,testOrder)
+                   runSimrow <- c(runSimrow,b,reftests[[testOrder]]$TR2,simTEST1,as.integer(simTEST1 > reftests[[testOrder]]$TR2),reftests[[testOrder]]$Robust,simTEST2,as.integer(simTEST2 > reftests[[testOrder]]$Robust),TV$Estimated$value)
+                 }else{
+                   runSimrow <- c(b,reftests$TR2,NA,NA,reftests$Robust,NA,NA,NA)
+                 }
+                 testOrder = 4
+                 if(testOrder <= simcontrol$maxTestorder){
+                   if(is.nan(reftests[[testOrder]]$TR2)) simTEST1 <- NA else simTEST1 <- test.LM.TR2(sim_e,TV,testOrder)
+                   if(is.nan(reftests[[testOrder]]$Robust)) simTEST2 <- NA else simTEST2 <- test.LM.Robust(sim_e,TV,testOrder)
+                   runSimrow <- c(runSimrow,b,reftests[[testOrder]]$TR2,simTEST1,as.integer(simTEST1 > reftests[[testOrder]]$TR2),reftests[[testOrder]]$Robust,simTEST2,as.integer(simTEST2 > reftests[[testOrder]]$Robust),TV$Estimated$value)
+                 }else{
+                   runSimrow <- c(b,reftests$TR2,NA,NA,reftests$Robust,NA,NA,NA)
+                 }
+               }else{
+                 runSimrow <- rep(c(b,reftests$TR2,NA,NA,reftests$Robust,NA,NA,NA),4)
                }
-               # Progress indicator:
-               #if(b/100==round(b/100)) cat(".")
 
-               #Result:
+               #Internal Parallel Result:
                runSimrow
+             } # End: testStats <- foreach(b = 1:numloops,...
 
-             } # End: foreach(b = 1:numloops,...
+             # Extract Test P_Values from Results & express as decimal to 4dp
+             colnamesResults <- c("TestOrd_1","Ref$LMTR2","Stat_TR2","Pval_TR2.1","Ref$LMRobust","Stat_Robust","Pval_Robust.1","Estimated_LL")
+             colnamesResults <- c(colnamesResults,"TestOrd_2","Ref$LMTR2","Stat_TR2","Pval_TR2.2","Ref$LMRobust","Stat_Robust","Pval_Robust.2","Estimated_LL")
+             colnamesResults <- c(colnamesResults,"TestOrd_3","Ref$LMTR2","Stat_TR2","Pval_TR2.3","Ref$LMRobust","Stat_Robust","Pval_Robust.3","Estimated_LL")
+             colnamesResults <- c(colnamesResults,"TestOrd_4","Ref$LMTR2","Stat_TR2","Pval_TR2.4","Ref$LMRobust","Stat_Robust","Pval_Robust.4","Estimated_LL")
+             colnames(testStats) <- colnamesResults
 
-             # 7. Save the distribution & stop the parallel cluster
-             if(!is.na(saveAs)) try(saveRDS(testStats,saveAs))
+             Results <- list()
+             Results$Order1 <- list()
+             Results$Order1$pVal_TR2 <- round(mean(testStats[,"Pval_TR2.1"],na.rm = TRUE),4)
+             Results$Order1$pVal_ROB <- round(mean(testStats[,"Pval_Robust.1"],na.rm = TRUE),4)
+             Results$Order1$TestStatDist <- testStats
+             Results$Order2 <- list()
+             Results$Order2$pVal_TR2 <- round(mean(testStats[,"Pval_TR2.2"],na.rm = TRUE),4)
+             Results$Order2$pVal_ROB <- round(mean(testStats[,"Pval_Robust.2"],na.rm = TRUE),4)
+             Results$Order2$TestStatDist <- testStats
+             Results$Order3 <- list()
+             Results$Order3$pVal_TR2 <- round(mean(testStats[,"Pval_TR2.3"],na.rm = TRUE),4)
+             Results$Order3$pVal_ROB <- round(mean(testStats[,"Pval_Robust.3"],na.rm = TRUE),4)
+             Results$Order3$TestStatDist <- testStats
+             Results$Order4 <- list()
+             Results$Order4$pVal_TR2 <- round(mean(testStats[,"Pval_TR2.4"],na.rm = TRUE),4)
+             Results$Order4$pVal_ROB <- round(mean(testStats[,"Pval_Robust.4"],na.rm = TRUE),4)
+             Results$Order4$TestStatDist <- testStats
+
+             # 8. Save the distribution & stop the parallel cluster
+             if(!is.na(saveAs)) try(saveRDS(Results,saveAs))
              stopCluster(cl)
-
-             # 8. Extract Test P_Values from Results & express as %
-             colnames(testStats) <- c("b","Ref$LMTR2","Stat_TR2","Pval_TR2","Ref$LMRobust","Stat_Robust","Pval_Robust","Estimated_LL")
-             Test <- list()
-             Test$p_TR2 <- round(100*mean(testStats[,"Pval_TR2"],na.rm = TRUE),3)
-             Test$p_ROB <- round(100*mean(testStats[,"Pval_Robust"],na.rm = TRUE),3)
-             Test$TestStatDist <- testStats
 
              # 9. Print the time taken to the console:
              cat("\nTest Stat Distribution Completed \nRuntime:",(proc.time()-tmr)[3],"seconds\n")
@@ -1109,8 +1143,7 @@ setGeneric(name="testStatDist",
              rm(refdata,testStats)
 
              # Return:
-             return(Test)
-
+             return(Results)
            }
 )
 
@@ -1449,7 +1482,6 @@ setMethod("summary",signature="tv_class",
             }
 
             cat("\n\nTV OBJECT\n")
-            if(this@taylor.order > 0) cat("\nTaylor Expansion Order: ",this@taylor.order)
             cat("\nTransition Shapes:", this$shape ,"\n")
             cat("\nEstimation Results:\n")
             cat("\nDelta0 =",round(this$Estimated$delta0,6),"se0 = ",round(this$Estimated$delta0_se,6),d0Sig,"\n\n")
