@@ -134,11 +134,11 @@ setMethod("initialize","tvgarch_class",
             .Object$speedopt <- speedopt$none
             .Object$delta0 <- 1
             .Object$tvpars <- matrix(NA,4,1)
-            .Object$tvOptimcontrol <- list(fnscale = -1, reltol = 1e-7)
+            .Object$tvOptimcontrol <- list(fnscale = -1, reltol = 1e-5)
             # GARCH properties
             .Object$garchtype <- garchtype$noGarch
             .Object$garchpars <- 1
-            .Object$garchOptimcontrol <- list(fnscale = -1, reltol = 1e-7)
+            .Object$garchOptimcontrol <- list(fnscale = -1, reltol = 1e-5)
 
             # Return:
             .Object
@@ -163,6 +163,7 @@ setGeneric(name="tvgarch",
              this$shape <- tvObj$shape
              this$speedopt <- tvObj$speedopt
              this$delta0 <- tvObj$Estimated$delta0
+             # Note: Starting params set to tv-starting params, NOT the estimated pars
              this$tvpars <- tvObj$pars
 
              # Reconfigure the tv object, based on Garch type
@@ -640,7 +641,7 @@ setGeneric(name=".loglik.garch.rollingWin",
 ## -- plot() ####
 setMethod("plot",signature = c(x="garch_class",y="missing"),
           function(x, y, ...){
-            plot.default(x=x@h, type='l', ylab = "Cond.Variance", ...)
+            plot.default(x=sqrt(x@h), type='l', ylab = "sqrt(h)", ...)
           }
 )
 
@@ -1056,80 +1057,84 @@ setGeneric(name="testStatDist",
              # 5. Set the estimation controls to suppress SE & console output
              estCtrl <- list(calcSE = FALSE, verbose = FALSE)
 
-             # 6. Setup the matrix to store the simulation results
-             testStats <- matrix(NA,nrow=numLoops,ncol=32)
-
+             # 6. Setup the timer to provide duration feedback
              tmr <- proc.time()
              timestamp(prefix = "Starting to build Test Stat Distribution - ",suffix = "\nPlease be patient as this may take a while...\n")
 
              # 7. Calculate Results for all test orders required
              testStats <- foreach(b = 1:numLoops, .inorder=FALSE, .combine=rbind, .verbose = FALSE) %dopar% {
 
-               sim_e <- as.vector(refdata[,b])
-               TV <- estimateTV(sim_e,this,estCtrl)    # Note: The tv params don't change, only the sim_e changes
-               if (!TV$Estimated$error) {
+             sim_e <- as.vector(refdata[,b])
+             TV <- estimateTV(sim_e,this,estCtrl)    # Note: The tv params don't change, only the sim_e changes
+             if (!TV$Estimated$error) {
 
-                 testOrder = 1
-                 if(testOrder <= simcontrol$maxTestorder){
-                   if(is.nan(reftests[[testOrder]]$TR2)) simTEST1 <- NA else simTEST1 <- test.LM.TR2(sim_e,TV,testOrder)
-                   if(is.nan(reftests[[testOrder]]$Robust)) simTEST2 <- NA else simTEST2 <- test.LM.Robust(sim_e,TV,testOrder)
-                   runSimrow <- c(b,reftests[[testOrder]]$TR2,simTEST1,as.integer(simTEST1 > reftests[[testOrder]]$TR2),reftests[[testOrder]]$Robust,simTEST2,as.integer(simTEST2 > reftests[[testOrder]]$Robust),TV$Estimated$value)
-                 }
-                 testOrder = 2
-                 if(testOrder <= simcontrol$maxTestorder){
-                   if(is.nan(reftests[[testOrder]]$TR2)) simTEST1 <- NA else simTEST1 <- test.LM.TR2(sim_e,TV,testOrder)
-                   if(is.nan(reftests[[testOrder]]$Robust)) simTEST2 <- NA else simTEST2 <- test.LM.Robust(sim_e,TV,testOrder)
-                   runSimrow <- c(runSimrow,b,reftests[[testOrder]]$TR2,simTEST1,as.integer(simTEST1 > reftests[[testOrder]]$TR2),reftests[[testOrder]]$Robust,simTEST2,as.integer(simTEST2 > reftests[[testOrder]]$Robust),TV$Estimated$value)
-                 }else{
-                   runSimrow <- c(runSimrow,b,reftests$TR2,NA,NA,reftests$Robust,NA,NA,NA)
-                  }
-                 testOrder = 3
-                 if(testOrder <= simcontrol$maxTestorder){
-                   if(is.nan(reftests[[testOrder]]$TR2)) simTEST1 <- NA else simTEST1 <- test.LM.TR2(sim_e,TV,testOrder)
-                   if(is.nan(reftests[[testOrder]]$Robust)) simTEST2 <- NA else simTEST2 <- test.LM.Robust(sim_e,TV,testOrder)
-                   runSimrow <- c(runSimrow,b,reftests[[testOrder]]$TR2,simTEST1,as.integer(simTEST1 > reftests[[testOrder]]$TR2),reftests[[testOrder]]$Robust,simTEST2,as.integer(simTEST2 > reftests[[testOrder]]$Robust),TV$Estimated$value)
-                 }else{
-                   runSimrow <- c(runSimrow,b,reftests$TR2,NA,NA,reftests$Robust,NA,NA,NA)
-                 }
-                 testOrder = 4
-                 if(testOrder <= simcontrol$maxTestorder){
-                   if(is.nan(reftests[[testOrder]]$TR2)) simTEST1 <- NA else simTEST1 <- test.LM.TR2(sim_e,TV,testOrder)
-                   if(is.nan(reftests[[testOrder]]$Robust)) simTEST2 <- NA else simTEST2 <- test.LM.Robust(sim_e,TV,testOrder)
-                   runSimrow <- c(runSimrow,b,reftests[[testOrder]]$TR2,simTEST1,as.integer(simTEST1 > reftests[[testOrder]]$TR2),reftests[[testOrder]]$Robust,simTEST2,as.integer(simTEST2 > reftests[[testOrder]]$Robust),TV$Estimated$value)
-                 }else{
-                   runSimrow <- c(runSimrow,b,reftests$TR2,NA,NA,reftests$Robust,NA,NA,NA)
-                 }
-               }else{
-                 runSimrow <- rep(c(b,reftests$TR2,NA,NA,reftests$Robust,NA,NA,NA),4)
+               runSimrow <- vector("numeric")
+               testOrder <- 1
+               if(simcontrol$maxTestorder >= 1){
+                 if(is.nan(reftests[[testOrder]]$TR2)) simTEST1 <- NA else simTEST1 <- test.LM.TR2(sim_e,TV,testOrder)
+                 if(is.nan(reftests[[testOrder]]$Robust)) simTEST2 <- NA else simTEST2 <- test.LM.Robust(sim_e,TV,testOrder)
+                 runSimrow <- c(runSimrow,b,reftests[[testOrder]]$TR2,simTEST1,as.integer(simTEST1 > reftests[[testOrder]]$TR2),reftests[[testOrder]]$Robust,simTEST2,as.integer(simTEST2 > reftests[[testOrder]]$Robust),TV$Estimated$value)
                }
+               testOrder <- 2
+               if(simcontrol$maxTestorder >= 2){
+                 if(is.nan(reftests[[testOrder]]$TR2)) simTEST1 <- NA else simTEST1 <- test.LM.TR2(sim_e,TV,testOrder)
+                 if(is.nan(reftests[[testOrder]]$Robust)) simTEST2 <- NA else simTEST2 <- test.LM.Robust(sim_e,TV,testOrder)
+                 runSimrow <- c(runSimrow,b,reftests[[testOrder]]$TR2,simTEST1,as.integer(simTEST1 > reftests[[testOrder]]$TR2),reftests[[testOrder]]$Robust,simTEST2,as.integer(simTEST2 > reftests[[testOrder]]$Robust),TV$Estimated$value)
+               }
+               testOrder <- 3
+               if(simcontrol$maxTestorder >= 3){
+                 if(is.nan(reftests[[testOrder]]$TR2)) simTEST1 <- NA else simTEST1 <- test.LM.TR2(sim_e,TV,testOrder)
+                 if(is.nan(reftests[[testOrder]]$Robust)) simTEST2 <- NA else simTEST2 <- test.LM.Robust(sim_e,TV,testOrder)
+                 runSimrow <- c(runSimrow,b,reftests[[testOrder]]$TR2,simTEST1,as.integer(simTEST1 > reftests[[testOrder]]$TR2),reftests[[testOrder]]$Robust,simTEST2,as.integer(simTEST2 > reftests[[testOrder]]$Robust),TV$Estimated$value)
+               }
+               testOrder <- 4
+               if(simcontrol$maxTestorder >= 4){
+                 if(is.nan(reftests[[testOrder]]$TR2)) simTEST1 <- NA else simTEST1 <- test.LM.TR2(sim_e,TV,testOrder)
+                 if(is.nan(reftests[[testOrder]]$Robust)) simTEST2 <- NA else simTEST2 <- test.LM.Robust(sim_e,TV,testOrder)
+                 runSimrow <- c(runSimrow,b,reftests[[testOrder]]$TR2,simTEST1,as.integer(simTEST1 > reftests[[testOrder]]$TR2),reftests[[testOrder]]$Robust,simTEST2,as.integer(simTEST2 > reftests[[testOrder]]$Robust),TV$Estimated$value)
+               }
+             }else{
+               # There was an error estimating TV for this simulated data series
+               runSimrow <- rep(c(b,reftests$TR2,NA,NA,reftests$Robust,NA,NA,NA),simcontrol$maxTestorder)
+             }
 
                #Internal Parallel Result:
                runSimrow
              } # End: testStats <- foreach(b = 1:numloops,...
 
-             # Extract Test P_Values from Results & express as decimal to 4dp
-             colnamesResults <- c("TestOrd_1","Ref$LMTR2","Stat_TR2.1","Pval_TR2.1","Ref$LMRobust","Stat_Robust.1","Pval_Robust.1","Estimated_LL")
-             colnamesResults <- c(colnamesResults,"TestOrd_2","Ref$LMTR2","Stat_TR2.2","Pval_TR2.2","Ref$LMRobust","Stat_Robust.2","Pval_Robust.2","Estimated_LL")
-             colnamesResults <- c(colnamesResults,"TestOrd_3","Ref$LMTR2","Stat_TR2.3","Pval_TR2.3","Ref$LMRobust","Stat_Robust.3","Pval_Robust.3","Estimated_LL")
-             colnamesResults <- c(colnamesResults,"TestOrd_4","Ref$LMTR2","Stat_TR2.4","Pval_TR2.4","Ref$LMRobust","Stat_Robust.4","Pval_Robust.4","Estimated_LL")
+             # Extract Test P_Values from Results & express as decimal
+             colnamesResults <- vector("character")
+             if(simcontrol$maxTestorder >= 1) colnamesResults <- c(colnamesResults,"TestOrd_1","Ref$LMTR2","Stat_TR2.1","Pval_TR2.1","Ref$LMRobust","Stat_Robust.1","Pval_Robust.1","Estimated_LL")
+             if(simcontrol$maxTestorder >= 2) colnamesResults <- c(colnamesResults,"TestOrd_2","Ref$LMTR2","Stat_TR2.2","Pval_TR2.2","Ref$LMRobust","Stat_Robust.2","Pval_Robust.2","Estimated_LL")
+             if(simcontrol$maxTestorder >= 3) colnamesResults <- c(colnamesResults,"TestOrd_3","Ref$LMTR2","Stat_TR2.3","Pval_TR2.3","Ref$LMRobust","Stat_Robust.3","Pval_Robust.3","Estimated_LL")
+             if(simcontrol$maxTestorder >= 4) colnamesResults <- c(colnamesResults,"TestOrd_4","Ref$LMTR2","Stat_TR2.4","Pval_TR2.4","Ref$LMRobust","Stat_Robust.4","Pval_Robust.4","Estimated_LL")
+             #
              colnames(testStats) <- colnamesResults
 
              Results <- list()
-             Results$Order1 <- list()
-             Results$Order1$pVal_TR2 <- round(mean(testStats[,"Pval_TR2.1"],na.rm = TRUE),4)
-             Results$Order1$pVal_ROB <- round(mean(testStats[,"Pval_Robust.1"],na.rm = TRUE),4)
+             if(simcontrol$maxTestorder >= 1){
+               Results$Order1 <- list()
+               Results$Order1$pVal_TR2 <- mean(testStats[,"Pval_TR2.1"],na.rm = TRUE)
+               Results$Order1$pVal_ROB <- mean(testStats[,"Pval_Robust.1"],na.rm = TRUE)
+             }
              #
-             Results$Order2 <- list()
-             Results$Order2$pVal_TR2 <- round(mean(testStats[,"Pval_TR2.2"],na.rm = TRUE),4)
-             Results$Order2$pVal_ROB <- round(mean(testStats[,"Pval_Robust.2"],na.rm = TRUE),4)
+             if(simcontrol$maxTestorder >= 2){
+               Results$Order2 <- list()
+               Results$Order2$pVal_TR2 <- mean(testStats[,"Pval_TR2.2"],na.rm = TRUE)
+               Results$Order2$pVal_ROB <- mean(testStats[,"Pval_Robust.2"],na.rm = TRUE)
+             }
              #
-             Results$Order3 <- list()
-             Results$Order3$pVal_TR2 <- round(mean(testStats[,"Pval_TR2.3"],na.rm = TRUE),4)
-             Results$Order3$pVal_ROB <- round(mean(testStats[,"Pval_Robust.3"],na.rm = TRUE),4)
+             if(simcontrol$maxTestorder >= 3){
+               Results$Order3 <- list()
+               Results$Order3$pVal_TR2 <- mean(testStats[,"Pval_TR2.3"],na.rm = TRUE)
+               Results$Order3$pVal_ROB <- mean(testStats[,"Pval_Robust.3"],na.rm = TRUE)
+             }
              #
-             Results$Order4 <- list()
-             Results$Order4$pVal_TR2 <- round(mean(testStats[,"Pval_TR2.4"],na.rm = TRUE),4)
-             Results$Order4$pVal_ROB <- round(mean(testStats[,"Pval_Robust.4"],na.rm = TRUE),4)
+             if(simcontrol$maxTestorder >= 4){
+               Results$Order4 <- list()
+               Results$Order4$pVal_TR2 <- mean(testStats[,"Pval_TR2.4"],na.rm = TRUE)
+               Results$Order4$pVal_ROB <- mean(testStats[,"Pval_Robust.4"],na.rm = TRUE)
+             }
              Results$TestStatDist <- testStats
 
              # 8. Save the distribution & stop the parallel cluster
@@ -1424,8 +1429,7 @@ setGeneric(name="loglik.tv.univar",
 ## -- plot() ####
 setMethod("plot",signature = c(x="tv_class",y="missing"),
           function(x, y,...){
-            this <- x
-            plot.default(x=this@g, type='l', ylab = "Cond.Variance", ...)
+            plot.default(x=sqrt(x@g), type='l', ylab = "sqrt(g)", ...)
           })
 
 
@@ -1539,7 +1543,7 @@ estimateTVGARCH <- function(e,tvgarchObj,estimationControl){0}
                # Now estimate the specified GARCH, using the estimated TV above
                GARCH <- estimateGARCH(e,GARCH,estimationControl,TV)
                cat(".")
-               cat("\nInitial round of estimation complete - BUT tv estimated with h(t)=1...\n")
+               cat("\nInitial round of estimation complete, \nBUT tv was estimated with h(t)=1, so\n now we will filter out the Garch & re-estimate tv")
 
                # Re-estimate TV, using the estimated h(t)
                TV <- estimateTV(e,TV,estimationControl,GARCH)
@@ -1558,6 +1562,9 @@ estimateTVGARCH <- function(e,tvgarchObj,estimationControl){0}
                this$Estimated$garch <- GARCH$Estimated
                this$Estimated$garch$h <- GARCH@h
                this$Estimated$value <- loglik.tvgarch.univar(e,TV@g,GARCH@h)
+
+               # Cache the data, to identify future re-estimations:
+               this@e <- e
 
                cat("\nTVGARCH Estimation Completed")
                cat("\n")
@@ -1581,7 +1588,7 @@ estimateTVGARCH <- function(e,tvgarchObj,estimationControl){0}
                  if(tvg.value > this$Estimated$value) cat("\nTV Estimate Improved, now re-estimating Garch...\n")
 
                } else {
-                 TV <- this$Estimated$tv
+                 TV <- this@tvObj
                  cat("\nTV Estimate could not be Improved, now re-estimating Garch with original TV...\n")
                }
 
@@ -1590,7 +1597,7 @@ estimateTVGARCH <- function(e,tvgarchObj,estimationControl){0}
              if (interactive())
              {
                summary(TV)
-               invisible(readline(prompt = "Press <Enter> to continue..."))
+               invisible(readline(prompt = "Does the estimation above look like an improvement?\nPress <Enter key> to continue... (or <Esc key> to abort this estimation) "))
              }
 
              GARCH <- estimateGARCH(e,GARCH,estimationControl,TV)
@@ -1616,7 +1623,7 @@ estimateTVGARCH <- function(e,tvgarchObj,estimationControl){0}
                    cat("\nTVGARCH Estimation Completed - Improved\n")
                  } else cat("\nTVGARCH Estimation Completed - could not be improved\n")
 
-               }
+               }else cat("\nTVGARCH Estimation Failed! estimateGARCH() caused the error.\n")
              } else {
 
                # Put the final model into the Estimated list
@@ -1886,6 +1893,7 @@ setGeneric(name="test.misSpec3",
 
 )
 
+## -- Override Methods -- ##
 
 ## ========= summary ==========####
 setMethod("summary",signature="tvgarch_class",
@@ -1908,5 +1916,12 @@ setMethod("summary",signature="tvgarch_class",
           }
 )
 
-
+## -- plot() ####
+setMethod("plot",signature = c(x="tvgarch_class",y="missing"),
+          function(x, y,...){
+            g <- x$Estimated$tv$g
+            h <- x$Estimated$garch$h
+            plot.default(x=sqrt(g), type='l', ylab = "sqrt(g)", ...)
+            plot.default(x=sqrt(h), type='l', ylab = "sqrt(h)", ...)
+          })
 
