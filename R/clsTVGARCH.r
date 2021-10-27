@@ -163,8 +163,8 @@ setGeneric(name="tvgarch",
              this$shape <- tvObj$shape
              this$speedopt <- tvObj$speedopt
              this$delta0 <- tvObj$Estimated$delta0
-             # Note: Starting params set to tv-starting params, NOT the estimated pars
-             this$tvpars <- tvObj$pars
+             # Note: Starting params set to tv-estimated pars, but rounded down to 1 significant digit
+             this$tvpars <- signif(tvObj$Estimated$pars,1)
 
              # Reconfigure the tv object, based on Garch type
              if(garchType != garchtype$noGarch){
@@ -1543,7 +1543,7 @@ estimateTVGARCH <- function(e,tvgarchObj,estimationControl){0}
                # Now estimate the specified GARCH, using the estimated TV above
                GARCH <- estimateGARCH(e,GARCH,estimationControl,TV)
                cat(".")
-               cat("\nInitial round of estimation complete, \nBUT tv was estimated with h(t)=1, so\n now we will filter out the Garch & re-estimate tv")
+               cat("\nInitial round of estimation complete, \nBUT tv was estimated with h(t)=1, so\nnow we will filter out the Garch & re-estimate tv")
 
                # Re-estimate TV, using the estimated h(t)
                TV <- estimateTV(e,TV,estimationControl,GARCH)
@@ -1600,6 +1600,8 @@ estimateTVGARCH <- function(e,tvgarchObj,estimationControl){0}
                invisible(readline(prompt = "Does the estimation above look like an improvement?\nPress <Enter key> to continue... (or <Esc key> to abort this estimation)\n"))
              }
 
+             # Use the previously estimated pars as starting values:
+             GARCH$pars <- signif(GARCH$Estimated$pars,1)
              GARCH <- estimateGARCH(e,GARCH,estimationControl,TV)
              cat(".")
              tvg.value <- loglik.tvgarch.univar(e,TV@g,GARCH@h)
