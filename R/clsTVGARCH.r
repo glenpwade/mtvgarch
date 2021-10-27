@@ -163,8 +163,8 @@ setGeneric(name="tvgarch",
              this$shape <- tvObj$shape
              this$speedopt <- tvObj$speedopt
              this$delta0 <- tvObj$Estimated$delta0
-             # Note: Starting params set to tv-estimated pars, but rounded down to 1 significant digit
-             this$tvpars <- signif(tvObj$Estimated$pars,1)
+             # Note: Starting params set to tv-starting-pars
+             this$tvpars <- tvObj$pars
 
              # Reconfigure the tv object, based on Garch type
              if(garchType != garchtype$noGarch){
@@ -1600,8 +1600,6 @@ estimateTVGARCH <- function(e,tvgarchObj,estimationControl){0}
                invisible(readline(prompt = "Does the estimation above look like an improvement?\nPress <Enter key> to continue... (or <Esc key> to abort this estimation)\n"))
              }
 
-             # Use the previously estimated pars as starting values:
-             GARCH$pars <- signif(GARCH$Estimated$pars,1)
              GARCH <- estimateGARCH(e,GARCH,estimationControl,TV)
              cat(".")
              tvg.value <- loglik.tvgarch.univar(e,TV@g,GARCH@h)
@@ -1612,9 +1610,6 @@ estimateTVGARCH <- function(e,tvgarchObj,estimationControl){0}
                if(isFALSE(GARCH$Estimated$error)){
                  # Confirm LL has improved - to avoid divergence
                  if(tvg.value > this$Estimated$value) {
-                   # Update the internal objects with the Estimated objects:
-                   this@tvObj <- TV
-                   this@garchObj <- GARCH
 
                    # Put the final model into the Estimated list
                    this$Estimated$tv <- TV$Estimated
@@ -1622,6 +1617,9 @@ estimateTVGARCH <- function(e,tvgarchObj,estimationControl){0}
                    this$Estimated$garch <- GARCH$Estimated
                    this$Estimated$garch$h <- GARCH@h
                    this$Estimated$value <- tvg.value
+                   # Update the internal objects with the Estimated objects:
+                   this@tvObj <- TV
+                   this@garchObj <- GARCH
                    cat("\nTVGARCH Estimation Completed - Improved\n")
                  } else cat("\nTVGARCH Estimation Completed - could not be improved\n")
 
