@@ -127,9 +127,11 @@ setGeneric(name="set.St",
            signature = c("st","stcc1Obj"),
            def = function(st,stcc1Obj){
              this <- stcc1Obj
-             this@st <- st
+             # Validate:
+             if(this@Tobs != NROW(st)){
+               warning("The smooth transition variable supplied is not the same size as the model data\nNo changes applied")
+             }else this@st <- st
              return(this)
-
            }
 )
 

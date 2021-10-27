@@ -40,8 +40,8 @@ setGeneric(name="ccc",
              this$ntvgarch <- list()
              for(n in 1:ntvgarchObj@N){
                this$ntvgarch[[n]] <- list()
-               this$ntvgarch[[n]]$tv <- ntvgarchObj[[n]]$Estimated$tv
-               this$ntvgarch[[n]]$garch <- ntvgarchObj[[n]]$Estimated$garch
+               this$ntvgarch[[n]]$tv <- ntvgarchObj[[n]]@tvObj
+               this$ntvgarch[[n]]$garch <- ntvgarchObj[[n]]@garchObj
              }
              names(this$ntvgarch) <- names(ntvgarchObj)
 
@@ -119,7 +119,7 @@ setGeneric(name="test.CCCParsim",
              for (n in 1:H0@N) {
                g[,n] <- H0$ntvgarch[[n]]$tv@g
                h[,n] <- H0$ntvgarch[[n]]$garch@h
-               beta[1,n] <- H0$ntvgarch[[n]]$garch$Estimated$pars["beta",1]
+               beta[1,n] <- H0$ntvgarch[[n]]$garch$pars["beta",1]
              }
              w <- e/sqrt(g)
              z <- w/sqrt(h)

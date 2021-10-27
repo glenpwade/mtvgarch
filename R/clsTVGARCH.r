@@ -1597,7 +1597,7 @@ estimateTVGARCH <- function(e,tvgarchObj,estimationControl){0}
              if (interactive())
              {
                summary(TV)
-               invisible(readline(prompt = "Does the estimation above look like an improvement?\nPress <Enter key> to continue... (or <Esc key> to abort this estimation) "))
+               invisible(readline(prompt = "Does the estimation above look like an improvement?\nPress <Enter key> to continue... (or <Esc key> to abort this estimation)\n"))
              }
 
              GARCH <- estimateGARCH(e,GARCH,estimationControl,TV)
@@ -1632,6 +1632,9 @@ estimateTVGARCH <- function(e,tvgarchObj,estimationControl){0}
                this$Estimated$garch <- GARCH$Estimated
                this$Estimated$garch$h <- GARCH@h
                this$Estimated$value <- tvg.value
+               # Update the internal objects with the Estimated objects:
+               this@tvObj <- TV
+               this@garchObj <- GARCH
                cat("\nTVGARCH Estimation Completed\n")
              }
 
