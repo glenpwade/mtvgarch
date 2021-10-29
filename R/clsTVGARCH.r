@@ -454,10 +454,10 @@ setGeneric(name=".setInitPars",
                pars <- matrix(nrow = this@nr.pars,ncol = maxLag)
                rownames(pars) <- GarchparsRownames[1:this@nr.pars]
                for(n in 1:maxLag){
-                 pars["omega",n] <- 0.05
-                 pars["alpha",n] <- 0.05
-                 pars["beta",n] <- 0.85
-                 pars["gamma",n] <- 0.05
+                 pars["omega",n] <- 0.1
+                 pars["alpha",n] <- 0.005
+                 pars["beta",n] <- 0.6
+                 pars["gamma",n] <- 0.03
                }
                this$pars <- pars
              }
