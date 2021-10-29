@@ -650,21 +650,10 @@ setMethod("summary",signature="garch_class",
           function(object,...){
             this <- object
 
+            parsSummary <- NULL
             TypeNames <- c("No Garch","General","GJR Garch")
 
-            if(this$type == garchtype$noGarch){
-              cat("\nGARCH OBJECT\n")
-              cat("\nType:",TypeNames[this$type+1])
-              cat("\nCannot be estimated - this type only exists to support `tvgarch` objects")
-              return()
-            }
-
-            if(is.null(this$Estimated)){
-              cat("\nGARCH OBJECT\n")
-              cat("\nType:",TypeNames[this$type+1])
-              cat("\nThis Garch object has not been estimated yet.")
-              return()
-            } else {
+            if(!is.null(this$Estimated)){
 
               parsVec <-  round(as.vector(this$Estimated$pars),6)
               parsRows <- NROW(this$Estimated$pars)
@@ -690,11 +679,11 @@ setMethod("summary",signature="garch_class",
 
               seMat <- matrix(seVec,nrow=parsRows)
               colnames(seMat) <- paste("se" ,1:max(this@order),sep = "")
-              # Build Results table and insert the significance indicators
-              results <- data.frame(NA,stringsAsFactors = FALSE)
+              # Build parsSummary table and insert the significance indicators
+              parsSummary <- data.frame(NA,stringsAsFactors = FALSE)
               for (n in 1:NCOL(this$Estimated$pars)){
                 sig <- matrix(seVecSig[1:parsRows],nrow=parsRows)
-                results <- cbind(results,round(this$Estimated$pars[,n,drop=F],6),seMat[,n,drop=F],sig)
+                parsSummary <- cbind(parsSummary,round(this$Estimated$pars[,n,drop=F],6),seMat[,n,drop=F],sig)
                 seVecSig <- tail(seVecSig,-parsRows)
               }
             }
@@ -702,10 +691,12 @@ setMethod("summary",signature="garch_class",
             cat("\nGARCH OBJECT\n")
             cat("\nType: ",TypeNames[this$type+1])
             cat("\nOrder: (",this@order[1],",",this@order[2],")")
-            cat("\nMethod: ",this$Estimated$method,"\n")
-            cat("\nEstimation Results:\n")
-            print(results[,-1])
-            cat("\nLog-likelihood value(GARCH): ",this$Estimated$value)
+            if(!is.null(this$Estimated)){
+              cat("\nEstimation Results:\n")
+              cat("\nMethod: ",this$Estimated$method,"\n")
+              print(parsSummary[,-1])
+              cat("\nLog-likelihood value(GARCH): ",this$Estimated$value)
+            }
 
           }
 )
