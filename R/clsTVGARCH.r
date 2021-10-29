@@ -102,9 +102,8 @@ setGeneric(name="garch",
              this@order <- order
              this <- .setInitPars(this)
              this$optimcontrol$ndeps <- rep(1e-5,this@nr.pars)
-             this$optimcontrol$parscale <- c(3,3,5,1)
-             this$optimcontrol$parscale <- this$optimcontrol$parscale[1:this@nr.pars]
-
+             if(type == garchtype$general) this$optimcontrol$parscale <- c(3,3,5)
+             if(type == garchtype$gjr) this$optimcontrol$parscale <- c(3,1,7,1)
              return(this)
            }
 )
@@ -209,7 +208,7 @@ estimateGARCH <- function(e,garchObj,estimationControl,tvObj){0}
              this$Estimated <- list()
              this$Estimated$method <- "MLE"
 
-             if (estimationControl$verbose) {
+             if (isTRUE(estimationControl$verbose)) {
                this$optimcontrol$trace <- 10
                cat("\nEstimating GARCH object...\n")
              } else this$optimcontrol$trace <- 0
@@ -245,8 +244,8 @@ estimateGARCH <- function(e,garchObj,estimationControl,tvObj){0}
              this@h <- .calculate_h(this,e)
 
              # Calc Std Errors
-             if (estimationControl$calcSE) cat("\nCalculating GARCH standard errors...\n")
-             if (estimationControl$calcSE) {
+             if (isTRUE(estimationControl$calcSE)) {
+               cat("\nCalculating GARCH standard errors...\n")
                this$Estimated$hessian <- tmp$hessian
                StdErrors <- NULL
                try(StdErrors <- sqrt(-diag(qr.solve(tmp$hessian))))
@@ -258,7 +257,7 @@ estimateGARCH <- function(e,garchObj,estimationControl,tvObj){0}
                rownames(this$Estimated$se) <- rownames(this$pars)
                colnames(this$Estimated$se) <- "se"
              }
-             if (estimationControl$verbose) this$Estimated$optimoutput <- tmp
+             if (isTRUE(estimationControl$verbose)) this$Estimated$optimoutput <- tmp
 
              return(this)
            }
@@ -284,7 +283,7 @@ setMethod("estimateGARCH",
           function(e,garchObj,estimationControl){
             tvObj <- tv(1,tvshape$delta0only)
             tvObj@g <- 1
-            estimationControl <- list(calcSE <- TRUE,verbose <- TRUE)
+            estimationControl <- list(calcSE=TRUE,verbose=TRUE)
             .estimateGARCH(e,garchObj,estimationControl,tvObj)
           }
 )
@@ -319,7 +318,7 @@ estimateGARCH_RollingWindow <- function(e,garchObj,estimationControl){0}
              if(!is.null(estimationControl$calcSE)) calcSE <- estimationControl$calcSE else calcSE <- TRUE
              if(!is.null(estimationControl$verbose)) verbose <- estimationControl$verbose else verbose <- TRUE
 
-             if (verbose) {
+             if (isTRUE(verbose)) {
                this$optimcontrol$trace <- 10
                cat("\nEstimating GARCH object...\n")
              } else this$optimcontrol$trace <- 0
@@ -385,7 +384,7 @@ estimateGARCH_RollingWindow <- function(e,garchObj,estimationControl){0}
 
 
              # Calc Std Errors
-             if (calcSE) {
+             if (isTRUE(calcSE)) {
                this$Estimated$hessian <- tmp$hessian
                StdErrors <- NULL
                try(StdErrors <- sqrt(-diag(qr.solve(tmp$hessian))))
@@ -398,7 +397,7 @@ estimateGARCH_RollingWindow <- function(e,garchObj,estimationControl){0}
                rownames(this$Estimated$se) <- rownames(this$pars)
                colnames(this$Estimated$se) <- "se"
              }
-             if (verbose) this$Estimated$optimoutput <- tmp
+             if (isTRUE(verbose)) this$Estimated$optimoutput <- tmp
 
              return(this)
            }
@@ -414,7 +413,7 @@ setMethod("estimateGARCH_RollingWindow",
 setMethod("estimateGARCH_RollingWindow",
           signature = c(e="numeric",garchObj="garch_class",estimationControl="missing"),
           function(e,garchObj){
-            estimationControl <- list(calcSE <- TRUE,verbose <- TRUE,vartargetWindow <- 500)
+            estimationControl <- list(calcSE=TRUE,verbose=TRUE,vartargetWindow=500)
             .estimateGARCH_RollingWindow(e,garchObj,estimationControl)
           }
 )
@@ -764,7 +763,7 @@ estimateTV <- function(e,tvObj,estimationControl,garchObj){0}
   }
 
   # Set verbose tracing:
-  if (estimationControl$verbose) {
+  if (isTRUE(estimationControl$verbose)) {
     this$optimcontrol$trace <- 10
     cat("\nEstimating TV object...\n")
   } else this$optimcontrol$trace <- 0
@@ -774,7 +773,7 @@ estimateTV <- function(e,tvObj,estimationControl,garchObj){0}
   parsVec <- as.vector(this$pars)
   parsVec <- parsVec[!is.na(parsVec)]
 
-  if(this@delta0free){
+  if(isTRUE(this@delta0free)){
     # Estimating a single TV_class object
     optimpars <- c(this$Estimated$delta0, parsVec)
   }else{
@@ -809,7 +808,7 @@ estimateTV <- function(e,tvObj,estimationControl,garchObj){0}
   this$Estimated$error <- FALSE
 
   #Update the TV object parameters using optimised pars:
-  if (this@delta0free){
+  if (isTRUE(this@delta0free)){
     this$Estimated$delta0 <- as.numeric(tmp$par[1])
     this <- .estimatedParsToMatrix(this,tail(tmp$par,-1))
   } else{
@@ -822,9 +821,9 @@ estimateTV <- function(e,tvObj,estimationControl,garchObj){0}
   this@g <- .calculate_g(this)
 
   # Calc the std errors
-  if (estimationControl$calcSE) cat("\nCalculating TV standard errors...\n")
-  if (estimationControl$calcSE) {
+  if (isTRUE(estimationControl$calcSE)){
 
+    cat("\nCalculating TV standard errors...\n")
     this$Estimated$se <- NULL
     stdErrors <- NULL
     this$Estimated$hessian <- tmp$hessian
@@ -833,7 +832,7 @@ estimateTV <- function(e,tvObj,estimationControl,garchObj){0}
     if(!is.null(stdErrors)){
       parsVec <-  as.vector(this$pars)
 
-      if (this@delta0free){
+      if (isTRUE(this@delta0free)){
         this$Estimated$delta0_se <- stdErrors[1]
         stdErrors <- tail(stdErrors,-1)
       } else this$Estimated$delta0_se <- NaN
@@ -849,7 +848,7 @@ estimateTV <- function(e,tvObj,estimationControl,garchObj){0}
       colnames(this$Estimated$se) <- paste("se" ,1:this@nr.transitions,sep = "")
     }
   }
-  if (estimationControl$verbose) this$Estimated$optimoutput <- tmp
+  if (isTRUE(estimationControl$verbose)) this$Estimated$optimoutput <- tmp
 
   return(this)
 }
@@ -875,9 +874,10 @@ setMethod("estimateTV",
           signature = c(e="numeric", tvObj="tv_class",estimationControl="missing",garchObj="missing"),
           function(e,tvObj){
             garchObj <- garch(garchtype$noGarch)
-            estimationControl <- list(calcSE <- TRUE,verbose <- TRUE)
+            estimationControl <- list(calcSE=TRUE,verbose=TRUE)
             .estimateTV(e,tvObj,estimationControl,garchObj)
-          })
+          }
+)
 
 ## -- test.LM.TR2(e,tv) ####
 setGeneric(name="test.LM.TR2",
@@ -992,10 +992,8 @@ setGeneric(name="getTestStats",
            signature = c("e","tvObj"),
            def = function(e,tvObj){
              this <- list()
-
              this$TR2 <- test.LM.TR2(e,tvObj)
              this$Robust <- test.LM.Robust(e,tvObj)
-
              return(this)
            }
 )
@@ -1057,7 +1055,7 @@ setGeneric(name="testStatDist",
 
              sim_e <- as.vector(refdata[,b])
              TV <- estimateTV(sim_e,this,estCtrl)    # Note: The tv params don't change, only the sim_e changes
-             if (!TV$Estimated$error) {
+             if (isFALSE(TV$Estimated$error)) {
 
                runSimrow <- vector("numeric")
                testOrder <- 1
@@ -1187,13 +1185,12 @@ setGeneric(name=".dg_dt",
            valueClass = "matrix",
            signature = c("tvObj"),
            def =  function(tvObj){
-
              this <- tvObj
 
              rtn <- matrix(nrow=this@Tobs,ncol=this@nr.pars)
              col_idx <- 0
 
-             if(this@delta0free){
+             if(isTRUE(this@delta0free)){
                col_idx <- col_idx + 1
                rtn[,col_idx] <- 1  # derivative of delta0
              }
@@ -1276,7 +1273,6 @@ setGeneric(name=".calculate_g",
            valueClass = "numeric",
            signature = c("tvObj"),
            def = function(tvObj){
-
              this <- tvObj
              # 1. Initialise g to a constant variance = delta0
              if(is.null(this$Estimated$delta0)){
@@ -1304,7 +1300,6 @@ setGeneric(name=".calculate_g",
                  g <- g + this$Estimated$pars["deltaN",i]*Gi
                }
              }
-
              #Return:
              g
            }
@@ -1344,12 +1339,11 @@ setGeneric(name="loglik.tv.univar",
            valueClass = "numeric",
            signature = c("optimpars","e","tvObj","garchObj"),
            def = function(optimpars,e,tvObj,garchObj){
-
              this <- tvObj
              error <- -1e10
 
              # Copy the optimpars into a local tv_object
-             if (this@delta0free) {
+             if (isTRUE(this@delta0free)) {
                this$Estimated$delta0 <- optimpars[1]
                this <- .estimatedParsToMatrix(this,tail(optimpars,-1))
              } else{
@@ -1662,7 +1656,6 @@ setGeneric(name=".dh_dg",
            valueClass = "matrix",
            signature = c("e","tvgarchObj"),
            def =  function(e,tvgarchObj){
-
              this <- tvgarchObj
              Tobs <- this@Tobs
              w <- e/sqrt(this$Estimated$tv$g)
@@ -1689,7 +1682,6 @@ setGeneric(name=".dh_dt",
            valueClass = "matrix",
            signature = c("e","tvgarchObj"),
            def =  function(e,tvgarchObj){
-
              this <- tvgarchObj
              Tobs <- this@tvObj@Tobs
              w <- e/sqrt(this$Estimated$tv$g)
@@ -1705,9 +1697,7 @@ setGeneric(name=".dh_dt",
                beta <- rep(this$Estimated$garch$Estimated$pars["beta",1],NCOL(v_tv))
                dhdt <- .ar1.Filter(v_tv,beta) # T x Num_tv_pars, each row = dh(t).dtvpar
              }
-
              return(dhdt)
-
            }
 )
 
@@ -1726,7 +1716,6 @@ setGeneric(name=".df_dli",
                ret[,n] <- st^(n-1)
              }
              return(ret)
-
            }
 )
 ## -- .test.misSpec.Robust ####
@@ -1771,7 +1760,6 @@ setGeneric(name=".test.misSpec.Robust",
              rtn$pValrob <- as.numeric(pchisq(rtn$LMrob,df=NCOL(r2),lower.tail=FALSE))
 
              return(rtn)
-
            }
 )
 
@@ -1805,10 +1793,8 @@ setGeneric(name="test.misSpec1",
              r2 <- (g^(-1)) * df_dli  # (1/gt)*(df/dlinpars); T x nr.lin.pars (=testorder+1)
 
              rtn <- .test.misSpec.Robust(z2_1,r1,r2)
-
              return(rtn)
            }
-
 )
 
 ## -- test.misSpec2(tvgarch,type) ####
@@ -1853,10 +1839,7 @@ setGeneric(name="test.misSpec2",
 
              rtn <- .test.misSpec.Robust(z2_1,r1,r2)
              return(rtn)
-
-
              }
-
 )
 
 ## -- test.misSpec3(tvgarch,maxLag) ####
@@ -1888,9 +1871,7 @@ setGeneric(name="test.misSpec3",
 
              rtn <- .test.misSpec.Robust(z2_1,r1,r2)
              return(rtn)
-
            }
-
 )
 
 ## -- Override Methods -- ##
