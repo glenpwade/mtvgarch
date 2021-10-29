@@ -1437,12 +1437,11 @@ setMethod("plot",signature = c(x="tv_class",y="missing"),
 setMethod("summary",signature="tv_class",
           function(object,...){
             this <- object
-            results <- NULL
 
-            if(is.null(this$Estimated)){
-              #
-            } else{
+            delta0Summary <- NULL
+            parsSummary <- NULL
 
+            if(!is.null(this$Estimated)){
               # Calculate significance indicator for delta0
               if(is.null(this$Estimated$delta0_se)) this$Estimated$delta0_se <- NaN
               se <- this$Estimated$delta0_se
@@ -1453,44 +1452,51 @@ setMethod("summary",signature="tv_class",
                 else if(se*1.96 < abs(d0)) { d0Sig <- "** " }
                 else if(se*1.645 < abs(d0)) { d0Sig <- "*  " }
               }
+              delta0Summary <- paste0(round(this$Estimated$delta0,6),"    se0 = ",round(this$Estimated$delta0_se,6),d0Sig)
 
-              parsVec <-  round(as.vector(this$Estimated$pars),6)
-              if(!is.null(this$Estimated$se) ){
-                seVec <- round(as.vector(this$Estimated$se),6)
-                seVecSig <- vector("character", length(seVec))
+              # Format tv parameters if present:
+              parsSummary <- NULL
+              if(this@nr.transitions > 0){
+                parsVec <-  round(as.vector(this$Estimated$pars),6)
+                if(!is.null(this$Estimated$se) ){
+                  seVec <- round(as.vector(this$Estimated$se),6)
+                  seVecSig <- vector("character", length(seVec))
 
-                for(n in seq_along(parsVec)){
-                  if(is.nan(seVec[n])) {
-                    seVecSig[n] <- "   "
-                  } else {
-                    # Calculate a significance indicator
-                    if(seVec[n]*2.576 < abs(parsVec[n]) ) { (seVecSig[n] <- "***") }
-                    else if(seVec[n]*1.96 < abs(parsVec[n]) ) { (seVecSig[n] <- "** ") }
-                    else if(seVec[n]*1.645 < abs(parsVec[n]) ) { (seVecSig[n] <- "*  ") }
+                  for(n in seq_along(parsVec)){
+                    if(is.nan(seVec[n])) {
+                      seVecSig[n] <- "   "
+                    } else {
+                      # Calculate a significance indicator
+                      if(seVec[n]*2.576 < abs(parsVec[n]) ) { (seVecSig[n] <- "***") }
+                      else if(seVec[n]*1.96 < abs(parsVec[n]) ) { (seVecSig[n] <- "** ") }
+                      else if(seVec[n]*1.645 < abs(parsVec[n]) ) { (seVecSig[n] <- "*  ") }
+                    }
                   }
+                } else {
+                  seVec <- rep(NaN,length(this$pars))
+                  seVecSig <- rep("   ", length(seVec))
                 }
-              } else {
-                seVec <- rep(NaN,length(this$pars))
-                seVecSig <- rep("   ", length(seVec))
-              }
 
-              seMat <- matrix(seVec,nrow=4)
-              colnames(seMat) <- paste("se" ,1:this@nr.transitions,sep = "")
-              # Build Results table and insert the significance indicators
-              results <- data.frame(NA,stringsAsFactors = FALSE)
-              for (n in 1:NCOL(this$Estimated$pars)){
-                sig <- matrix(seVecSig[1:4],nrow=4)
-                results <- cbind(results,round(this$Estimated$pars[,n,drop=F],6),seMat[,n,drop=F],sig)
-                seVecSig <- tail(seVecSig,-4)
+                seMat <- matrix(seVec,nrow=4)
+                colnames(seMat) <- paste("se" ,1:this@nr.transitions,sep = "")
+                # Build parsSummary table and insert the significance indicators
+                parsSummary <- data.frame(NA,stringsAsFactors = FALSE)
+                for (n in 1:NCOL(this$Estimated$pars)){
+                  sig <- matrix(seVecSig[1:4],nrow=4)
+                  parsSummary <- cbind(parsSummary,round(this$Estimated$pars[,n,drop=F],6),seMat[,n,drop=F],sig)
+                  seVecSig <- tail(seVecSig,-4)
+                }
               }
             }
 
             cat("\n\nTV OBJECT\n")
             cat("\nTransition Shapes:", this$shape ,"\n")
-            cat("\nEstimation Results:\n")
-            cat("\nDelta0 =",round(this$Estimated$delta0,6),"se0 = ",round(this$Estimated$delta0_se,6),d0Sig,"\n\n")
-            print(results[,-1])
-            cat("\nLog-likelihood value(TV): ",this$Estimated$value)
+            if(!is.null(this$Estimated)){
+              cat("\nEstimation Results:\n")
+              cat("\nDelta0 =",delta0Summary,"\n\n")
+              if(this@nr.transitions > 0) print(parsSummary[,-1])
+              cat("\nLog-likelihood value(TV): ",this$Estimated$value)
+            }
 
           })
 
