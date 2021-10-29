@@ -1549,7 +1549,7 @@ estimateTVGARCH <- function(e,tvgarchObj,estimationControl){0}
                # Now estimate the specified GARCH, using the estimated TV above
                GARCH <- estimateGARCH(e,GARCH,estimationControl,TV)
                cat(".")
-               cat("\nInitial round of estimation complete, \nBUT tv was estimated with h(t)=1, so\nnow we will filter out the Garch & re-estimate tv")
+               cat("\nInitial round of estimation complete, \nBUT tv was estimated with h(t)=1, so\nnow we will filter out the Garch & re-estimate tv\n")
 
                # Re-estimate TV, using the estimated h(t)
                TV <- estimateTV(e,TV,estimationControl,GARCH)

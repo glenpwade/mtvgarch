@@ -102,13 +102,18 @@ setGeneric(name="estimateCCC",
 ##===  test.CCCParsim ===####
 setGeneric(name="test.CCCParsim",
            valueClass = "numeric",
-           signature = c("e","H0","H1","testOrder"),
-           def = function(e,H0,H1,testOrder){
+           signature = c("e","H0","st","testOrder"),
+           def = function(e,H0,st,testOrder){
 
              # Validation
              objType <- class(H0)
              if(objType[1] != "ccc_class"){
                warning("This test requires a valid instance of an estimated ccc model as the null (H0)")
+               return(0)
+             }
+             objType <- class(st)
+             if(objType[1] != "numeric"){
+               warning("This test requires a valid smooth-transition variable (numeric vector) as the alternative")
                return(0)
              }
 
@@ -132,8 +137,8 @@ setGeneric(name="test.CCCParsim",
 
              # Get x_tau, dlldrho_A
              ## The transition variable must be de-meaned for the test
-             H1@st <- H1@st - mean(H1@st)
-             rtn <- .x_tau(z,H0,H1,testOrder)
+             st <- st - mean(st)
+             rtn <- .x_tau(z,H0,st,testOrder)
              x_tau <- rtn$x_tau
              dlldrho_A <- rtn$dlldrho_A
 
@@ -182,6 +187,11 @@ setGeneric(name="test.CCCvSTCC1",
              objType <- class(H0)
              if(objType[1] != "ccc_class"){
                warning("This test requires a valid instance of an estimated ccc model as the null (H0)")
+               return(0)
+             }
+             objType <- class(H1)
+             if(objType[1] != "stcc1_class"){
+               warning("This test requires a valid instance of a stcc1 model as the alternative (H1)")
                return(0)
              }
 
@@ -585,9 +595,9 @@ setGeneric(name=".x_tv",
 ##===  .x_tau ===####
 setGeneric(name=".x_tau",
            valueClass = "list",
-           signature = c("z","H0","H1","testOrder"),
-           def = function(z,H0,H1,testOrder){
-             st <- H1@st
+           signature = c("z","H0","st","testOrder"),
+           def = function(z,H0,st,testOrder){
+
              if (testOrder==1) x_tau <- (-0.5)*cbind(st)
              if (testOrder==2) x_tau <- (-0.5)*cbind(st,st^2)
              if (testOrder==3) x_tau <- (-0.5)*cbind(st,st^2,st^3)
