@@ -1646,7 +1646,7 @@ setMethod("estimateTVGARCH",
 setMethod("estimateTVGARCH",
           signature = c(e="numeric",tvgarchObj="tvgarch_class",estimationControl="missing"),
           function(e,tvgarchObj){
-            estimationControl <- list(calcSE <- TRUE,verbose <- TRUE)
+            estimationControl <- list(calcSE=TRUE,verbose=TRUE)
             .estimateTVGARCH(e,tvgarchObj,estimationControl)
           }
 )
