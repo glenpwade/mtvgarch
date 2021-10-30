@@ -449,7 +449,6 @@ setGeneric(name=".im_garch_cor",
              # IM_garch_cor, 3N x (testorder+1)*N*(N-1)/2
              mHelp1 <- matrix(0,nrow = 0,ncol=N*N)  # N x N^2
              for (n in 1:N) mHelp1 <- rbind(mHelp1, (Pinv[n,] %x% I[n,] + I[n,] %x% Pinv[n,])) # N x N^2
-
              mHelp1 <- -0.5*(mHelp1 %*% U)
              mHelp1_scale <- matrix(0,nrow = 0,ncol=N*(N-1)/2)  # (Num_Garch_Pars x N*(N-1)/2), required for rbind() below to work
              for (n in 1:N) {
@@ -483,26 +482,27 @@ setGeneric(name=".im_tv_cor",
              for (n in 1:N) {
                if (H0$ntvgarch[[n]]$tv@nr.pars > 0){
                  mHelp1 <- rbind(mHelp1, (Pinv[n,,drop=FALSE] %x% I[n,,drop=FALSE] + I[n,,drop=FALSE] %x% Pinv[n,,drop=FALSE])) # N x N^2
+               }else{
+                 mHelp1 <- rbind(mHelp1, rep(0,N^2) ) # N x N^2
                }
              } # End: for (n in 1:N)
              mHelp1 <- -0.5*(mHelp1 %*% U)  # N x N*(N-1)/2
-             mHelp1_scale <- matrix(0,nrow=0,ncol=(N*(N-1)/2))  # Total Num_tv_Pars x N*(N-1)/2
+             mHelp1_scale <- matrix(0,nrow=0,ncol=N*(N-1)/2)  # Total Num_tv_Pars x N*(N-1)/2
              for (n in 1:N) {
                if (H0$ntvgarch[[n]]$tv@nr.pars > 0){
                  scaleFactor <- matrix(1,nrow=H0$ntvgarch[[n]]$tv@nr.pars,ncol=1)
                  mHelp1_scale <- rbind(mHelp1_scale, mHelp1[n,,drop=FALSE] %x% scaleFactor)
+               }else{
+                 mHelp1_scale <- rbind(mHelp1_scale, rep(0,N^2) ) # N x N^2
                }
              }
              mHelp2 <- t(t(v_rho)%*%x_tv) / H0@Tobs # Num_tv_pars x 2 (or x3 if TestOrder=2), SUM OVER TIME
-
              IM_tv_cor <- matrix(NA,nrow = NROW(mHelp2),ncol = 0)
              for (i in 1:NCOL(mHelp2)){
                scaleFactor <- matrix(1,nrow=1,ncol=N*(N-1)/2)
                IM_tv_cor <- cbind(IM_tv_cor,(mHelp2[,i,drop=FALSE]%x%scaleFactor) * mHelp1_scale)  # (Num_tv_Pars x (testorder+1)*N*(N-1)/2),  SUM OVER TIME
              }
-
              return(IM_tv_cor)
-
            }
 )
 ##===  .im_cor(...,v_rho) ===####
@@ -817,8 +817,9 @@ setGeneric(name=".x_garch",
              # partial derivatives of h1,h2,...,hN w.r.t garch_pars
              v_garch <- NULL
              h_scale <- NULL
-             beta_scale <- NULL
+             beta_scale <- vector("numeric")
              x_garch <- matrix(NA,0,0)  # Initialise return matrix
+             Tobs_1 <- H0@Tobs-1
 
              # Loop over every series:
              for (n in 1:H0@N){
@@ -828,18 +829,15 @@ setGeneric(name=".x_garch",
 
                } else if(H0$ntvgarch[[n]]$garch$type==garchtype$general) {
                  # General GARCH(1,1) case
-                 Tobs_1 <- H0@Tobs-1
                  v_garch <- cbind(v_garch,c(0,rep(1,Tobs_1)),c(0,w[(1:Tobs_1),n]^2),c(0,h[(1:Tobs_1),n]) ) # T x Num_garch_pars, each row = "1~w(i,t-1)^2~h(i,t-1)", i=1,...,N
-                 beta_scale <- beta_scale <- c(beta_scale,(beta[1,n] %x% c(1,1,1)))    # vector, length 3
+                 beta_scale <- c(beta_scale,(beta[1,n] %x% c(1,1,1)))    # vector, length 3
                  scaleFactor <- matrix(1,nrow=1,ncol=3)
-                 h_scale <- cbind(h_scale,h[,n,drop=FALSE] %x% scaleFactor)    # T x Num_garch_pars
+                 h_scale <- cbind(h_scale,(h[,n,drop=FALSE] %x% scaleFactor) )    # T x Num_garch_pars
                } else if (H0$ntvgarch[[n]]$garch$type == garchtype$gjr) {
-                 # GJR GARCH(1,1) case
-                 Tobs_1 <- H0@Tobs-1
-                 v_garch <- cbind(v_garch,c(0,rep(1,Tobs_1)),c(0,w[(1:Tobs_1),n]^2),c(0,h[(1:Tobs_1),n]),c(0,(min(w[(1:Tobs_1),n],0))^2) ) # T x Num_garch_pars, each row = "1~w(i,t-1)^2~h(i,t-1)~min[w(i,t-1),0]^2", i=1,...,N
-                 beta_scale <- beta_scale <- c(beta_scale,(beta[1,n] %x% c(1,1,1,1)))    # vector, length 4
+                 v_garch <- cbind(v_garch,c(0,rep(1,Tobs_1)),c(0,w[(1:Tobs_1),n]^2),c(0,h[(1:Tobs_1),n]),c(0,(pmin(w[(1:Tobs_1),n],0))^2) ) # T x Num_garch_pars, each row = "1~w(i,t-1)^2~h(i,t-1)~min[w(i,t-1),0]^2", i=1,...,N
+                 beta_scale <- c(beta_scale,(beta[1,n] %x% c(1,1,1,1)))    # vector, length 4
                  scaleFactor <- matrix(1,nrow=1,ncol=4)
-                 h_scale <- cbind(h_scale,h[,n,drop=FALSE] %x% scaleFactor)    # T x Num_garch_pars
+                 h_scale <- cbind(h_scale,(h[,n,drop=FALSE] %x% scaleFactor) )    # T x Num_garch_pars
                }
 
              } # End: For..loop
@@ -848,12 +846,10 @@ setGeneric(name=".x_garch",
                # All series have noGarch
                x_garch <- matrix(nrow=H0@Tobs,ncol=0)
              } else {
-               dhdt <- .ar1.Filter(v_garch,beta_scale) # T x Num_garch_pars, each row = "(dh(i,t)/dtheta(i))' ", i=1,...,N
+               dhdt <- .ar1.Filter(v_garch,beta_scale) # T x (Num_garch_pars), each row = "(dh(i,t)/dtheta(i))' ", i=1,...,N
                x_garch <- -0.5*dhdt/h_scale # T x Num_garch_pars, each row = "x_it'", i=1,...,N
              }
-
              return(x_garch)
-
            }
 )
 ##===  .x_tv ===####
