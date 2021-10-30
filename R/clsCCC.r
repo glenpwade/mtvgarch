@@ -452,6 +452,10 @@ setGeneric(name=".im_garch_cor",
              mHelp1 <- -0.5*(mHelp1 %*% U)
              mHelp1_scale <- matrix(0,nrow = 0,ncol=N*(N-1)/2)  # (Num_Garch_Pars x N*(N-1)/2), required for rbind() below to work
              for (n in 1:N) {
+               #TODO:
+               # When $garch$garchtype == noGarch, then we have tv only and need to use that
+               # Figure out how to do this!
+               # str(mHelp1) = (N x N^2) assumes every series has garch.  If one doesn't we will only have (N-1) rows
                scaleFactor <- matrix(1, nrow=H0$ntvgarch[[n]]$garch@nr.pars, ncol=1)
                mHelp1_scale <- rbind(mHelp1_scale, (mHelp1[n, ,drop=FALSE] %x% scaleFactor))
              }
@@ -483,7 +487,12 @@ setGeneric(name=".im_tv_cor",
                if (H0$ntvgarch[[n]]$tv@nr.pars > 0){
                  mHelp1 <- rbind(mHelp1, (Pinv[n,,drop=FALSE] %x% I[n,,drop=FALSE] + I[n,,drop=FALSE] %x% Pinv[n,,drop=FALSE])) # N x N^2
                }else{
-                 mHelp1 <- rbind(mHelp1, rep(0,N^2) ) # N x N^2
+                 #TODO:
+                 # The code below is a hack - not correct...
+                 # When $tv@nr.pars == 0, then we have delta0 only and need to use that
+                 # Figure out how to do this!
+                 # str(mHelp1) = (N x N^2) assumes every series has tv$pars.  If one doesn't we will only have (N-1) rows
+                 mHelp1 <- rbind(mHelp1, rep(1,N^2) ) # N x N^2
                }
              } # End: for (n in 1:N)
              mHelp1 <- -0.5*(mHelp1 %*% U)  # N x N*(N-1)/2
@@ -493,7 +502,11 @@ setGeneric(name=".im_tv_cor",
                  scaleFactor <- matrix(1,nrow=H0$ntvgarch[[n]]$tv@nr.pars,ncol=1)
                  mHelp1_scale <- rbind(mHelp1_scale, mHelp1[n,,drop=FALSE] %x% scaleFactor)
                }else{
-                 mHelp1_scale <- rbind(mHelp1_scale, rep(0,N^2) ) # N x N^2
+                 #TODO:
+                 # The code below is a hack - not correct...
+                 # When $tv@nr.pars == 0, then we have delta0 only and need to use that
+                 # Figure out how to do this!
+                 mHelp1_scale <- rbind(mHelp1_scale, rep(1,N^2) ) # N x N^2
                }
              }
              mHelp2 <- t(t(v_rho)%*%x_tv) / H0@Tobs # Num_tv_pars x 2 (or x3 if TestOrder=2), SUM OVER TIME
