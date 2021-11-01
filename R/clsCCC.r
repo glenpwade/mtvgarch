@@ -103,7 +103,7 @@ setGeneric(name="estimateCCC",
 ##===   test.CCCParsim   ===####
 ##============================##
 setGeneric(name="test.CCCParsim",
-           valueClass = "numeric",
+           valueClass = "matrix",
            signature = c("e","H0","st","testOrder"),
            def = function(e,H0,st,testOrder){
 
@@ -174,7 +174,13 @@ setGeneric(name="test.CCCParsim",
 
              LM <- .LM(H0,IM_list,dlldrho_A,testOrder)
 
-             return(LM)
+             df <- testOrder * H0@N
+             pVal <- pchisq(LM,df,lower.tail = FALSE)
+
+             testResult <- matrix(c(LM,pVal),2,1)
+             rownames(testResult) <- c("Statistic","P_value")
+
+             return(testResult)
 
            }
 )
@@ -393,7 +399,14 @@ setGeneric(name="test.CCCvSTCC1",
 
              LM <- .LM(H0,IM_list,dlldrho_A,testOrder)
 
-             return(LM)
+             df <- testOrder * H0@N * (H0@N-1)/2
+             pVal <- pchisq(LM,df,lower.tail = FALSE)
+
+             testResult <- matrix(c(LM,pVal),2,1)
+             rownames(testResult) <- c("Statistic","P_value")
+
+             return(testResult)
+
 
            }
 )
@@ -706,7 +719,13 @@ setGeneric(name="test.TVCC1vTVCC2",
 
              LM <- .LM_v2(H0,IM_list,dlldrho_A,testOrder)
 
-             return(LM)
+             df <- testOrder * H0@N * (H0@N-1)/2
+             pVal <- pchisq(LM,df,lower.tail = FALSE)
+
+             testResult <- matrix(c(LM,pVal),2,1)
+             rownames(testResult) <- c("Statistic","P_value")
+
+             return(testResult)
 
            }
 )
