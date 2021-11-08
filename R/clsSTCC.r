@@ -4,7 +4,7 @@
 
 ## --- stcc1_class Definition --- ####
 stcc1 <- setClass(Class = "stcc1_class",
-               slots = c(st="numeric",nr.corPars="integer",nr.trPars="integer",Tobs="integer",N="integer"),
+               slots = c(st="numeric",nr.corPars="integer",nr.trPars="integer",Tobs="integer",N="integer",z="matrix"),
                contains = c("namedList")
                )
 
@@ -17,9 +17,10 @@ setMethod("initialize","stcc1_class",
             .Object$ntvgarch <- list()
             .Object@N <- as.integer(0)
             .Object@Tobs <- as.integer(0)
+            .Object@z <- matrix("numeric")
             .Object$shape <- corrshape$single
             .Object$speedopt <- corrspeedopt$eta
-            .Object$optimcontrol <- list(fnscale = -1, maxit = 1000, reltol = 1e-5)
+            .Object$optimcontrol <- list(fnscale = -1, reltol = 1e-5)
 
             # Return:
             .Object
@@ -28,14 +29,18 @@ setMethod("initialize","stcc1_class",
 ## -- Constructor:stcc1 -- ####
 setGeneric(name="stcc1",
            valueClass = "stcc1_class",
-           signature = c("ntvgarchObj"),
-           def = function(ntvgarchObj){
+           signature = c("z","ntvgarchObj"),
+           def = function(z,ntvgarchObj){
              this <- new("stcc1_class")
 
              ## -- Do validation checks -- ####
-             objType <- class(ntvgarchObj)
-             if(objType[1] != "ntvgarch_class"){
+
+             if(class(ntvgarchObj)[1] != "ntvgarch_class"){
                warning("a valid instance of the ntvgarch_class is required to create an STCC1 model")
+               return(this)
+             }
+             if(class(z)[1] != "matrix"){
+               warning("'z' must be a valid numeric matrix to create an STCC1 model")
                return(this)
              }
              # End validation
@@ -50,28 +55,40 @@ setGeneric(name="stcc1",
 
              # Set Default Values:
              this@N <- ntvgarchObj@N
-             this@st <- (1:ntvgarchObj@Tobs)/ntvgarchObj@Tobs
              this@Tobs <- ntvgarchObj@Tobs
+             this@st <- (1:ntvgarchObj@Tobs)/ntvgarchObj@Tobs
 
              N <- this@N
              this@nr.corPars <- as.integer((N^2-N)/2)
-             this$P1 <- matrix(0.3,N,N)
-             diag(this$P1) <- 1
 
-             if(this$shape==corrshape$double) {
-               this$P2 <- matrix(0.4,N,N)
-               diag(this$P2) <- 1
-               this@nr.trPars <- as.integer(3)
-               this$pars <- c(2.5,0.33,0.66)
+             # Use the correlation of the first & last 1/3 of the data as starting values
+             zDiv3 <- round(this@Tobs/3)
+             z.start <- 1
+             z.end <- zDiv3
+             this$P1 <- cor(z[(z.start:z.end),])
 
-             }else {
-               this$P2 <- matrix(0.7,N,N)
-               diag(this$P2) <- 1
-               this@nr.trPars <- as.integer(2)
-               this$pars <- c(2.5,0.5,NA)
-             }
+             z.start <- this@Tobs - zDiv3
+             z.end <- this@Tobs
+             this$P2 <- cor(z[(z.start:z.end),])
+
+             this$pars <- c(2.5,0.5,NA)
+             this@nr.trPars <- as.integer(2)
              names(this$pars) <- c("speed","loc1","loc2")
 
+             ## TODO: Confirm code can handle corshape > single:
+
+             # if(this$shape==corrshape$double) {
+             #   this$P2 <- matrix(0.4,N,N)
+             #   diag(this$P2) <- 1
+             #   this@nr.trPars <- as.integer(3)
+             #   this$pars <- c(2.5,0.33,0.66)
+             #
+             # }else {
+             #   this$P2 <- matrix(0.7,N,N)
+             #   diag(this$P2) <- 1
+             #   this@nr.trPars <- as.integer(2)
+             #   this$pars <- c(2.5,0.5,NA)
+             # }
              return(this)
            }
 )
@@ -217,14 +234,14 @@ setGeneric(name=".loglik.stcc1",
 
 
              # Check 2: Check the boundary values for speed params:
-             speed <- this$Estimated$pars["speed"]
+             speed <- this$Estimated$pars[1]
              maxSpeed <- switch(this$speedopt,1000,(1000/sd(this@st)),7.0,0.30)
              if (speed > maxSpeed) return(err_output)
              if (speed < 0) return(err_output)
 
              # Check 3: Check the locations fall within min-max values of st
-             loc1 <- this$Estimated$pars["loc1"]
-             if(this$shape == corrshape$double) loc2 <- this$Estimated$pars["loc2"] else loc2 <- NA
+             loc1 <- this$Estimated$pars[2]
+             if(this$shape == corrshape$double) loc2 <- this$Estimated$pars[3] else loc2 <- NA
              if (loc1 < min(this@st)) return(err_output)
              if (loc1 > max(this@st)) return(err_output)
              if (!is.na(loc2)) {
@@ -246,6 +263,7 @@ setGeneric(name=".loglik.stcc1",
 
            }
 )
+
 ## --- estimateSTCC1 --- ####
 setGeneric(name="estimateSTCC1",
            valueClass = "stcc1_class",
