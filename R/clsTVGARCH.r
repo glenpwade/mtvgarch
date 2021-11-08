@@ -1013,83 +1013,92 @@ setGeneric(name="testStatDist",
            def = function(refdata,tvObj,reftests,simcontrol){
              this <- tvObj
 
-             # Validate: Check that the testorder & reftests match
-             if(!is.null(simcontrol$maxTestorder)){
-               if(length(reftests) != simcontrol$maxTestorder) {
+             # Validate:
+             if(is.null(simcontrol$maxTestorder)){
+               warning("Maximum Test Order must be a valid number between 1 - 4")
+               return(list())
+             }else if((simcontrol$maxTestorder < 1) || (simcontrol$maxTestorder > 4) ){
+                 warning("Maximum Test Order must be a valid number between 1 - 4")
+                 return(list())
+             }else if(length(reftests) != simcontrol$maxTestorder) {
                  warning("Maximum Test Order is mis-matched with the number of Reference Tests provided")
                  return(list())
-               }
              }
 
              # 1. Setup the default params
              library(doParallel)
-             if(!is.null(simcontrol$saveAs)) {
-               saveAs <- simcontrol$saveAs
-             } else {
-               saveAs <- paste("TestStatDist-",strftime(Sys.time(),format="%Y%m%d-%H%M%S",usetz = FALSE),sep = "")
-             }
+
              if(!is.null(simcontrol$numLoops)) numLoops <- simcontrol$numLoops else numLoops <- 1100
              if(!is.null(simcontrol$numCores)) numCores <- simcontrol$numCores else numCores <- detectCores() - 1
 
-             # 2. Create SimDist folder (if not there) & set Save filename
-             if (!dir.exists(file.path(getwd(),"SimDist"))) dir.create(file.path(getwd(),"SimDist"))
-             saveAs <- file.path("SimDist",saveAs)
-
-             # 3. Load the generated data with Garch and add the 'g' from our TV object
+             # 2. Load the generated data with Garch and add the 'g' from our TV object
              refdata <- refdata[1:this@Tobs,]*sqrt(this@g)
 
-             # 4. Setup the parallel backend
+             # 3. Setup the parallel backend
              Sys.setenv("MC_CORES" = numCores)
              cl <- makeCluster(numCores)
              registerDoParallel(cl, cores = numCores)
 
-             # 5. Set the estimation controls to suppress SE & console output
+             # 4. Set the estimation controls to suppress SE & console output
              estCtrl <- list(calcSE = FALSE, verbose = FALSE)
 
-             # 6. Setup the timer to provide duration feedback
+             # 5. Setup the timer to provide duration feedback
              tmr <- proc.time()
              timestamp(prefix = "Starting to build Test Stat Distribution - ",suffix = "\nPlease be patient as this may take a while...\n")
 
-             # 7. Calculate Results for all test orders required
-             testStats <- foreach(b = 1:numLoops, .inorder=FALSE, .combine=rbind, .verbose = FALSE) %dopar% {
+             # 6. Calculate Results for all test orders required (optimised for parallel processing)
 
-             sim_e <- as.vector(refdata[,b])
-             TV <- estimateTV(sim_e,this,estCtrl)    # Note: The tv params don't change, only the sim_e changes
-             if (isFALSE(TV$Estimated$error)) {
+               # First estimate all TV objects in parallel
 
-               runSimrow <- vector("numeric")
-               testOrder <- 1
-               if(simcontrol$maxTestorder >= 1){
-                 if(is.nan(reftests[[testOrder]]$TR2)) simTEST1 <- NA else simTEST1 <- test.LM.TR2(sim_e,TV,testOrder)
-                 if(is.nan(reftests[[testOrder]]$Robust)) simTEST2 <- NA else simTEST2 <- test.LM.Robust(sim_e,TV,testOrder)
-                 runSimrow <- c(runSimrow,b,reftests[[testOrder]]$TR2,simTEST1,as.integer(simTEST1 > reftests[[testOrder]]$TR2),reftests[[testOrder]]$Robust,simTEST2,as.integer(simTEST2 > reftests[[testOrder]]$Robust),TV$Estimated$value)
-               }
-               testOrder <- 2
-               if(simcontrol$maxTestorder >= 2){
-                 if(is.nan(reftests[[testOrder]]$TR2)) simTEST1 <- NA else simTEST1 <- test.LM.TR2(sim_e,TV,testOrder)
-                 if(is.nan(reftests[[testOrder]]$Robust)) simTEST2 <- NA else simTEST2 <- test.LM.Robust(sim_e,TV,testOrder)
-                 runSimrow <- c(runSimrow,b,reftests[[testOrder]]$TR2,simTEST1,as.integer(simTEST1 > reftests[[testOrder]]$TR2),reftests[[testOrder]]$Robust,simTEST2,as.integer(simTEST2 > reftests[[testOrder]]$Robust),TV$Estimated$value)
-               }
-               testOrder <- 3
-               if(simcontrol$maxTestorder >= 3){
-                 if(is.nan(reftests[[testOrder]]$TR2)) simTEST1 <- NA else simTEST1 <- test.LM.TR2(sim_e,TV,testOrder)
-                 if(is.nan(reftests[[testOrder]]$Robust)) simTEST2 <- NA else simTEST2 <- test.LM.Robust(sim_e,TV,testOrder)
-                 runSimrow <- c(runSimrow,b,reftests[[testOrder]]$TR2,simTEST1,as.integer(simTEST1 > reftests[[testOrder]]$TR2),reftests[[testOrder]]$Robust,simTEST2,as.integer(simTEST2 > reftests[[testOrder]]$Robust),TV$Estimated$value)
-               }
-               testOrder <- 4
-               if(simcontrol$maxTestorder >= 4){
-                 if(is.nan(reftests[[testOrder]]$TR2)) simTEST1 <- NA else simTEST1 <- test.LM.TR2(sim_e,TV,testOrder)
-                 if(is.nan(reftests[[testOrder]]$Robust)) simTEST2 <- NA else simTEST2 <- test.LM.Robust(sim_e,TV,testOrder)
-                 runSimrow <- c(runSimrow,b,reftests[[testOrder]]$TR2,simTEST1,as.integer(simTEST1 > reftests[[testOrder]]$TR2),reftests[[testOrder]]$Robust,simTEST2,as.integer(simTEST2 > reftests[[testOrder]]$Robust),TV$Estimated$value)
-               }
-             }else{
-               # There was an error estimating TV for this simulated data series
-               runSimrow <- rep(c(b,reftests$TR2,NA,NA,reftests$Robust,NA,NA,NA),simcontrol$maxTestorder)
+             noGarch <- garch(garchtype$noGarch,1)  # Prevent the estimateTV method from creating a Garch object every time
+             listTV <- foreach(a = 1:numLoops, .inorder=FALSE, .verbose = FALSE) %dopar%{
+               estimateTV(refdata[,a],this,estCtrl,noGarch)    # Note: The tv params don't change, only the data changes
              }
 
+             testStats <- foreach(b = 1:numLoops, .inorder=FALSE, .combine=rbind, .verbose = FALSE) %dopar% {
+               if (isFALSE(listTV[[b]]$Estimated$error)) {
+                 foreach(testOrder = 1:simcontrol$maxTestorder, .inorder=FALSE, .combine=c, .verbose = FALSE) %do% {
+                   if(is.nan(reftests[[testOrder]]$TR2)) simTEST1 <- NA else simTEST1 <- test.LM.TR2(refdata[,b],listTV[[b]],testOrder)
+                   if(is.nan(reftests[[testOrder]]$Robust)) simTEST2 <- NA else simTEST2 <- test.LM.Robust(refdata[,b],listTV[[b]],testOrder)
+                   c(b,reftests[[testOrder]]$TR2,simTEST1,as.integer(simTEST1 > reftests[[testOrder]]$TR2),reftests[[testOrder]]$Robust,simTEST2,as.integer(simTEST2 > reftests[[testOrder]]$Robust),listTV[[b]]$Estimated$value)
+                   #runSimrow <- c(runSimrow,b,reftests[[testOrder]]$TR2,simTEST1,as.integer(simTEST1 > reftests[[testOrder]]$TR2),reftests[[testOrder]]$Robust,simTEST2,as.integer(simTEST2 > reftests[[testOrder]]$Robust),listTV[[b]]$Estimated$value)
+                 }
+               }
+             }
+
+             #   runSimrow <- vector("numeric")
+             #   testOrder <- 1
+             #   if(simcontrol$maxTestorder >= 1){
+             #     if(is.nan(reftests[[testOrder]]$TR2)) simTEST1 <- NA else simTEST1 <- test.LM.TR2(sim_e,TV,testOrder)
+             #     if(is.nan(reftests[[testOrder]]$Robust)) simTEST2 <- NA else simTEST2 <- test.LM.Robust(sim_e,TV,testOrder)
+             #     runSimrow <- c(runSimrow,b,reftests[[testOrder]]$TR2,simTEST1,as.integer(simTEST1 > reftests[[testOrder]]$TR2),reftests[[testOrder]]$Robust,simTEST2,as.integer(simTEST2 > reftests[[testOrder]]$Robust),TV$Estimated$value)
+             #   }
+             #   testOrder <- 2
+             #   if(simcontrol$maxTestorder >= 2){
+             #     if(is.nan(reftests[[testOrder]]$TR2)) simTEST1 <- NA else simTEST1 <- test.LM.TR2(sim_e,TV,testOrder)
+             #     if(is.nan(reftests[[testOrder]]$Robust)) simTEST2 <- NA else simTEST2 <- test.LM.Robust(sim_e,TV,testOrder)
+             #     runSimrow <- c(runSimrow,b,reftests[[testOrder]]$TR2,simTEST1,as.integer(simTEST1 > reftests[[testOrder]]$TR2),reftests[[testOrder]]$Robust,simTEST2,as.integer(simTEST2 > reftests[[testOrder]]$Robust),TV$Estimated$value)
+             #   }
+             #   testOrder <- 3
+             #   if(simcontrol$maxTestorder >= 3){
+             #     if(is.nan(reftests[[testOrder]]$TR2)) simTEST1 <- NA else simTEST1 <- test.LM.TR2(sim_e,TV,testOrder)
+             #     if(is.nan(reftests[[testOrder]]$Robust)) simTEST2 <- NA else simTEST2 <- test.LM.Robust(sim_e,TV,testOrder)
+             #     runSimrow <- c(runSimrow,b,reftests[[testOrder]]$TR2,simTEST1,as.integer(simTEST1 > reftests[[testOrder]]$TR2),reftests[[testOrder]]$Robust,simTEST2,as.integer(simTEST2 > reftests[[testOrder]]$Robust),TV$Estimated$value)
+             #   }
+             #   testOrder <- 4
+             #   if(simcontrol$maxTestorder >= 4){
+             #     if(is.nan(reftests[[testOrder]]$TR2)) simTEST1 <- NA else simTEST1 <- test.LM.TR2(sim_e,TV,testOrder)
+             #     if(is.nan(reftests[[testOrder]]$Robust)) simTEST2 <- NA else simTEST2 <- test.LM.Robust(sim_e,TV,testOrder)
+             #     runSimrow <- c(runSimrow,b,reftests[[testOrder]]$TR2,simTEST1,as.integer(simTEST1 > reftests[[testOrder]]$TR2),reftests[[testOrder]]$Robust,simTEST2,as.integer(simTEST2 > reftests[[testOrder]]$Robust),TV$Estimated$value)
+             #   }
+             # }else{
+             #   # There was an error estimating TV for this simulated data series
+             #   runSimrow <- rep(c(b,reftests$TR2,NA,NA,reftests$Robust,NA,NA,NA),simcontrol$maxTestorder)
+             # }
+
                #Internal Parallel Result:
-               runSimrow
-             } # End: testStats <- foreach(b = 1:numloops,...
+             #  runSimrow
+             # End: testStats <- foreach(b = 1:numloops,...
 
              # Extract Test P_Values from Results & express as decimal
              colnamesResults <- vector("character")
@@ -1126,15 +1135,22 @@ setGeneric(name="testStatDist",
              }
              Results$TestStatDist <- testStats
 
-             # 8. Save the distribution & stop the parallel cluster
-             if(!is.na(saveAs)) try(saveRDS(Results,saveAs))
+             # 7. Save the distribution
+             if(!is.null(simcontrol$saveAs)) {
+               # Create SimDist folder (if not there) & set Save filename
+               if (!dir.exists(file.path(getwd(),"SimDist"))) dir.create(file.path(getwd(),"SimDist"))
+               saveAs <- file.path("SimDist",simcontrol$saveAs)
+               try(saveRDS(Results,saveAs))
+             }
+
+             # 8. Stop the parallel cluster
              stopCluster(cl)
 
              # 9. Print the time taken to the console:
              cat("\nTest Stat Distribution Completed \nRuntime:",(proc.time()-tmr)[3],"seconds\n")
 
              # 10. Attempt to release memory:
-             rm(refdata,testStats)
+             rm(refdata,listTV,testStats)
 
              # Return:
              return(Results)
