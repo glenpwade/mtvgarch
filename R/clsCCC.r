@@ -174,7 +174,7 @@ setGeneric(name="test.CCCParsim",
 
              LM <- .LM(H0,IM_list,dlldrho_A,testOrder)
 
-             df <- testOrder * H0@N
+             df <- testOrder * (H0@N -1)
              pVal <- pchisq(LM,df,lower.tail = FALSE)
 
              testResult <- matrix(c(LM,pVal),2,1)
@@ -328,7 +328,7 @@ setGeneric(name=".im_cor_parsim",
 ##===   test.CCCvSTCC1   ===####
 ##============================##
 setGeneric(name="test.CCCvSTCC1",
-           valueClass = "numeric",
+           valueClass = "matrix",
            signature = c("e","H0","H1","testOrder"),
            def = function(e,H0,H1,testOrder){
 
