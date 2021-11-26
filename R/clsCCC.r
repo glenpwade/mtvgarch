@@ -194,6 +194,7 @@ setGeneric(name=".x_tau",
              if (testOrder==1) x_tau <- (-0.5)*cbind(st)
              if (testOrder==2) x_tau <- (-0.5)*cbind(st,st^2)
              if (testOrder==3) x_tau <- (-0.5)*cbind(st,st^2,st^3)
+             if (testOrder==4) x_tau <- (-0.5)*cbind(st,st^2,st^3,st^4)
 
              N <- H0@N
              P <- H0$Estimated$P
