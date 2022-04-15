@@ -194,7 +194,6 @@ setGeneric(name=".x_tau",
              if (testOrder==1) x_tau <- (-0.5)*cbind(st)
              if (testOrder==2) x_tau <- (-0.5)*cbind(st,st^2)
              if (testOrder==3) x_tau <- (-0.5)*cbind(st,st^2,st^3)
-             if (testOrder==4) x_tau <- (-0.5)*cbind(st,st^2,st^3,st^4)
 
              N <- H0@N
              P <- H0$Estimated$P
@@ -309,17 +308,20 @@ setGeneric(name=".im_cor_parsim",
              L2.inv <- diag(tmp$values^(-2)) # matrix
              One_N_1.N_1 <- matrix(1,nrow=(N-1),ncol=(N-1))
 
-             if (testOrder==1){
-               mHelp7 <- matrix(c(1,1/2,1/2,1/3),nrow=2,ncol=2)
-             }
-             if (testOrder==2){
-               mHelp7 <- matrix(c(1,1/2,1/3,1/2,1/3,1/4,1/3,1/4,1/5),nrow=3,ncol=3)
-             }
-             if (testOrder==3){
-               mHelp7 <- matrix(c(1,1/2,1/3,1/4,1/2,1/3,1/4,1/5,1/3,1/4,1/5,1/6,1/4,1/5,1/6,1/7),nrow=4,ncol=4)
+             # If transition variable is t/T then we can use this for x_tau:
+             if(F){
+               if (testOrder==1){
+                 mHelp7 <- matrix(c(1,1/2,1/2,1/3),nrow=2,ncol=2)
+               }
+               if (testOrder==2){
+                 mHelp7 <- matrix(c(1,1/2,1/3,1/2,1/3,1/4,1/3,1/4,1/5),nrow=3,ncol=3)
+               }
+               if (testOrder==3){
+                 mHelp7 <- matrix(c(1,1/2,1/3,1/4,1/2,1/3,1/4,1/5,1/3,1/4,1/5,1/6,1/4,1/5,1/6,1/7),nrow=4,ncol=4)
+               }
              }
 
-             IM_cor <- ( t(x_tau)%*%x_tau ) %x% (2*L2.inv[1:(N-1),1:(N-1)] + 2*L2.inv[N,N]*One_N_1.N_1) / H0@Tobs # (testorder+1)*N x (testorder+1)*N
+             IM_cor <- ( t(x_tau)%*%x_tau ) %x% (2*L2.inv[1:(N-1),1:(N-1)] + 2*L2.inv[N,N]*One_N_1.N_1) / H0@Tobs # (testorder+1)*(N-1) x (testorder+1)*(N-1)
 
              return(IM_cor)
 
