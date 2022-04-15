@@ -16,6 +16,7 @@ setMethod("initialize","ccc_class",
             # Default initial values
             .Object@N <- as.integer(0)
             .Object@Tobs <- as.integer(0)
+            .Object@nr.covPars <- as.integer(0)
 
             # Return:
             .Object
@@ -36,18 +37,23 @@ setGeneric(name="ccc",
              }
              # End validation
 
+             # Set Default Values:
+             this@N <- ntvgarchObj@N
+             this@Tobs <- ntvgarchObj@Tobs
+             N <- this@N
+
              # Add the Estimated components from the ntvgarch
              this$ntvgarch <- list()
-             for(n in 1:ntvgarchObj@N){
+             for(n in 1:N){
                this$ntvgarch[[n]] <- list()
                this$ntvgarch[[n]]$tv <- ntvgarchObj[[n]]@tvObj
                this$ntvgarch[[n]]$garch <- ntvgarchObj[[n]]@garchObj
              }
              names(this$ntvgarch) <- names(ntvgarchObj)
 
-             # Set Default Values:
-             this@N <- ntvgarchObj@N
-             this@Tobs <- ntvgarchObj@Tobs
+             this@nr.covPars <- as.integer((N^2-N)/2)
+             this$P <- matrix(0,N,N)
+             diag(this$P) <- 1
 
              return(this)
            }
@@ -191,9 +197,11 @@ setGeneric(name=".x_tau",
            signature = c("z","H0","st","testOrder"),
            def = function(z,H0,st,testOrder){
 
-             if (testOrder==1) x_tau <- (-0.5)*cbind(st)
-             if (testOrder==2) x_tau <- (-0.5)*cbind(st,st^2)
-             if (testOrder==3) x_tau <- (-0.5)*cbind(st,st^2,st^3)
+             x_tau <- NULL
+             for(n in 1:testOrder){
+               x_tau <- cbind(x_tau,st^n)
+             }
+             x_tau <- (-0.5)*x_tau
 
              N <- H0@N
              P <- H0$Estimated$P
@@ -308,19 +316,6 @@ setGeneric(name=".im_cor_parsim",
              L2.inv <- diag(tmp$values^(-2)) # matrix
              One_N_1.N_1 <- matrix(1,nrow=(N-1),ncol=(N-1))
 
-             # If transition variable is t/T then we can use this for x_tau:
-             if(F){
-               if (testOrder==1){
-                 mHelp7 <- matrix(c(1,1/2,1/2,1/3),nrow=2,ncol=2)
-               }
-               if (testOrder==2){
-                 mHelp7 <- matrix(c(1,1/2,1/3,1/2,1/3,1/4,1/3,1/4,1/5),nrow=3,ncol=3)
-               }
-               if (testOrder==3){
-                 mHelp7 <- matrix(c(1,1/2,1/3,1/4,1/2,1/3,1/4,1/5,1/3,1/4,1/5,1/6,1/4,1/5,1/6,1/7),nrow=4,ncol=4)
-               }
-             }
-
              IM_cor <- ( t(x_tau)%*%x_tau ) %x% (2*L2.inv[1:(N-1),1:(N-1)] + 2*L2.inv[N,N]*One_N_1.N_1) / H0@Tobs # (testorder+1)*(N-1) x (testorder+1)*(N-1)
 
              return(IM_cor)
@@ -421,9 +416,10 @@ setGeneric(name=".v_rho",
            def = function(z,H0,H1,testOrder){
 
              st <- H1@st
-             if (testOrder==1) v_rho <- cbind(st)
-             if (testOrder==2) v_rho <- cbind(st,st^2)
-             if (testOrder==3) v_rho <- cbind(st,st^2,st^3)
+             v_rho <- NULL
+             for(n in 1:testOrder){
+               v_rho <- cbind(v_rho,st^n)
+             }
 
              N <- H0@N
              P <- H0$Estimated$P
