@@ -178,14 +178,14 @@ setGeneric(name="generateRefData",
              ## TODO: 2. Add more validation / better defaults (and messages) for noiseDist
 
              ## Note:
-             ## noiseData is a named-list describing the error-distribution and parameters
-             ## e.g. noiseData$name = 'Normal'     noiseData$mean = 0  noiseData$sd = 1
-             ## or   noiseData$name = 'Student-t'  noiseData$df = 6    noiseData$ncp = 0
+             ## noiseDist is a named-list describing the error-distribution and parameters
+             ## e.g. noiseDist$name = 'Normal'     noiseDist$mean = 0  noiseDist$sd = 1
+             ## or   noiseDist$name = 'Student-t'  noiseDist$df = 6    noiseDist$ncp = 0
 
              # Generate Noise Data:
              if(identical(toupper(substr(trimws(noiseDist$name),1,1)),"S") ){
                # Student-t Error/Noise Distribution
-               if(!is.null(noiseData$df)) df <- noiseData$df else df <- 6
+               if(!is.null(noiseDist$df)) df <- noiseDist$df else df <- 6
                u <- matrix(rt(nr.obs * nr.series,df),nrow=nr.obs, ncol=nr.series)
              }
              else

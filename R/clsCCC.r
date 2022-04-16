@@ -65,7 +65,7 @@ setGeneric(name="ccc",
              this@nr.covPars <- as.integer((N^2-N)/2)
              this$P <- matrix(0.5,N,N)
              diag(this$P) <- 1
-             message("ccc object created. Default correlation is 0.5  /nDon't forget to set the starting-parameter $P matrix.")
+             message("ccc object created. Default correlation is 0.5  \nDon't forget to set the starting-parameter $P matrix.")
 
              return(this)
            }
