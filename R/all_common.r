@@ -183,13 +183,13 @@ setGeneric(name="generateRefData",
              ## or   noiseData$name = 'Student-t'  noiseData$df = 6    noiseData$ncp = 0
 
              # Generate Noise Data:
-             if(toupper(substr(trim(noiseDist),1,1)) == "S" ){
+             if(identical(toupper(substr(trimws(noiseDist$name),1,1)),"S") ){
                # Student-t Error/Noise Distribution
                if(!is.null(noiseData$df)) df <- noiseData$df else df <- 6
                u <- matrix(rt(nr.obs * nr.series,df),nrow=nr.obs, ncol=nr.series)
              }
              else
-             if(toupper(substr(trim(noiseDist),1,1)) == "N" ){
+             {
                # Normal Error/Noise Distribution (Default is Standard-Normal)
                u <- matrix(rnorm(nr.obs * nr.series),nrow=nr.obs, ncol=nr.series)
              }
