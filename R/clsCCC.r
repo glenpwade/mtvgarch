@@ -1,10 +1,11 @@
 ## -- The MTVGARCH package supports a number of Correlation objects
 ## -- This class file maintains the structure for CCC (Constant Conditional Correlation)
 
-## Note:  The so-called 'CEC' (Constant Equi-Correlation) Model can be implemented using this class.
+## Note:  The CEC (Constant Equi-Correlation), CTC (Constant Touplitz-Correlation)
+##        Models can be implemented using this class.
 
 ccc <- setClass(Class = "ccc_class",
-                  slots = c(Tobs="integer",N="integer"),
+                  slots = c(N="integer",Tobs="integer",nr.covPars="integer"),
                   contains = c("namedList")
 )
 
@@ -18,6 +19,8 @@ setMethod("initialize","ccc_class",
             .Object@Tobs <- as.integer(0)
             .Object@nr.covPars <- as.integer(0)
 
+            .Object$P <- matrix()
+
             # Return:
             .Object
           })
@@ -25,31 +28,39 @@ setMethod("initialize","ccc_class",
 ## -- Constructor:ccc -- ####
 setGeneric(name="ccc",
            valueClass = "ccc_class",
-           signature = c("ntvgarchObj"),
-           def = function(ntvgarchObj){
+           signature = c("nr.series","ntvgarchObj"),
+           def = function(nr.series,ntvgarchObj){
              this <- new("ccc_class")
 
-             ## -- Do validation checks -- ##
-             objType <- class(ntvgarchObj)
-             if(objType[1] != "ntvgarch_class"){
-               warning("a valid instance of the ntvgarch_class is required to create a ccc model")
-               return(this)
-             }
-             # End validation
+             # Allow users to create object using either parameter...
 
-             # Set Default Values:
-             this@N <- ntvgarchObj@N
-             this@Tobs <- ntvgarchObj@Tobs
-             N <- this@N
+             if(!is.null(ntvgarchObj)){
+               ## -- Do validation checks -- ##
+               objType <- class(ntvgarchObj)
+               if(objType[1] != "ntvgarch_class"){
+                 warning("a valid instance of the ntvgarch_class is required to create a ccc model")
+                 return(this)
+               }
+               # End validation
 
-             # Add the Estimated components from the ntvgarch
-             this$ntvgarch <- list()
-             for(n in 1:N){
-               this$ntvgarch[[n]] <- list()
-               this$ntvgarch[[n]]$tv <- ntvgarchObj[[n]]@tvObj
-               this$ntvgarch[[n]]$garch <- ntvgarchObj[[n]]@garchObj
+               # Set Default Values:
+               this@N <- ntvgarchObj@N
+               this@Tobs <- ntvgarchObj@Tobs
+               N <- this@N
+
+               # Add the Estimated components from the ntvgarch
+               this$ntvgarch <- list()
+               for(n in 1:N){
+                 this$ntvgarch[[n]] <- list()
+                 this$ntvgarch[[n]]$tv <- ntvgarchObj[[n]]@tvObj
+                 this$ntvgarch[[n]]$garch <- ntvgarchObj[[n]]@garchObj
+               }
+               names(this$ntvgarch) <- names(ntvgarchObj)
              }
-             names(this$ntvgarch) <- names(ntvgarchObj)
+
+             if(!is.null(nr.series)){
+               N <- this@N <- as.integer(nr.series)
+             }
 
              this@nr.covPars <- as.integer((N^2-N)/2)
              this$P <- matrix(0.5,N,N)
@@ -59,6 +70,20 @@ setGeneric(name="ccc",
              return(this)
            }
 )
+
+setMethod("ccc",signature = c("numeric","missing"),
+          function(nr.series){
+            # Create a ccc model
+            ccc(nr.series,NULL)
+          })
+
+setMethod("ccc",signature = c("missing","ntvgarch_class"),
+          function(ntvgarchObj){
+            # Create a ccc model
+            ccc(NULL,ntvgarchObj)
+          })
+
+
 
 ## -- .loglik.ccc -- ####
 setGeneric(name=".loglik.ccc",
