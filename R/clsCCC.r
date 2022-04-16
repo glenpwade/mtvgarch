@@ -126,6 +126,7 @@ setGeneric(name="estimateCCC",
              }else{
                #TODO: Validate that dimensions of e & ntvgarch match AND Replace for(loop) with apply()
 
+               z <- e
                for(n in 1:this@N){
                  z[,n] <- e[,n]/sqrt(this$ntvgarch[[n]]$Estimated$tv$g * this$ntvgarch[[n]]$Estimated$garch$h)
                }
