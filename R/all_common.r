@@ -171,17 +171,32 @@ setGeneric(name="sqrt_mat2",
 ## -- generateRefData -- ####
 setGeneric(name="generateRefData",
            valueClass = "matrix",
-           signature = c("nr.series","nr.obs","tvObj","garchObj","corrObj"),
-           def =  function(nr.series,nr.obs,tvObj,garchObj,corrObj)
+           signature = c("nr.series","nr.obs","tvObj","garchObj","corrObj","noiseDist"),
+           def =  function(nr.series,nr.obs,tvObj,garchObj,corrObj,noiseDist)
            {
-             ## TODO: Improve function to handle TV & GARCH individually
-             refData <- matrix(NA,nrow = nr.obs, ncol = nr.series)
+             ## TODO: 1. Override function to handle TV & GARCH as optional params
+             ## TODO: 2. Add more validation / better defaults (and messages) for noiseDist
 
-             # Step1: Generate iid Data & create Correlation
-             # u = un-correlated data
-             u <- matrix(rnorm(nr.obs * nr.series),nrow=nr.obs, ncol=nr.series)
+             ## Note:
+             ## noiseData is a named-list describing the error-distribution and parameters
+             ## e.g. noiseData$name = 'Normal'     noiseData$mean = 0  noiseData$sd = 1
+             ## or   noiseData$name = 'Student-t'  noiseData$df = 6    noiseData$ncp = 0
 
-             # e = correlated data (defaults to 'u' if there is no correlation object)
+             # Generate Noise Data:
+             if(toupper(substr(trim(noiseDist),1,1)) == "S" ){
+               # Student-t Error/Noise Distribution
+               if(!is.null(noiseData$df)) df <- noiseData$df else df <- 6
+               u <- matrix(rt(nr.obs * nr.series,df),nrow=nr.obs, ncol=nr.series)
+             }
+             else
+             if(toupper(substr(trim(noiseDist),1,1)) == "N" ){
+               # Normal Error/Noise Distribution (Default is Standard-Normal)
+               u <- matrix(rnorm(nr.obs * nr.series),nrow=nr.obs, ncol=nr.series)
+             }
+
+             # Step1: Create Correlation
+
+             # e = correlated data
              e <- u
 
              corrType <- class(corrObj)
@@ -214,13 +229,13 @@ setGeneric(name="generateRefData",
              # Step2: Inject GARCH into Data
 
              garchObj$pars["omega",1] <- ( 1 - garchObj$pars["alpha",1] - garchObj$pars["beta",1] )
-             discard <- 2000
-             discardData <- matrix(rnorm(discard * nr.series),nrow=discard, ncol=nr.series)
-             refData <- rbind(discardData,e)
-             endRow <- discard + nr.obs
+             discardObs <- 1500
+             discardData <- matrix(rnorm(discardObs * nr.series),nrow=discardObs, ncol=nr.series)
+             e <- rbind(discardData,e)
+             endRow <- discardObs + nr.obs
 
              for (b in 1:nr.series){
-               w <- z <- refData[,b]
+               w <- z <- e[,b]
                ht_1 <- 1
                w[1] <- z[1]
                for (t in 2:endRow) {
@@ -229,19 +244,19 @@ setGeneric(name="generateRefData",
                  ht_1 <- ht
                  w[t] <- sqrt(ht)*z[t]
                }
-               refData[,b] <- as.numeric(w)
+               e[,b] <- as.numeric(w)
              }
 
              # Discard the first 2000
-             startRow <- discard + 1
-             refData <- refData[(startRow:endRow), ]
+             startRow <- discardObs + 1
+             e <- e[(startRow:endRow), ]
 
              # Step3: Inject TV into Data
              gt <- get_g(tvObj)
-             refData <- refData*sqrt(gt)
+             e <- e*sqrt(gt)
 
              #Return:
-             refData
+             e
 
            }
 )
