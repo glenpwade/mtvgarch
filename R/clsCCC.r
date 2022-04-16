@@ -113,20 +113,30 @@ setGeneric(name=".loglik.ccc",
 ## --- estimateCCC --- ####
 setGeneric(name="estimateCCC",
            valueClass = "ccc_class",
-           signature = c("z","cccObj","estimationCtrl"),
-           def = function(z,cccObj,estimationCtrl){
+           signature = c("e","cccObj","estimationCtrl"),
+           def = function(e,cccObj,estimationCtrl){
              this <- cccObj
 
              this$Estimated <- list()
 
-             this$Estimated$P <- cor(z)
-             optimpars <- this$Estimated$P[lower.tri(this$Estimated$P)]
-             this$Estimated$value <- .loglik.ccc(optimpars,z,this)
+             if(is.null(this$ntvgarch)){
+               this$Estimated$P <- cor(e)
+               optimpars <- this$Estimated$P[lower.tri(this$Estimated$P)]
+               this$Estimated$value <- .loglik.ccc(optimpars,e,this)
+             }else{
+               #TODO: Validate that dimensions of e & ntvgarch match AND Replace for(loop) with apply()
 
+               for(n in 1:this@N){
+                 z[,n] <- e[,n]/sqrt(this$ntvgarch[[n]]$Estimated$tv$g * this$ntvgarch[[n]]$Estimated$garch$h)
+               }
+
+               this$Estimated$P <- cor(z)
+               optimpars <- this$Estimated$P[lower.tri(this$Estimated$P)]
+               this$Estimated$value <- .loglik.ccc(optimpars,z,this)
+             }
              return(this)
            }
 )
-
 
 
 ##====  CCC TESTS:  ====####
