@@ -128,7 +128,7 @@ setGeneric(name="estimateCCC",
 
                z <- e
                for(n in 1:this@N){
-                 z[,n] <- e[,n]/sqrt(this$ntvgarch[[n]]$Estimated$tv$g * this$ntvgarch[[n]]$Estimated$garch$h)
+                 z[,n] <- e[,n]/sqrt(this$ntvgarch[[n]]$tv@g * this$ntvgarch[[n]]$garch@h)
                }
 
                this$Estimated$P <- cor(z)
