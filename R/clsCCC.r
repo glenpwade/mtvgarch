@@ -886,7 +886,7 @@ setGeneric(name=".x_garch",
              v_garch <- NULL
              h_scale <- NULL
              beta_scale <- vector("numeric")
-             x_garch <- matrix(NA,0,0)  # Initialise return matrix
+             x_garch <- matrix()  # Initialise return matrix
              Tobs_1 <- H0@Tobs-1
 
              # Loop over every series:
@@ -919,6 +919,7 @@ setGeneric(name=".x_garch",
              }
              return(x_garch)
            }
+
 )
 ##===  .x_tv ===####
 setGeneric(name=".x_tv",
