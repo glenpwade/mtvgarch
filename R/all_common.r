@@ -192,7 +192,7 @@ setGeneric(name="generateRefData",
                  message("param noiseDist did not contain a valid $df value.  df set = 6 ")
                }
                u <- matrix(rt(nr.obs * nr.series,df),nrow=nr.obs, ncol=nr.series)
-               u <- u/sqrt(df/(df-2))
+               u <- u*sqrt((df-2)/df)
              }
              else
              {
