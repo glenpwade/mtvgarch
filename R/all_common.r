@@ -184,9 +184,15 @@ setGeneric(name="generateRefData",
 
              # Generate Noise Data:
              if(identical(toupper(substr(trimws(noiseDist$name),1,1)),"S") ){
-               # Student-t Error/Noise Distribution
-               if(!is.null(noiseDist$df)) df <- noiseDist$df else df <- 6
+               # Standardised Student-t Error/Noise Distribution
+               if(!is.null(noiseDist$df)) {
+                 df <- noiseDist$df
+               } else {
+                 df <- 6
+                 message("param noiseDist did not contain a valid $df value.  df set = 6 ")
+               }
                u <- matrix(rt(nr.obs * nr.series,df),nrow=nr.obs, ncol=nr.series)
+               u <- u/sqrt(df/(df-2))
              }
              else
              {
