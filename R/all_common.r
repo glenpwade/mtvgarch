@@ -171,8 +171,8 @@ setGeneric(name="sqrt_mat2",
 ## -- generateRefData -- ####
 setGeneric(name="generateRefData",
            valueClass = "matrix",
-           signature = c("nr.series","nr.obs","tvObj","garchObj","corrObj","noiseDist"),
-           def =  function(nr.series,nr.obs,tvObj,garchObj,corrObj,noiseDist)
+           signature = c("nr.series","nr.obs","tvObj","garchObj","corrObj","noiseDist","seed"),
+           def =  function(nr.series,nr.obs,tvObj,garchObj,corrObj,noiseDist,seed)
            {
              ## TODO: 1. Override function to handle TV & GARCH as optional params
              ## TODO: 2. Add more validation / better defaults (and messages) for noiseDist
@@ -183,6 +183,8 @@ setGeneric(name="generateRefData",
              ## or   noiseDist$name = 'Student-t'  noiseDist$df = 6    noiseDist$ncp = 0
 
              # Generate Noise Data:
+             set.seed(NULL)     # Reset the RNG process
+             set.seed(42*seed)  # seed should be the indexer-variable when this method is called in a loop
              if(identical(toupper(substr(trimws(noiseDist$name),1,1)),"S") ){
                # Standardised Student-t Error/Noise Distribution
                if(!is.null(noiseDist$df)) {
