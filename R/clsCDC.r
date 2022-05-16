@@ -31,12 +31,9 @@ setGeneric(name=".calc.distCorr",
 
              # # Test:
              # pars = CDC$pars
-             # distData = CDC@Dist
+             # distData = CDC@distData
 
              # Validate the number of beta-pars matches the distance vectors
-
-
-             N <- NCOL(distData)
 
              # Remove alpha from the pars vector, for convenience
              alpha = pars[1]
@@ -48,7 +45,6 @@ setGeneric(name=".calc.distCorr",
              #
              veclCorr <- alpha*exp(expArg)
              distCorr <- unVecL(veclCorr)
-             diag(distCorr) <- 1.0
 
            return(distCorr)
            }
@@ -141,7 +137,7 @@ setGeneric(name=".loglik.cdc.ml",
 
              # Check for SPD - positive-definite check:
              #if (min(eig$values) <= 0) return(err_output)
-             if (min(eig$values) <= 0) {
+             if (isTRUE(min(eig$values) <= 0) ) {
                res <- nearPD(mP,corr = TRUE, maxit = 250)
                mP <- matrix(res$mat@x,N,N)
              }
@@ -169,7 +165,6 @@ setGeneric(name=".loglik.cdc.ls",
 
              err_output <- 1e10
              this <- cdcObj
-             N = NCOL(this$P)
 
              #### ======== constraint checks ======== ####
 
