@@ -131,15 +131,13 @@ setGeneric(name=".loglik.cdc.ml",
 
              mP <- .calc.distCorr(optimpars,this@distData)
 
+             # Check for SPD - positive-definite check:
              eig <- NULL
              try( eig <- eigen(mP,symmetric=TRUE,only.values=TRUE) )
              if(is.null(eig)) return(err_output)
-
-             # Check for SPD - positive-definite check:
-             #if (min(eig$values) <= 0) return(err_output)
              if (isTRUE(min(eig$values) <= 0) ) {
-               res <- nearPD(mP,corr = TRUE, maxit = 250)
-               mP <- matrix(res$mat@x,N,N)
+               nPD <- nearPD(mP,corr = TRUE, base.matrix=TRUE, maxit = 250)
+               if(isTRUE(nPD$converged)){ mP <- nPD$mat } else{ return(err_output) }
              }
 
              #### ======== calculate loglikelihood using Maximum Liklihood ======== ####
@@ -220,7 +218,12 @@ setGeneric(name="estimateCDC",
                if(tmp$convergence < 2){
                  this$Estimated$pars <- tmp$par
                  if(isTRUE(calcSE)) {
-                   try(this$Estimated$se <- sqrt(diag(solve(-tmp$hessian))), silent = TRUE)
+                   if(isSymmetric(-tmp$hessian)){
+                     try(this$Estimated$se <- sqrt(diag(solve(-tmp$hessian))), silent = TRUE)
+                   } else {
+                     nPD <- nearPD(-tmp$hessian,ensureSymmetry=TRUE, base.matrix=TRUE, maxit = 250)
+                     if(isTRUE(nPD$converged)){ mP <- nPD$mat } else{ this$Estimated$se <- NA }
+                   }
                  }
                  this$Estimated$P <- .calc.distCorr(tmp$par,this@distData)
                  if(toupper(estMethod)=="ML") this$Estimated$value <- .loglik.cdc.ml(tmp$par,this)
