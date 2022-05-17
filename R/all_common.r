@@ -134,14 +134,22 @@ setGeneric(name="sqrt_mat1",
            valueClass = "matrix",
            signature = c("m"),
            def = function(m){
-             ## Note: this only works for positive semi-definite (or definite) matrices that are diagonalizable
-             ## (no normal Jordan forms, etc.)
+             ## Note: This works for positive semi-definite (or definite) matrices that are diagonalizable (no normal Jordan forms, etc.)
+             ##       The 'Matrix' package is used to try to compute the nearest P-D matrix, if required, and a warning is returned.
 
+             N <- NROW(m)
              # Handle the special case where we have a 1 x 1 matrix:
-             if(NROW(m) == 1){
+             if(all.equal(N,1) ){
                m.sqrt <- matrix(sqrt(m[1,1]),nrow=1,ncol=1)
              } else {
                m.eig <- eigen(m)
+               if (isTRUE(min(m.eig$values) <= 0) ) {
+                 nPD <- nearPD(m, base.matrix=TRUE, maxit = 250)
+                 if(isTRUE(nPD$converged)){
+                   m.eig <- eigen(nPD$mat)
+                   warning("Could not compute the determinant of the matrix. Nearest PD matrix computed and used instead.")
+                   }
+               }
                m.sqrt <- m.eig$vectors %*% diag(sqrt(m.eig$values)) %*% solve(m.eig$vectors)
              }
              return(m.sqrt)
