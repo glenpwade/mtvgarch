@@ -104,12 +104,11 @@ setGeneric(name=".loglik.ccc",
                nPD <- nearPD(mP,corr = TRUE, base.matrix=TRUE, maxit = 250)
                if(isTRUE(nPD$converged)){ mP <- nPD$mat } else{ return(err_output) }
              }
+             mPinv <- solve(mP)
 
              # - - - calc loglik-value
              Tobs <- NROW(z)
              llt <- NULL
-             mPinv <- solve(mP)
-
              for(t in seq(1,Tobs)) llt[t] <- -0.5*log(det(mP)) - 0.5*(t(z[t,]) %*% mPinv %*% z[t,])
 
              return(sum(llt))
