@@ -95,8 +95,15 @@ setGeneric(name=".loglik.ccc",
 
              vP <- optimpars
              mP <- unVecL(vP)
-             eig <- eigen(mP,symmetric=TRUE,only.values = TRUE)
-             if (min(eig$values) <= 0) return(err_output)
+             # Check for SPD - positive-definite check:
+             eig <- NULL
+             try( eig <- eigen(mP,symmetric=TRUE,only.values=TRUE) )
+             if(is.null(eig)) return(err_output)
+             #
+             if (isTRUE(min(eig$values) <= 0) ) {
+               nPD <- nearPD(mP,corr = TRUE, base.matrix=TRUE, maxit = 250)
+               if(isTRUE(nPD$converged)){ mP <- nPD$mat } else{ return(err_output) }
+             }
 
              # - - - calc loglik-value
              Tobs <- NROW(z)
@@ -121,18 +128,29 @@ setGeneric(name="estimateCCC",
 
              if(is.null(this$ntvgarch)){
                this$Estimated$P <- cor(e)
-               optimpars <- this$Estimated$P[lower.tri(this$Estimated$P)]
+               optimpars <- vecL(this$Estimated$P)
                this$Estimated$value <- .loglik.ccc(optimpars,e,this)
              }else{
-               #TODO: Validate that dimensions of e & ntvgarch match AND Replace for(loop) with apply()
 
+               if(isFALSE( all.equal(NCOL(e),length(this$ntvgarch)) ) ) {
+                 warning("size mismatch: e, cccObj$ntvgarch")
+                 return(this)
+               }
+
+               #TODO: Replace for(loop) with apply()
                z <- e
                for(n in 1:this@N){
                  z[,n] <- e[,n]/sqrt(this$ntvgarch[[n]]$tv@g * this$ntvgarch[[n]]$garch@h)
                }
 
+               ## TODO
+               # Note: The parsim test is very sensitive to the accuracy of the correlation estimation
+               #       It may be beneficial to try alternate estimation methods to cor()
+               #       E.g. Consider doing a pairwise correlation, then coercing the result into a correlation matrix
+               #            using nearPD() or similar functions.
+
                this$Estimated$P <- cor(z)
-               optimpars <- this$Estimated$P[lower.tri(this$Estimated$P)]
+               optimpars <- vecL(this$Estimated$P)
                this$Estimated$value <- .loglik.ccc(optimpars,z,this)
              }
              return(this)
