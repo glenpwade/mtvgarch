@@ -136,21 +136,18 @@ setGeneric(name="estimateCCC",
                  return(this)
                }
 
-               #TODO: Replace for(loop) with apply()
-               z <- e
-               for(n in 1:this@N){
-                 z[,n] <- e[,n]/sqrt(this$ntvgarch[[n]]$tv@g * this$ntvgarch[[n]]$garch@h)
-               }
-
-               ## TODO
                # Note: The parsim test is very sensitive to the accuracy of the correlation estimation
-               #       It may be beneficial to try alternate estimation methods to cor()
-               #       E.g. Consider doing a pairwise correlation, then coercing the result into a correlation matrix
-               #            using nearPD() or similar functions.
 
+               #TODO: Replace for(loop) with apply()
+               z <- w <- e
+               for(n in 1:this@N){
+                 w[,n] <- e[,n]/sqrt(this$ntvgarch[[n]]$tv@g)
+                 z[,n] <- w[,n]/sqrt(this$ntvgarch[[n]]$garch@h)
+               }
                this$Estimated$P <- cor(z)
                optimpars <- vecL(this$Estimated$P)
                this$Estimated$value <- .loglik.ccc(optimpars,z,this)
+
              }
              return(this)
            }
@@ -186,7 +183,7 @@ setGeneric(name="test.CCCParsim",
              for (n in 1:H0@N) {
                g[,n] <- H0$ntvgarch[[n]]$tv@g
                h[,n] <- H0$ntvgarch[[n]]$garch@h
-               beta[1,n] <- H0$ntvgarch[[n]]$garch$pars["beta",1]
+               beta[1,n] <- H0$ntvgarch[[n]]$garch$Estimated$pars["beta",1]
              }
              w <- e/sqrt(g)
              z <- w/sqrt(h)
@@ -206,23 +203,17 @@ setGeneric(name="test.CCCParsim",
 
              # Get im_garch
              im_garch <- .im_garch(H0,x_garch)
-
              # Get im_garch_cor
              im_garch_cor <- .im_garch_cor_parsim(H0,x_garch,x_tau)
-
              # Get im_tv,
              im_tv <- .im_tv(H0,x_tv)
-
              # Get im_tv_cor
              im_tv_cor <- .im_tv_cor_parsim(H0,x_tv,x_tau)
-
              # Get im_tv_garch
              Pt <- H0$Estimated$P
              im_tv_garch <- .im_tv_garch(H0,Pt,x_tv,x_garch)
-
              # Get im_cor
              im_cor <- .im_cor_parsim(H0,x_tau,testOrder)
-
              # Get LM using all InfoMatrix blocks
              IM_list <- list()
              IM_list$IM_tv <- im_tv
@@ -912,13 +903,13 @@ setGeneric(name=".x_garch",
                if(H0$ntvgarch[[n]]$garch$type==garchtype$noGarch ) {
                  # Do nothing, move on to next series
 
-               } else if(H0$ntvgarch[[n]]$garch$type==garchtype$general) {
+               } else if(isTRUE(H0$ntvgarch[[n]]$garch$type==garchtype$general)) {
                  # General GARCH(1,1) case
                  v_garch <- cbind(v_garch,c(0,rep(1,Tobs_1)),c(0,w[(1:Tobs_1),n]^2),c(0,h[(1:Tobs_1),n]) ) # T x Num_garch_pars, each row = "1~w(i,t-1)^2~h(i,t-1)", i=1,...,N
                  beta_scale <- c(beta_scale,(beta[1,n] %x% c(1,1,1)))    # vector, length 3
                  scaleFactor <- matrix(1,nrow=1,ncol=3)
                  h_scale <- cbind(h_scale,(h[,n,drop=FALSE] %x% scaleFactor) )    # T x Num_garch_pars
-               } else if (H0$ntvgarch[[n]]$garch$type == garchtype$gjr) {
+               } else if (isTRUE(H0$ntvgarch[[n]]$garch$type == garchtype$gjr)) {
                  v_garch <- cbind(v_garch,c(0,rep(1,Tobs_1)),c(0,w[(1:Tobs_1),n]^2),c(0,h[(1:Tobs_1),n]),c(0,(pmin(w[(1:Tobs_1),n],0))^2) ) # T x Num_garch_pars, each row = "1~w(i,t-1)^2~h(i,t-1)~min[w(i,t-1),0]^2", i=1,...,N
                  beta_scale <- c(beta_scale,(beta[1,n] %x% c(1,1,1,1)))    # vector, length 4
                  scaleFactor <- matrix(1,nrow=1,ncol=4)
@@ -966,7 +957,7 @@ setGeneric(name=".x_tv",
                g_scale <- cbind( g_scale,g[,n,drop=FALSE] %x% scaleFactor ) # cbinds g(nt) as many times as g(n) has tv parameters
                dgdt <- cbind(dgdt,dgdt_n)
 
-               if (H0$ntvgarch[[n]]$garch$type==garchtype$noGarch){
+               if (isTRUE( H0$ntvgarch[[n]]$garch$type==garchtype$noGarch) ){
                  # Has TV, but noGarch => no beta_ or h_scale to calculate
 
 

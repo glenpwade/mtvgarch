@@ -139,7 +139,7 @@ setGeneric(name="sqrt_mat1",
 
              N <- NROW(m)
              # Handle the special case where we have a 1 x 1 matrix:
-             if(all.equal(N,1) ){
+             if(isTRUE(N==1)){
                m.sqrt <- matrix(sqrt(m[1,1]),nrow=1,ncol=1)
              } else {
                m.eig <- eigen(m)
@@ -190,10 +190,17 @@ setGeneric(name="generateRefData",
              ## e.g. noiseDist$name = 'Normal'     noiseDist$mean = 0  noiseDist$sd = 1
              ## or   noiseDist$name = 'Student-t'  noiseDist$df = 6    noiseDist$ncp = 0
 
+
+             # # used for debugging
+             # nr.series=N; nr.obs=Tobs; tvObj=simTv
+             # garchObj=simGarch; corrObj=simCorr
+             # noiseDist=errDist;seed=1
+
+
              # Generate Noise Data:
              set.seed(NULL)     # Reset the RNG process
              set.seed(42*seed)  # seed should be the indexer-variable when this method is called in a loop
-             if(identical(toupper(substr(trimws(noiseDist$name),1,1)),"S") ){
+             if(isTRUE(toupper(substr(trimws(noiseDist$name),1,1)) =="S")) {
                # Standardised Student-t Error/Noise Distribution
                if(!is.null(noiseDist$df)) {
                  df <- noiseDist$df
@@ -203,9 +210,7 @@ setGeneric(name="generateRefData",
                }
                u <- matrix(rt(nr.obs * nr.series,df),nrow=nr.obs, ncol=nr.series)
                u <- u*sqrt((df-2)/df)
-             }
-             else
-             {
+             }else{
                # Normal Error/Noise Distribution (Default is Standard-Normal)
                u <- matrix(rnorm(nr.obs * nr.series),nrow=nr.obs, ncol=nr.series)
              }
@@ -215,10 +220,8 @@ setGeneric(name="generateRefData",
              # e = correlated data
              e <- u
 
-             corrType <- class(corrObj)
-
              # - - - CCC - - -
-             if (corrType[1] == "ccc_class"){
+             if (isTRUE(class(corrObj) == "ccc_class")){
                if(is.null(corrObj$Estimated)) {
                  P <- corrObj$P
                } else P <- corrObj$Estimated$P
@@ -226,7 +229,7 @@ setGeneric(name="generateRefData",
                e <- t(P.sqrt %*% t(u))
              }
 
-             if (corrType[1] == "stcc1_class"){
+             if (isTRUE(class(corrObj) == "stcc1_class")){
                if(is.null(corrObj$Estimated)) {
                  corrObj$Estimated$P1 <- corrObj$P1
                  corrObj$Estimated$P2 <- corrObj$P2
@@ -244,9 +247,18 @@ setGeneric(name="generateRefData",
 
              # Step2: Inject GARCH into Data
 
-             garchObj$pars["omega",1] <- ( 1 - garchObj$pars["alpha",1] - garchObj$pars["beta",1] )
+             # Generate Discard Data:
              discardObs <- 1500
-             discardData <- matrix(rnorm(discardObs * nr.series),nrow=discardObs, ncol=nr.series)
+             if(isTRUE(toupper(substr(trimws(noiseDist$name),1,1)=="S")) ){
+               # Standardised Student-t Error/Noise Distribution
+               discardData <- matrix(rt(discardObs*nr.series,df),nrow=discardObs, ncol=nr.series)
+               discardData <- discardData*sqrt((df-2)/df)
+             } else {
+               # Normal Error/Noise Distribution (Default is Standard-Normal)
+               discardData <- matrix(rnorm(discardObs*nr.series),nrow=discardObs, ncol=nr.series)
+             }
+
+             garchObj$pars["omega",1] <- ( 1 - garchObj$pars["alpha",1] - garchObj$pars["beta",1] )
              e <- rbind(discardData,e)
              endRow <- discardObs + nr.obs
 
