@@ -200,6 +200,7 @@ setGeneric(name="generateRefData",
              # Generate Noise Data:
              set.seed(NULL)     # Reset the RNG process
              set.seed(42*seed)  # seed should be the indexer-variable when this method is called in a loop
+             df=0
              if(isTRUE(toupper(substr(trimws(noiseDist$name),1,1)) =="S")) {
                # Standardised Student-t Error/Noise Distribution
                if(!is.null(noiseDist$df)) {

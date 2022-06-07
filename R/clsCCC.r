@@ -966,7 +966,7 @@ setGeneric(name=".x_tv",
                  v_tv_n <- ((-H0$ntvgarch[[n]]$garch$Estimated$pars["alpha",1] * c(0,1/g[1:(H0@Tobs-1),n])*c(0,w[1:(H0@Tobs-1),n]^2)) %x% scaleFactor) * dgdt_n
                  v_tv <- cbind(v_tv,v_tv_n)
 
-                 beta_scale_n <- as.vector(beta[,n,drop=FALSE] %x% scaleFactor)
+                 beta_scale_n <- as.vector(beta[1,n,drop=FALSE] %x% scaleFactor)
                  beta_scale <- c(beta_scale,beta_scale_n)
 
                  h_scale_n <- h[,n,drop=FALSE] %x% scaleFactor
