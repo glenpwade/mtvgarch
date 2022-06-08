@@ -131,7 +131,7 @@ setMethod("initialize","tvgarch_class",
             # TV properties
             .Object$shape <- tvshape$delta0only
             .Object$speedopt <- speedopt$none
-            .Object$delta0 <- 1
+            .Object$delta0 <- 1.0
             .Object$tvpars <- matrix(NA,4,1)
             .Object$tvOptimcontrol <- list(fnscale = -1, reltol = 1e-5)
             # GARCH properties
