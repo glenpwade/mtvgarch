@@ -879,7 +879,7 @@ setMethod("estimateTV",
           }
 )
 
-## -- test.LM.TR2(e,tv) ####
+## -- test.LM.TR2(e,tv,ord) ####
 setGeneric(name="test.LM.TR2",
            valueClass = "numeric",
            signature = c("e","tvObj","testOrder"),
@@ -928,7 +928,7 @@ setGeneric(name="test.LM.TR2",
            }
 )
 
-## -- test.LM.Robust(e,tv) ####
+## -- test.LM.Robust(e,tv,ord) ####
 setGeneric(name="test.LM.Robust",
            valueClass = "numeric",
            signature = c("e","tvObj","testOrder"),
@@ -986,14 +986,14 @@ setGeneric(name="test.LM.Robust",
            }
 )
 
-## -- getTestStats(tv) ####
+## -- getTestStats(e,tv,testOrd) ####
 setGeneric(name="getTestStats",
            valueClass = "list",
-           signature = c("e","tvObj"),
-           def = function(e,tvObj){
+           signature = c("e","tvObj","testOrder"),
+           def = function(e,tvObj,testOrder){
              this <- list()
-             this$TR2 <- test.LM.TR2(e,tvObj)
-             this$Robust <- test.LM.Robust(e,tvObj)
+             this$TR2 <- test.LM.TR2(e,tvObj,testOrder)
+             this$Robust <- test.LM.Robust(e,tvObj,testOrder)
              return(this)
            }
 )
