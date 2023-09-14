@@ -216,35 +216,38 @@ setGeneric(name="generateRefData",
                u <- matrix(rnorm(nr.obs * nr.series),nrow=nr.obs, ncol=nr.series)
              }
 
-             # Step1: Create Correlation
-
-             # e = correlated data
              e <- u
 
-             # - - - CCC - - -
-             if (isTRUE(class(corrObj) == "ccc_class")){
-               if(is.null(corrObj$Estimated)) {
-                 P <- corrObj$P
-               } else P <- corrObj$Estimated$P
-               P.sqrt <-  sqrt_mat1(P)
-               e <- t(P.sqrt %*% t(u))
-             }
+             # Step1: Create Correlation (if required)
 
-             if (isTRUE(class(corrObj) == "stcc1_class")){
-               if(is.null(corrObj$Estimated)) {
-                 corrObj$Estimated$P1 <- corrObj$P1
-                 corrObj$Estimated$P2 <- corrObj$P2
-                 corrObj$Estimated$pars <- corrObj$pars
-               }
-               Pt <- .calc.Pt(corrObj)
-               for (t in 1:corrObj@Tobs){
-                 mPt <- unVecL(Pt[t,,drop=FALSE])
-                 mPt.sqrt <- sqrt_mat1(mPt)
-                 e[t,] <- t( mPt.sqrt %*% t(u[t,,drop=FALSE]) )
-               }
-             }
+             if (!is.null(corrObj)){
 
-             #End: Generate Correlated Data
+               # - - - CCC - - -
+               if (isTRUE(class(corrObj) == "ccc_class")){
+                 if(is.null(corrObj$Estimated)) {
+                   P <- corrObj$P
+                 } else P <- corrObj$Estimated$P
+                 P.sqrt <-  sqrt_mat1(P)
+                 e <- t(P.sqrt %*% t(u))
+               }
+
+               if (isTRUE(class(corrObj) == "stcc1_class")){
+                 if(is.null(corrObj$Estimated)) {
+                   corrObj$Estimated$P1 <- corrObj$P1
+                   corrObj$Estimated$P2 <- corrObj$P2
+                   corrObj$Estimated$pars <- corrObj$pars
+                 }
+                 Pt <- .calc.Pt(corrObj)
+                 for (t in 1:corrObj@Tobs){
+                   mPt <- unVecL(Pt[t,,drop=FALSE])
+                   mPt.sqrt <- sqrt_mat1(mPt)
+                   e[t,] <- t( mPt.sqrt %*% t(u[t,,drop=FALSE]) )
+                 }
+               }
+
+               #End: Generate Correlated Data
+
+             }
 
              # Step2: Inject GARCH into Data
 
@@ -289,6 +292,24 @@ setGeneric(name="generateRefData",
 
            }
 )
+
+##  TESTS ##----
+source("clsTVGARCH.R")
+
+Tobs = 3000
+ST = 1:Tobs/Tobs
+SimRuns = 1000
+noiseD = list()
+noiseD$name = "Normal"
+noiseD$mean = 0
+noiseD$sd = 1
+
+TV = tv(ST,tvshape$delta0only)
+GARCH = garch(garchtype$general)
+
+mydata = generateRefData(SimRuns,Tobs,TV,GARCH,NULL,noiseD,1)
+
+
 
 
 
