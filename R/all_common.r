@@ -251,41 +251,48 @@ setGeneric(name="generateRefData",
 
              # Step2: Inject GARCH into Data
 
-             # Generate Discard Data:
-             discardObs <- 1500
-             if(isTRUE(toupper(substr(trimws(noiseDist$name),1,1)=="S")) ){
-               # Standardised Student-t Error/Noise Distribution
-               discardData <- matrix(rt(discardObs*nr.series,df),nrow=discardObs, ncol=nr.series)
-               discardData <- discardData*sqrt((df-2)/df)
-             } else {
-               # Normal Error/Noise Distribution (Default is Standard-Normal)
-               discardData <- matrix(rnorm(discardObs*nr.series),nrow=discardObs, ncol=nr.series)
-             }
-
-             garchObj$pars["omega",1] <- ( 1 - garchObj$pars["alpha",1] - garchObj$pars["beta",1] )
-             e <- rbind(discardData,e)
-             endRow <- discardObs + nr.obs
-
-             for (b in 1:nr.series){
-               w <- z <- e[,b]
-               ht_1 <- 1
-               w[1] <- z[1]
-               for (t in 2:endRow) {
-                 ht <- garchObj$pars["omega",1] + garchObj$pars["alpha",1]*(w[t-1])^2 + garchObj$pars["beta",1]*ht_1
-                 if(garchObj$type == garchtype$gjr) { ht <- ht + garchObj$pars["gamma",1]*(min(w[t-1],0)^2) }
-                 ht_1 <- ht
-                 w[t] <- sqrt(ht)*z[t]
+             if (!is.null(garchObj)){
+               # Generate Discard Data:
+               discardObs <- 1500
+               if(isTRUE(toupper(substr(trimws(noiseDist$name),1,1)=="S")) ){
+                 # Standardised Student-t Error/Noise Distribution
+                 discardData <- matrix(rt(discardObs*nr.series,df),nrow=discardObs, ncol=nr.series)
+                 discardData <- discardData*sqrt((df-2)/df)
+               } else {
+                 # Normal Error/Noise Distribution (Default is Standard-Normal)
+                 discardData <- matrix(rnorm(discardObs*nr.series),nrow=discardObs, ncol=nr.series)
                }
-               e[,b] <- as.numeric(w)
+
+               garchObj$pars["omega",1] <- ( 1 - garchObj$pars["alpha",1] - garchObj$pars["beta",1] )
+               e <- rbind(discardData,e)
+               endRow <- discardObs + nr.obs
+
+               for (b in 1:nr.series){
+                 w <- z <- e[,b]
+                 ht_1 <- 1
+                 w[1] <- z[1]
+                 for (t in 2:endRow) {
+                   ht <- garchObj$pars["omega",1] + garchObj$pars["alpha",1]*(w[t-1])^2 + garchObj$pars["beta",1]*ht_1
+                   if(garchObj$type == garchtype$gjr) { ht <- ht + garchObj$pars["gamma",1]*(min(w[t-1],0)^2) }
+                   ht_1 <- ht
+                   w[t] <- sqrt(ht)*z[t]
+                 }
+                 e[,b] <- as.numeric(w)
+               }
+
+               # Discard the first 2000
+               startRow <- discardObs + 1
+               e <- e[(startRow:endRow), ]
+
              }
 
-             # Discard the first 2000
-             startRow <- discardObs + 1
-             e <- e[(startRow:endRow), ]
+             if (!is.null(tvObj)){
+               # Step3: Inject TV into Data
+               gt <- get_g(tvObj)
+               e <- e*sqrt(gt)
 
-             # Step3: Inject TV into Data
-             gt <- get_g(tvObj)
-             e <- e*sqrt(gt)
+             }
+
 
              #Return:
              e
@@ -294,21 +301,21 @@ setGeneric(name="generateRefData",
 )
 
 ##  TESTS ##----
-source("clsTVGARCH.R")
-
-Tobs = 3000
-ST = 1:Tobs/Tobs
-SimRuns = 1000
-noiseD = list()
-noiseD$name = "Normal"
-noiseD$mean = 0
-noiseD$sd = 1
-
-TV = tv(ST,tvshape$delta0only)
-GARCH = garch(garchtype$general)
-
-mydata = generateRefData(SimRuns,Tobs,TV,GARCH,NULL,noiseD,1)
-
+# source("clsTVGARCH.R")
+#
+# Tobs = 3000
+# ST = 1:Tobs/Tobs
+# SimRuns = 1000
+# noiseD = list()
+# noiseD$name = "Normal"
+# noiseD$mean = 0
+# noiseD$sd = 1
+#
+# TV = tv(ST,tvshape$delta0only)
+# GARCH = garch(garchtype$general)
+#
+# mydata = generateRefData(SimRuns,Tobs,TV,GARCH,NULL,noiseD,1)
+#
 
 
 
