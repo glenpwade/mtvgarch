@@ -241,7 +241,8 @@ estimateGARCH <- function(e,garchObj,estimationControl,tvObj){0}
 
              this$Estimated$pars <- .parsVecToMatrix(this,tmp$par)
              # Get conditional variance
-             this@h <- .calculate_h(this,e)
+
+             this@h <- .calculate_h(this,e/sqrt(tvObj@g))
 
              # Calc Std Errors
              if (isTRUE(estimationControl$calcSE)) {
