@@ -570,10 +570,10 @@ setGeneric(name="loglik.garch.univar",
              ## ======== calculate loglikelihood ======== ##
 
              this$Estimated$pars <- .parsVecToMatrix(this,optimpars)
-             h <- .calculate_h(this,e)
-             if (min(h,na.rm = TRUE) <= 0) return(error)
-
              g <- tvObj@g
+
+             h <- .calculate_h(this,e/sqrt(g))
+             if (min(h,na.rm = TRUE) <= 0) return(error)
 
              #Return the LogLiklihood value:
              ll <- loglik.tvgarch.univar(e,g,h)
