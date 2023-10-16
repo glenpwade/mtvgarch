@@ -1529,6 +1529,7 @@ estimateTVGARCH <- function(e,tvgarchObj,estimationControl){0}
              # Overwrite the starting values & optim-controls before estimating
              TV$shape <- this$shape
              TV$speedopt <- this$speedopt
+             TV$delta0 <- this$delta0
              TV$pars <- this$tvpars
              TV$optimcontrol <- this$tvOptimcontrol
              #
@@ -1575,6 +1576,8 @@ estimateTVGARCH <- function(e,tvgarchObj,estimationControl){0}
 
                cat("\nTVGARCH Estimation Completed")
                cat("\n")
+               cat("\nPlease re-run this estimation to see if the model can be improved!!")
+               cat("\nThis estimator is designed to  be run iteratively, until fully converged.")
 
                return(this)
              }
@@ -1625,6 +1628,7 @@ estimateTVGARCH <- function(e,tvgarchObj,estimationControl){0}
                    this$Estimated$garch$h <- GARCH@h
                    this$Estimated$value <- tvg.value
                    # Update the internal objects with the Estimated objects:
+                   #TODO: Confirm if this is desired behaviour...  Might be better to cache starting objects here?
                    this@tvObj <- TV
                    this@garchObj <- GARCH
                    cat("\nTVGARCH Estimation Completed - Improved\n")
