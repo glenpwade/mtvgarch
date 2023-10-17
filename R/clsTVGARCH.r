@@ -17,7 +17,6 @@ setMethod("initialize","tv_class",
             .Object@nr.pars <- as.integer(1)
             .Object@nr.transitions <- as.integer(0)
             .Object@Tobs <- as.integer(0)
-
             # Properties
             .Object$shape <- tvshape$delta0only
             .Object$speedopt <- speedopt$none
@@ -128,16 +127,21 @@ setMethod("initialize","tvgarch_class",
             .Object@tvObj <- new("tv_class")
             .Object@garchObj <- new("garch_class")
             .Object@e <- vector("numeric")
-            # TV properties
+            # Default TV properties
             .Object$shape <- tvshape$delta0only
             .Object$speedopt <- speedopt$none
             .Object$delta0 <- 1.0
             .Object$tvpars <- matrix(NA,4,1)
             .Object$tvOptimcontrol <- list(fnscale = -1, reltol = 1e-5)
-            # GARCH properties
+            # Default GARCH properties
             .Object$garchtype <- garchtype$noGarch
-            .Object$garchpars <- 1
+            .Object$garchpars <- matrix(NA,4,1)
             .Object$garchOptimcontrol <- list(fnscale = -1, reltol = 1e-5)
+            # Name of Data Series - for plotting & historical reference
+            .Object$e_desc <- NA
+            # Convenience attribute to access estimated g & h
+            .Object$est_g <- c(0)
+            .Object$est_h <- c(0)
 
             # Return:
             .Object
@@ -179,6 +183,7 @@ setGeneric(name="tvgarch",
 
              # Configure the garch object
              this@garchObj <- garch(garchType)
+             # Map starting params to the TVG attributes
              this$garchtype <- garchType
              this$garchpars <- this@garchObj$pars
              this$garchOptimcontrol <- this@garchObj$optimcontrol
@@ -455,7 +460,7 @@ setGeneric(name=".setInitPars",
                rownames(pars) <- GarchparsRownames[1:this@nr.pars]
                for(n in 1:maxLag){
                  pars["omega",n] <- 0.1
-                 pars["alpha",n] <- 0.005
+                 pars["alpha",n] <- 0.01
                  pars["beta",n] <- 0.6
                  pars["gamma",n] <- 0.03
                }
@@ -1523,11 +1528,14 @@ setGeneric(name="loglik.tvgarch.univar",
 
 estimateTVGARCH <- function(e,tvgarchObj,estimationControl){0}
 .estimateTVGARCH <- function(e,tvgarchObj,estimationControl){
+
              this <- tvgarchObj
 
-             TV <- this@tvObj
+             TV <- this@tvObj  # Note: 'this@tvObj' is the estimated TV object used in the constructor
              GARCH <- this@garchObj
              # Overwrite the starting values & optim-controls before estimating
+             # Note: The constructor will inherit the TV pars & optimcontrol from the passed-in TV object
+             #       But this allows the user to overwrite those values to fine tune the estimation
              TV$shape <- this$shape
              TV$speedopt <- this$speedopt
              TV$delta0 <- this$delta0
@@ -1541,6 +1549,9 @@ estimateTVGARCH <- function(e,tvgarchObj,estimationControl){0}
 
              #==  First time being estimated ==#
              if(is.null(this$Estimated)){
+
+               # Cache the data, to identify future re-estimations:
+               this@e <- e
 
                this$Estimated <- list()
 
@@ -1558,12 +1569,8 @@ estimateTVGARCH <- function(e,tvgarchObj,estimationControl){0}
                TV <- estimateTV(e,TV,estimationControl,GARCH)
                cat(".")
 
-               # Finally re-estimate the Garch
+               # Finally re-estimate the Garch, filtering the TV
                GARCH <- estimateGARCH(e,GARCH,estimationControl,TV)
-
-               # Update the internal objects with the Estimated objects:
-               this@tvObj <- TV
-               this@garchObj <- GARCH
 
                # Put the final model into the Estimated list
                this$Estimated$tv <- TV$Estimated
@@ -1572,14 +1579,19 @@ estimateTVGARCH <- function(e,tvgarchObj,estimationControl){0}
                this$Estimated$garch$h <- GARCH@h
                this$Estimated$value <- loglik.tvgarch.univar(e,TV@g,GARCH@h)
 
-               # Cache the data, to identify future re-estimations:
-               this@e <- e
-
                cat("\nTVGARCH Estimation Completed")
                cat("\n")
                cat("\nPlease re-run this estimation to see if the model can be improved!!")
                cat("\nThis estimator is designed to  be run iteratively, until fully converged.")
+               cat("\n")
 
+               # Update the internal objects with the Estimated objects:
+               # These slots maintain the state between estimation runs
+               this@tvObj <- TV
+               this@garchObj <- GARCH
+               # Populate the convenience attributes:
+               this$est_g <- TV@g
+               this$est_h <- GARCH@h
                return(this)
              }
              #==  END: First time being estimated ==#
@@ -1628,10 +1640,7 @@ estimateTVGARCH <- function(e,tvgarchObj,estimationControl){0}
                    this$Estimated$garch <- GARCH$Estimated
                    this$Estimated$garch$h <- GARCH@h
                    this$Estimated$value <- tvg.value
-                   # Update the internal objects with the Estimated objects:
-                   #TODO: Confirm if this is desired behaviour...  Might be better to cache starting objects here?
-                   this@tvObj <- TV
-                   this@garchObj <- GARCH
+                   #
                    cat("\nTVGARCH Estimation Completed - Improved\n")
                  } else cat("\nTVGARCH Estimation Completed - could not be improved\n")
 
@@ -1644,11 +1653,15 @@ estimateTVGARCH <- function(e,tvgarchObj,estimationControl){0}
                this$Estimated$garch <- GARCH$Estimated
                this$Estimated$garch$h <- GARCH@h
                this$Estimated$value <- tvg.value
-               # Update the internal objects with the Estimated objects:
-               this@tvObj <- TV
-               this@garchObj <- GARCH
+               #
                cat("\nTVGARCH Estimation Completed\n")
              }
+             # Update the internal objects with the Estimated objects:
+             this@tvObj <- TV
+             this@garchObj <- GARCH
+             # Populate the convenience attributes:
+             this$est_g <- TV@g
+             this$est_h <- GARCH@h
 
              return(this)
 
@@ -1921,9 +1934,12 @@ setMethod("summary",signature="tvgarch_class",
 ## -- plot() ####
 setMethod("plot",signature = c(x="tvgarch_class",y="missing"),
           function(x, y,...){
-            g <- x$Estimated$tv$g
-            h <- x$Estimated$garch$h
-            plot.default(x=sqrt(g), type='l', ylab = "sqrt(g)", ...)
-            plot.default(x=sqrt(h), type='l', ylab = "sqrt(h)", ...)
+            #TODO: Allow override of main/title by user
+
+            if (is.na(x$e_desc)) title = "" else title = x$e_desc
+            g <- x$est_g
+            h <- x$est_h
+            plot.default(x=sqrt(g), type='l', ylab = "sqrt(g)", main=title, ...)
+            plot.default(x=sqrt(h), type='l', ylab = "sqrt(h)", main=title, ...)
           })
 
