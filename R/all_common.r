@@ -179,11 +179,10 @@ setGeneric(name="sqrt_mat2",
 ## -- generateRefData -- ####
 setGeneric(name="generateRefData",
            valueClass = "matrix",
-           signature = c("nr.series","nr.obs","tvObj","garchObj","corrObj","noiseDist","seed"),
-           def =  function(nr.series,nr.obs,tvObj,garchObj,corrObj,noiseDist,seed)
+           signature = c("nr.series","nr.obs","tvObj","garchObj","corrObj","noiseDist"),
+           def =  function(nr.series,nr.obs,tvObj,garchObj,corrObj,noiseDist)
            {
              ## TODO: 1. Override function to handle TV & GARCH as optional params
-             ## TODO: 2. Add more validation / better defaults (and messages) for noiseDist
 
              ## Note:
              ## noiseDist is a named-list describing the error-distribution and parameters
@@ -198,8 +197,7 @@ setGeneric(name="generateRefData",
 
 
              # Generate Noise Data:
-             set.seed(NULL)     # Reset the RNG process
-             set.seed(42*seed)  # seed should be the indexer-variable when this method is called in a loop
+             #set.seed(NULL)     # Reset the RNG process
              df=0
              if(isTRUE(toupper(substr(trimws(noiseDist$name),1,1)) =="S")) {
                # Standardised Student-t Error/Noise Distribution
@@ -293,30 +291,58 @@ setGeneric(name="generateRefData",
 
              }
 
-
              #Return:
              e
 
            }
 )
 
-##  TESTS ##----
-# source("clsTVGARCH.R")
-#
-# Tobs = 3000
-# ST = 1:Tobs/Tobs
-# SimRuns = 1000
-# noiseD = list()
-# noiseD$name = "Normal"
-# noiseD$mean = 0
-# noiseD$sd = 1
-#
-# TV = tv(ST,tvshape$delta0only)
-# GARCH = garch(garchtype$general)
-#
-# mydata = generateRefData(SimRuns,Tobs,TV,GARCH,NULL,noiseD,1)
-#
+setMethod("generateRefData",
+          signature = c(nr.series="numeric",nr.obs="numeric",tvObj="tv_class",garchObj="garch_class",corrObj="ccc_class",noiseDist="missing"),
+          function(nr.series,nr.obs,tvObj,garchObj,corrObj){
+            # Default Std Normal Noise Dist:
+            noiseDist = list(name='Normal', mean=0, sd=1)
+            generateRefData(nr.series,nr.obs,tvObj,garchObj,corrObj,noiseDist)
+          }
 
+)
 
+setMethod("generateRefData",
+          signature = c(nr.series="numeric",nr.obs="numeric",tvObj="tv_class",garchObj="garch_class",corrObj="stcc1_class",noiseDist="missing"),
+          function(nr.series,nr.obs,tvObj,garchObj,corrObj){
+            # Default Std Normal Noise Dist:
+            noiseDist = list(name='Normal', mean=0, sd=1)
+            generateRefData(nr.series,nr.obs,tvObj,garchObj,corrObj,noiseDist)
+          }
 
+)
 
+setMethod("generateRefData",
+          signature = c(nr.series="numeric",nr.obs="numeric",tvObj="tv_class",garchObj="garch_class",corrObj="missing",noiseDist="missing"),
+          function(nr.series,nr.obs,tvObj,garchObj){
+            # Default Std Normal Noise Dist:
+            noiseDist = list(name='Normal', mean=0, sd=1)
+            generateRefData(nr.series,nr.obs,tvObj,garchObj,NULL,noiseDist)
+          }
+
+)
+
+setMethod("generateRefData",
+          signature = c(nr.series="numeric",nr.obs="numeric",tvObj="tv_class",garchObj="missing",corrObj="missing",noiseDist="missing"),
+          function(nr.series,nr.obs,tvObj){
+            # Default Std Normal Noise Dist:
+            noiseDist = list(name='Normal', mean=0, sd=1)
+            generateRefData(nr.series,nr.obs,tvObj,NULL,NULL,noiseDist)
+          }
+
+)
+
+setMethod("generateRefData",
+          signature = c(nr.series="numeric",nr.obs="numeric",tvObj="missing",garchObj="garch_class",corrObj="missing",noiseDist="missing"),
+          function(nr.series,nr.obs,garchObj){
+            # Default Std Normal Noise Dist:
+            noiseDist = list(name='Normal', mean=0, sd=1)
+            generateRefData(nr.series,nr.obs,NULL,garchObj,NULL,noiseDist)
+          }
+
+)
