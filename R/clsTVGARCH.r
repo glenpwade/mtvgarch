@@ -1693,7 +1693,7 @@ setGeneric(name=".dh_dg",
              Tobs <- this@Tobs
              w <- e/sqrt(this$Estimated$tv$g)
 
-             dhdg <- matrix(NA,0,0)  # Initialise return matrix
+             dhdg <- matrix(NA,nrow = Tobs,ncol = this@tvObj@nr.pars)  # Initialise return matrix = T x TV@nr.pars, value = 1
 
              if (this$garch$type == garchtype$noGarch){
                return(dhdg)
@@ -1710,7 +1710,7 @@ setGeneric(name=".dh_dg",
            }
 )
 
-## -- .dh_dt(tvgarch) ####
+## -- .dh_dt(e,tvgarch) ####
 setGeneric(name=".dh_dt",
            valueClass = "matrix",
            signature = c("e","tvgarchObj"),
@@ -1719,7 +1719,7 @@ setGeneric(name=".dh_dt",
              Tobs <- this@tvObj@Tobs
              w <- e/sqrt(this$Estimated$tv$g)
 
-             dhdt <- matrix(NA,0,0)  # Initialise return matrix
+             dhdt <- matrix(NA,nrow = Tobs,ncol = this@tvObj@nr.pars)  # Initialise return matrix = T x TV@nr.pars, value = 1
 
              dgdt <- .dg_dt(this$Estimated$tv)  # T x TV@nr.pars (includes d0's derivative if it is a free param)
              dgdt_l1 <- rbind(rep(0,NCOL(dgdt)),dgdt[(1:Tobs-1),])
@@ -1734,7 +1734,7 @@ setGeneric(name=".dh_dt",
            }
 )
 
-## -- .df_dli(tvObj) ####
+## -- .df_dli(tvObj,testOrd) ####
 setGeneric(name=".df_dli",
            valueClass = "matrix",
            signature = c("tvObj","testOrder"),
@@ -1742,11 +1742,20 @@ setGeneric(name=".df_dli",
              this <- tvObj
 
              st <- this@st
-             nrDerivs <- testOrder + 1
-             ret <- matrix(nrow=NROW(st),ncol=nrDerivs)
 
-             for(n in 1:nrDerivs){
-               ret[,n] <- st^(n-1)
+             if(isTRUE(this@delta0free)){
+               # We already have a derivative of the constant
+               nrDerivs <- testOrder
+               ret <- matrix(nrow=NROW(st),ncol=nrDerivs)
+               for(n in 1:nrDerivs){
+                 ret[,n] <- st^(n)
+               }
+             }else{
+               nrDerivs <- testOrder + 1
+               ret <- matrix(nrow=NROW(st),ncol=nrDerivs)
+               for(n in 1:nrDerivs){
+                 ret[,n] <- st^(n-1)
+               }
              }
              return(ret)
            }
@@ -1765,6 +1774,8 @@ setGeneric(name=".test.misSpec.Robust",
              # 2: regress z2_1 on r1~r2, get SSR
              X <- cbind(r1,r2) # T x ncol(r1)+ncol(r2)
              Y <- z2_1  # T x 1
+             #tXX <- qr.solve(t(X),X,tol=1e-10)
+             #b <- tXX %*% t(X) %*% Y  # vector len=ncol(X)
              b <- solve(t(X) %*% X) %*% t(X) %*% Y  # vector len=ncol(X)
              resid <- Y - (X %*% b)   # T x 1
              SSR1 <- t(resid) %*% resid # 1x1
@@ -1779,12 +1790,16 @@ setGeneric(name=".test.misSpec.Robust",
              X <- r1
              for (i in 1:NCOL(r2)){
                Y <- r2[,i,drop=FALSE]
+               #tXX <- qr.solve(t(X),X,tol=1e-10)
+               #b <- tXX %*% t(X) %*% Y  # vector len=ncol(X)
                b <- solve(t(X) %*% X) %*% t(X) %*% Y  # vector len=ncol(X)
                resid[,i] <- Y-(X %*% b)   # T x 1
              }
              # regress 1 on (z2_1)resid, get SSR
              Y <- matrix(1,Tobs,1)
              X <- as.vector(z2_1) * resid
+             #tXX <- qr.solve(t(X),X,tol=1e-10)
+             #b <- tXX %*% t(X) %*% Y  # vector len=ncol(X)
              b <- solve(t(X) %*% X) %*% t(X) %*% Y  # vector len=ncol(X)
              resid <- Y - (X %*% b)   # T x 1
              SSR <- t(resid) %*% resid # 1x1
@@ -1796,127 +1811,11 @@ setGeneric(name=".test.misSpec.Robust",
            }
 )
 
-## -- test.misSpec1.old(tvgarch) ####
-setGeneric(name="test.misSpec1.old",
-           valueClass = "list",
-           signature = c("e","tvgarchObj","testOrder"),
-           def =  function(e,tvgarchObj,testOrder){
-             this <- tvgarchObj
-             rtn <- list()
-
-             Tobs <- this@Tobs
-             g <- this$Estimated$tv$g
-             h <- this$Estimated$garch$h
-
-             # derivatives:
-             dg_dtv <- .dg_dt(this$Estimated$tv)        # T x nr.tv.pars
-             dh_dtv <- .dh_dt(e,this)                   # T x nr.tv.pars
-             dh_dga <- .dh_dg(e,this)                   # T x nr.garch.pars
-             df_dli <- .df_dli(this@tvObj,testOrder)    # T x (testorder+1)
-
-             z <- e/sqrt(g*h)
-             z2 <- z^2
-             z2_1 <- z^2 - 1
-
-             # matrices
-             # TODO:
-             # u+x1 fails: non-conformable arrays, when garchtype = nogarch
-
-             u <- g^(-1) * dg_dtv     # (1/g)*(dg/dtvpars); T x nr.tv.pars
-             x1 <- (h^(-1)) * dh_dtv  # (1/ht)*(dh/dtvpars); T x nr.tv.pars
-             x2 <- (h^(-1)) * dh_dga  # (1/ht)*(dh/dgarchpars); T x nr.garch.pars
-             r1 <- cbind(u+x1,x2)     # T x (tot.tv+garch.pars)
-             r2 <- (g^(-1)) * df_dli  # (1/gt)*(df/dlinpars); T x nr.lin.pars (=testorder+1)
-
-             rtn <- .test.misSpec.Robust(z2_1,r1,r2)
-             return(rtn)
-           }
-)
-
-## -- test.misSpec2.old(tvgarch,type) ####
-setGeneric(name="test.misSpec2.old",
-           valueClass = "list",
-           signature = c("e","tvgarchObj","type"),
-           def =  function(e,tvgarchObj,type){
-             # type 1: GARCH(1,1) vs GARCH(1,2)
-             # type 2: GARCH(1,1) vs GARCH(2,1)
-             # type 3: GARCH vs STGARCH
-
-             this <- tvgarchObj
-             rtn <- list()
-
-             Tobs <- this@Tobs
-             g <- this$Estimated$tv$g
-             h <- this$Estimated$garch$h
-             w <- e/sqrt(g)
-             z <- e/sqrt(g*h)
-             z2 <- z^2
-             z2_1 <- z^2 - 1
-
-             # derivatives:
-             dg_dtv <- .dg_dt(this$Estimated$tv)     # T x nr.tv.pars
-             dh_dtv <- .dh_dt(e,this)                # T x nr.tv.pars
-             dh_dga <- .dh_dg(e,this)                # T x nr.garch.pars
-
-             # matrices
-             u <- g^(-1) * dg_dtv     # (1/g)*(dg/dtvpars); T x nr.tv.pars
-             x1 <- (h^(-1)) * dh_dtv  # (1/ht)*(dh/dtvpars); T x nr.tv.pars
-             x2 <- (h^(-1)) * dh_dga  # (1/ht)*(dh/dgarchpars); T x nr.garch.pars
-             r1 <- cbind(u+x1,x2)     # T x (tot.tv+garch.pars)
-             if (type==1){
-               r2 <- (h^(-1)) * lag0(w^2,2)  # T x 1
-             }
-             if (type==2){
-               r2 <- (h^(-1)) * lag0(h,2)  # T x 1
-             }
-             if (type==3){
-               r2 <- (h^(-1)) * cbind(lag0(w,1),lag0(w^3,1))  # T x 2
-             }
-
-             rtn <- .test.misSpec.Robust(z2_1,r1,r2)
-             return(rtn)
-             }
-)
-
-## -- test.misSpec3.old(tvgarch,maxLag) ####
-setGeneric(name="test.misSpec3.old",
-           valueClass = "list",
-           signature = c("e","tvgarchObj","maxLag"),
-           def =  function(e,tvgarchObj,maxLag){
-             this <- tvgarchObj
-             rtn <- list()
-
-             Tobs <- this@tvObj@Tobs
-             g <- this$Estimated$tv$g
-             h <- this$Estimated$garch$h
-             z <- e/sqrt(g*h)
-             z2 <- z^2
-             z2_1 <- z^2 - 1
-
-             # derivatives:
-             dg_dtv <- .dg_dt(this$Estimated$tv)     # T x nr.tv.pars
-             dh_dtv <- .dh_dt(e,this)                # T x nr.tv.pars
-             dh_dga <- .dh_dg(e,this)                # T x nr.garch.pars
-
-             # matrices
-             u <- g^(-1) * dg_dtv         # (1/g)*(dg/dtvpars); T x nr.tv.pars
-             x1 <- (h^(-1)) * dh_dtv      # (1/ht)*(dh/dtvpars); T x nr.tv.pars
-             x2 <- (h^(-1)) * dh_dga      # (1/ht)*(dh/dgarchpars); T x nr.garch.pars
-             r1 <- cbind(u+x1,x2)         # T x (tot.tv+garch.pars)
-             r2 <- lag0(z2,(1:maxLag))    # T x maxlag
-
-             rtn <- .test.misSpec.Robust(z2_1,r1,r2)
-             return(rtn)
-           }
-)
-
 # ========================================== #
-# TODO:
-# Changes below are made to accomodate the changed structure of the ntvgarch object
-# Suggest we finalise ntvgarch (or replace with simple list) - then complete all dependant code
-# Finally - Add unit tests!!!
+# TODO:  Add unit tests!!!
 
-## -- test.misSpec1(tvgarch) ####
+## -- test.misSpec1(e,tvgarch,testOrd) ####
+## Tests for mis-specification of the tv component of the model, e.g. is there another transition?
 setGeneric(name="test.misSpec1",
            valueClass = "list",
            signature = c("e","tvgarchObj","testOrder"),
@@ -1942,15 +1841,20 @@ setGeneric(name="test.misSpec1",
              u <- g^(-1) * dg_dtv     # (1/g)*(dg/dtvpars); T x nr.tv.pars
              x1 <- (h^(-1)) * dh_dtv  # (1/ht)*(dh/dtvpars); T x nr.tv.pars
              x2 <- (h^(-1)) * dh_dga  # (1/ht)*(dh/dgarchpars); T x nr.garch.pars
-             r1 <- cbind(u+x1,x2)     # T x (tot.tv+garch.pars)
+             #
+             if(this$Estimated$garch$type == garchtype$noGarch){
+               r1 <- u     # T x nr.tv.pars
+             }else{
+               r1 <- cbind(u+x1,x2)     # T x (tot.tv+garch.pars)
+             }
              r2 <- (g^(-1)) * df_dli  # (1/gt)*(df/dlinpars); T x nr.lin.pars (=testorder+1)
-
              rtn <- .test.misSpec.Robust(z2_1,r1,r2)
              return(rtn)
            }
 )
 
-## -- test.misSpec2(tvgarch,type) ####
+## -- test.misSpec2(e,tvgarch,type) ####
+## Tests for mis-specification of the Garch-order of the model
 setGeneric(name="test.misSpec2",
            valueClass = "list",
            signature = c("e","tvgarchObj","type"),
@@ -1979,6 +1883,7 @@ setGeneric(name="test.misSpec2",
              u <- g^(-1) * dg_dtv     # (1/g)*(dg/dtvpars); T x nr.tv.pars
              x1 <- (h^(-1)) * dh_dtv  # (1/ht)*(dh/dtvpars); T x nr.tv.pars
              x2 <- (h^(-1)) * dh_dga  # (1/ht)*(dh/dgarchpars); T x nr.garch.pars
+
              r1 <- cbind(u+x1,x2)     # T x (tot.tv+garch.pars)
              if (type==1){
                r2 <- (h^(-1)) * lag0(w^2,2)  # T x 1
@@ -1995,7 +1900,8 @@ setGeneric(name="test.misSpec2",
            }
 )
 
-## -- test.misSpec3(tvgarch,maxLag) ####
+## -- test.misSpec3(e,tvgarch,maxLag) ####
+## Tests for mis-specification of the remaining-ARCH in the model
 setGeneric(name="test.misSpec3",
            valueClass = "list",
            signature = c("e","tvgarchObj","maxLag"),
@@ -2019,9 +1925,52 @@ setGeneric(name="test.misSpec3",
              u <- g^(-1) * dg_dtv         # (1/g)*(dg/dtvpars); T x nr.tv.pars
              x1 <- (h^(-1)) * dh_dtv      # (1/ht)*(dh/dtvpars); T x nr.tv.pars
              x2 <- (h^(-1)) * dh_dga      # (1/ht)*(dh/dgarchpars); T x nr.garch.pars
-             r1 <- cbind(u+x1,x2)         # T x (tot.tv+garch.pars)
+             #
+             if(this$Estimated$garch$type == garchtype$noGarch){
+               r1 <- u     # T x nr.tv.pars
+             }else{
+               r1 <- cbind(u+x1,x2)     # T x (tot.tv+garch.pars)
+             }
              r2 <- lag0(z2,(1:maxLag))    # T x maxlag
 
+             rtn <- .test.misSpec.Robust(z2_1,r1,r2)
+             return(rtn)
+           }
+)
+
+## -- test.misSpec4(e,tvgarch,exogVar) ####
+## Tests for mis-specification of the additive exogenous variable(s) in the model
+setGeneric(name="test.misSpec4",
+           valueClass = "list",
+           signature = c("e","tvgarchObj","exogVar"),
+           def =  function(e,tvgarchObj,exogVar){
+             this <- tvgarchObj
+             rtn <- list()
+
+             Tobs <- this@Tobs
+             g <- this$Estimated$tv$g
+             h <- this$Estimated$garch$h
+
+             # derivatives:
+             dg_dtv <- .dg_dt(this$Estimated$tv)        # T x nr.tv.pars
+             dh_dtv <- .dh_dt(e,this)                   # T x nr.tv.pars
+             dh_dga <- .dh_dg(e,this)                   # T x nr.garch.pars
+
+             z <- e/sqrt(g*h)
+             z2 <- z^2
+             z2_1 <- z^2 - 1
+
+             # matrices
+             u <- g^(-1) * dg_dtv     # (1/g)*(dg/dtvpars); T x nr.tv.pars
+             x1 <- (h^(-1)) * dh_dtv  # (1/ht)*(dh/dtvpars); T x nr.tv.pars
+             x2 <- (h^(-1)) * dh_dga  # (1/ht)*(dh/dgarchpars); T x nr.garch.pars
+             #
+             if(this$Estimated$garch$type == garchtype$noGarch){
+               r1 <- u     # T x nr.tv.pars
+             }else{
+               r1 <- cbind(u+x1,x2)     # T x (tot.tv+garch.pars)
+             }
+             r2 <- (g^(-1)) * exogVar  # (1/gt)*(exogVar); T x nr. Exogenous Vars
              rtn <- .test.misSpec.Robust(z2_1,r1,r2)
              return(rtn)
            }
