@@ -382,7 +382,7 @@ setGeneric(name="test.CCCvSTCC1",
                return(matrix(data = "Invalid Parameter - H0"))
              }
              objType <- class(st)
-             if(objType[1] != "numeric" || length(e) != length(st) ) {
+             if(objType[1] != "numeric" || NROW(e) != length(st) ) {
                warning("This test requires a valid transition variable (numeric vector) as the alternative (st)")
                return(matrix(data = "Invalid Parameter - st"))
              }
