@@ -372,19 +372,19 @@ setGeneric(name=".im_cor_parsim",
 ##============================##
 setGeneric(name="test.CCCvSTCC1",
            valueClass = "matrix",
-           signature = c("e","H0","H1","testOrder"),
-           def = function(e,H0,H1,testOrder){
+           signature = c("e","H0","st","testOrder"),
+           def = function(e,H0,st,testOrder){
 
              # Validation
              objType <- class(H0)
              if(objType[1] != "ccc_class"){
                warning("This test requires a valid instance of an estimated ccc model as the null (H0)")
-               return(0)
+               return(matrix(data = "Invalid Parameter - H0"))
              }
-             objType <- class(H1)
-             if(objType[1] != "stcc1_class"){
-               warning("This test requires a valid instance of a stcc1 model as the alternative (H1)")
-               return(0)
+             objType <- class(st)
+             if(objType[1] != "numeric" || length(e) != length(st) ) {
+               warning("This test requires a valid transition variable (numeric vector) as the alternative (st)")
+               return(matrix(data = "Invalid Parameter - st"))
              }
 
              # Get the common variables:
@@ -407,8 +407,8 @@ setGeneric(name="test.CCCvSTCC1",
 
              # Get v_rho, dlldrho_A
              ## The transition variable must be de-meaned for the test
-             H1@st <- H1@st - mean(H1@st)
-             rtn <- .v_rho(z,H0,H1,testOrder)
+             st <- st - mean(st)
+             rtn <- .v_rho(z,H0,st,testOrder)
              v_rho <- rtn$v_rho
              dlldrho_A <- rtn$dlldrho_A
 
@@ -457,10 +457,9 @@ setGeneric(name="test.CCCvSTCC1",
 ##===  .v_rho ===####
 setGeneric(name=".v_rho",
            valueClass = "list",
-           signature = c("z","H0","H1","testOrder"),
-           def = function(z,H0,H1,testOrder){
+           signature = c("z","H0","st","testOrder"),
+           def = function(z,H0,st,testOrder){
 
-             st <- H1@st
              v_rho <- NULL
              for(n in 1:testOrder){
                v_rho <- cbind(v_rho,st^n)
