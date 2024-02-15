@@ -165,15 +165,19 @@ setGeneric(name="test.CCCParsim",
            def = function(e,H0,st,testOrder){
 
              # Validation
-             objType <- class(H0)
-             if(objType[1] != "ccc_class"){
-               warning("This test requires a valid instance of an estimated ccc model as the null (H0)")
-               return(0)
-             }
+             # objType <- class(H0)
+             # if(objType[1] != "ccc_class" | objType[1] != "cec_class"){
+             #   warning("This test requires a valid instance of an estimated ccc or cec model as the null (H0)")
+             #   return(matrix(data = "Invalid Parameter - H0"))
+             # }
              objType <- class(st)
              if(objType[1] != "numeric"){
                warning("This test requires a valid smooth-transition variable (numeric vector) as the alternative")
-               return(0)
+               return(matrix(data = "Invalid Parameter - st"))
+             }
+             if(NROW(e) != length(st) ) {
+               warning("This test requires a valid transition variable (numeric vector) as the alternative (st)")
+               return(matrix(data = "Invalid Parameter length - st must match e"))
              }
 
              # Get the common variables:
@@ -182,8 +186,8 @@ setGeneric(name="test.CCCParsim",
              beta <- matrix(1,1,H0@N)
              for (n in 1:H0@N) {
                g[,n] <- H0$ntvgarch[[n]]$tv@g
-               h[,n] <- H0$ntvgarch[[n]]$garch@h
-               beta[1,n] <- H0$ntvgarch[[n]]$garch$Estimated$pars["beta",1]
+               if (H0$ntvgarch[[n]]$garch$type!=garchtype$noGarch) h[,n] <- H0$ntvgarch[[n]]$garch@h
+               if (H0$ntvgarch[[n]]$garch$type!=garchtype$noGarch) beta[1,n] <- H0$ntvgarch[[n]]$garch$Estimated$pars["beta",1]
              }
              w <- e/sqrt(g)
              z <- w/sqrt(h)
@@ -376,15 +380,19 @@ setGeneric(name="test.CCCvSTCC1",
            def = function(e,H0,st,testOrder){
 
              # Validation
-             objType <- class(H0)
-             if(objType[1] != "ccc_class"){
-               warning("This test requires a valid instance of an estimated ccc model as the null (H0)")
-               return(matrix(data = "Invalid Parameter - H0"))
-             }
+             # objType <- class(H0)
+             # if(objType[1] != "ccc_class" | objType[1] != "cec_class"){
+             #   warning("This test requires a valid instance of an estimated ccc model as the null (H0)")
+             #   return(matrix(data = "Invalid Parameter - H0"))
+             # }
              objType <- class(st)
-             if(objType[1] != "numeric" || NROW(e) != length(st) ) {
+             if(objType[1] != "numeric") {
                warning("This test requires a valid transition variable (numeric vector) as the alternative (st)")
                return(matrix(data = "Invalid Parameter - st"))
+             }
+             if(NROW(e) != length(st) ) {
+               warning("This test requires a valid transition variable (numeric vector) as the alternative (st)")
+               return(matrix(data = "Invalid Parameter length - st must match e"))
              }
 
              # Get the common variables:
@@ -393,8 +401,8 @@ setGeneric(name="test.CCCvSTCC1",
              beta <- matrix(1,1,H0@N)
              for (n in 1:H0@N) {
                g[,n] <- H0$ntvgarch[[n]]$tv@g
-               h[,n] <- H0$ntvgarch[[n]]$garch@h
-               beta[1,n] <- H0$ntvgarch[[n]]$garch$Estimated$pars["beta",1]
+               if (H0$ntvgarch[[n]]$garch$type!=garchtype$noGarch) h[,n] <- H0$ntvgarch[[n]]$garch@h
+               if (H0$ntvgarch[[n]]$garch$type!=garchtype$noGarch) beta[1,n] <- H0$ntvgarch[[n]]$garch$Estimated$pars["beta",1]
              }
              w <- e/sqrt(g)
              z <- w/sqrt(h)
@@ -917,7 +925,7 @@ setGeneric(name=".x_garch",
 
              } # End: For..loop
 
-             if(is.null(v_garch) && is.null(beta_scale)){
+             if(is.null(v_garch) && length(beta_scale)==0){
                # All series have noGarch
                x_garch <- matrix(nrow=H0@Tobs,ncol=0)
              } else {
