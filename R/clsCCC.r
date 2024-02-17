@@ -136,6 +136,7 @@ setGeneric(name="estimateCCC",
            valueClass = "ccc_class",
            signature = c("cccObj","estimationCtrl"),
            def = function(cccObj,estimationCtrl){
+
              this <- cccObj
              e <- this@e
              this$Estimated <- list()
@@ -146,13 +147,7 @@ setGeneric(name="estimateCCC",
                this$Estimated$value <- .loglik.ccc(optimpars,e,this)
              }else{
 
-               if(isFALSE( all.equal(NCOL(e),length(this$ntvgarch)) ) ) {
-                 warning("size mismatch: e, cccObj$ntvgarch")
-                 return(this)
-               }
-
                # Note: The parsim test is very sensitive to the accuracy of the correlation estimation
-
                #TODO: Replace for(loop) with apply()
                z <- w <- e
                for(n in 1:this@N){
@@ -184,10 +179,6 @@ setGeneric(name="test.CCCParsim",
              if(objType[1] != "numeric"){
                warning("This test requires a valid smooth-transition variable (numeric vector) as the alternative")
                return(matrix(data = "Invalid Parameter - st"))
-             }
-             if(NROW(e) != length(st) ) {
-               warning("This test requires a valid transition variable (numeric vector) as the alternative (st)")
-               return(matrix(data = "Invalid Parameter length - st must match e"))
              }
 
              # Get the common variables:
@@ -395,10 +386,6 @@ setGeneric(name="test.CCCvSTCC1",
              if(objType[1] != "numeric") {
                warning("This test requires a valid transition variable (numeric vector) as the alternative (st)")
                return(matrix(data = "Invalid Parameter - st"))
-             }
-             if(NROW(e) != length(st) ) {
-               warning("This test requires a valid transition variable (numeric vector) as the alternative (st)")
-               return(matrix(data = "Invalid Parameter length - st must match e"))
              }
 
              # Get the common variables:
