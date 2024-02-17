@@ -4,7 +4,7 @@
 
 ## --- stcc1_class Definition --- ####
 stcc1 <- setClass(Class = "stcc1_class",
-               slots = c(st="numeric",nr.corPars="integer",nr.trPars="integer",Tobs="integer",N="integer",z="matrix"),
+               slots = c(st="numeric",nr.corPars="integer",nr.trPars="integer",Tobs="integer",N="integer",e="matrix"),
                contains = c("namedList")
                )
 
@@ -17,7 +17,7 @@ setMethod("initialize","stcc1_class",
             .Object$ntvgarch <- list()
             .Object@N <- as.integer(0)
             .Object@Tobs <- as.integer(0)
-            .Object@z <- matrix("numeric")
+            .Object@e <- matrix("numeric")
             .Object$shape <- corrshape$single
             .Object$speedopt <- corrspeedopt$eta
             .Object$optimcontrol <- list(fnscale = -1, reltol = 1e-5)
@@ -29,8 +29,8 @@ setMethod("initialize","stcc1_class",
 ## -- Constructor:stcc1 -- ####
 setGeneric(name="stcc1",
            valueClass = "stcc1_class",
-           signature = c("z","ntvgarchObj"),
-           def = function(z,ntvgarchObj){
+           signature = c("ntvgarchObj"),
+           def = function(ntvgarchObj){
              this <- new("stcc1_class")
 
              ## -- Do validation checks -- ####
@@ -39,27 +39,32 @@ setGeneric(name="stcc1",
                warning("a valid instance of the ntvgarch_class is required to create an STCC1 model")
                return(this)
              }
-             if(class(z)[1] != "matrix"){
-               warning("'z' must be a valid numeric matrix to create an STCC1 model")
-               return(this)
-             }
              # End validation
 
-             # Add the Estimated components from the ntvgarch
+             # Set Default Values:
+             N <- this@N <- ntvgarchObj@N
+             this@Tobs <- ntvgarchObj@Tobs
+             # TODO: Should we make this a variable?  Or inherit from NTVGarch?
+             this@st <- (1:ntvgarchObj@Tobs)/ntvgarchObj@Tobs
+             this@nr.corPars <- as.integer((N^2-N)/2)
+             this@e <- matrix(nrow = this@Tobs,ncol = N)
+
+             # Extract the Data & Estimated components from the ntvgarch
+             this$ntvgarch <- list()
              for(n in 1:ntvgarchObj@N){
                this$ntvgarch[[n]] <- list()
                this$ntvgarch[[n]]$tv <- ntvgarchObj[[n]]$Estimated$tv
                this$ntvgarch[[n]]$garch <- ntvgarchObj[[n]]$Estimated$garch
+               this@e[,n] <- ntvgarchObj[[n]]@e
              }
              names(this$ntvgarch) <- names(ntvgarchObj)
 
-             # Set Default Values:
-             this@N <- ntvgarchObj@N
-             this@Tobs <- ntvgarchObj@Tobs
-             this@st <- (1:ntvgarchObj@Tobs)/ntvgarchObj@Tobs
-
-             N <- this@N
-             this@nr.corPars <- as.integer((N^2-N)/2)
+             # Filter the data:
+             z <- w <- e <- this@e
+             for(n in 1:this@N){
+               w[,n] <- e[,n]/sqrt(this$ntvgarch[[n]]$tv@g)
+               z[,n] <- w[,n]/sqrt(this$ntvgarch[[n]]$garch@h)
+             }
 
              # Use the correlation of the first & last 1/3 of the data as starting values
              zDiv3 <- round(this@Tobs/3)
@@ -94,7 +99,7 @@ setGeneric(name="stcc1",
 )
 
 ## -- calc.Gt -- ####
-setGeneric(name="calc.Gt",
+setGeneric(name=".calc.Gt",
            valueClass = "matrix",
            signature = c("stcc1Obj"),
            def = function(stcc1Obj){
@@ -158,7 +163,6 @@ setGeneric(name=".dG_dtr",
            valueClass = "matrix",
            signature = c("stccObj","trNum"),
            def =  function(stccObj,trNum){
-
            this <- stccObj
 
            rtn <- matrix(nrow=this@Tobs,ncol=this@nr.trPars)
@@ -211,9 +215,7 @@ setGeneric(name=".loglik.stcc1",
              err_output <- -1e10
              this <- stcc1Obj
 
-             #### ======== constraint checks ======== ####
              this$Estimated$pars <- tail(optimpars,this@nr.trPars)
-
              tmp.par <- optimpars
 
              vP1 <- tmp.par[1:this@nr.corPars]
@@ -232,6 +234,7 @@ setGeneric(name=".loglik.stcc1",
              if (min(eig$values) <= 0) return(err_output)
              this$Estimated$P2 <- mP
 
+             #### ======== constraint checks ======== ####
 
              # Check 2: Check the boundary values for speed params:
              speed <- this$Estimated$pars[1]
@@ -267,9 +270,10 @@ setGeneric(name=".loglik.stcc1",
 ## --- estimateSTCC1 --- ####
 setGeneric(name="estimateSTCC1",
            valueClass = "stcc1_class",
-           signature = c("z","stcc1Obj","estimationCtrl"),
-           def = function(z,stcc1Obj,estimationCtrl){
+           signature = c("stcc1Obj","estimationCtrl"),
+           def = function(stcc1Obj,estimationCtrl){
              this <- stcc1Obj
+             e <- this@e
 
              calcSE <- estimationCtrl$calcSE
              verbose <- estimationCtrl$verbose
@@ -281,6 +285,13 @@ setGeneric(name="estimateSTCC1",
 
              ### ---  Call optim to calculate the estimate --- ###
              if (verbose) this$optimcontrol$trace <- 10
+
+             # Filter the data:
+             z <- w <- e <- this@e
+             for(n in 1:this@N){
+               w[,n] <- e[,n]/sqrt(this$ntvgarch[[n]]$tv@g)
+               z[,n] <- w[,n]/sqrt(this$ntvgarch[[n]]$garch@h)
+             }
 
              tmp <- NULL
              try(tmp <- optim(optimpars,.loglik.stcc1,z,this,gr=NULL,method="BFGS",control=this$optimcontrol,hessian=calcSE))
@@ -339,10 +350,10 @@ setGeneric(name="estimateSTCC1",
            }
 )
 ## --- estimateSTCC1 --- ####
-setMethod("estimateSTCC1",signature = c("matrix","stcc1_class","missing"),
-          function(z,stcc1Obj){
+setMethod("estimateSTCC1",signature = c("stcc1_class","missing"),
+          function(stcc1Obj){
             estimationControl <- list(calcSE = TRUE,verbose = TRUE)
-            estimateSTCC1(z,stcc1Obj,estimationControl)
+            estimateSTCC1(stcc1Obj,estimationControl)
           })
 
 ## --- unCorrelateData --- ####
