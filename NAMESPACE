@@ -1,10 +1,9 @@
 exportPattern("^[[:alpha:]]+")
 importFrom("graphics", "plot.default")
 importFrom("methods", ".valueClassTest", "callNextMethod", "new")
-importFrom("stats", "na.omit", "optim", "optimHess", "pnorm", "sd","var")
+importFrom("stats", "na.omit", "optim", "optimHess", "pnorm", "sd","var","rnorm","rt")
 importFrom("utils", "head", "tail", "timestamp")
 importFrom("doParallel","registerDoParallel","stopImplicitCluster")
 importFrom("parallel","makeCluster","stopCluster")
 importFrom("foreach","foreach","%do%","%dopar%")
-
-
+importFrom("Matrix","nearPD","qr")
