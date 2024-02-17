@@ -98,7 +98,7 @@ setGeneric(name="stcc1",
            }
 )
 
-## -- calc.Gt -- ####
+## -- .calc.Gt -- ####
 setGeneric(name=".calc.Gt",
            valueClass = "matrix",
            signature = c("stcc1Obj"),
