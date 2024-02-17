@@ -199,7 +199,7 @@ setGeneric(name="test.CCCParsim",
                if (H0$ntvgarch[[n]]$garch$type!=garchtype$noGarch) h[,n] <- H0$ntvgarch[[n]]$garch@h
                if (H0$ntvgarch[[n]]$garch$type!=garchtype$noGarch) beta[1,n] <- H0$ntvgarch[[n]]$garch$Estimated$pars["beta",1]
              }
-             e <- HO@e
+             e <- H0@e
              w <- e/sqrt(g)
              z <- w/sqrt(h)
 
@@ -410,7 +410,7 @@ setGeneric(name="test.CCCvSTCC1",
                if (H0$ntvgarch[[n]]$garch$type!=garchtype$noGarch) h[,n] <- H0$ntvgarch[[n]]$garch@h
                if (H0$ntvgarch[[n]]$garch$type!=garchtype$noGarch) beta[1,n] <- H0$ntvgarch[[n]]$garch$Estimated$pars["beta",1]
              }
-             e <- HO@e
+             e <- H0@e
              w <- e/sqrt(g)
              z <- w/sqrt(h)
 
@@ -645,7 +645,7 @@ setGeneric(name="test.TVCC1vTVCC2",
                h[,n] <- H0$ntvgarch[[n]]$garch@h
                beta[1,n] <- H0$ntvgarch[[n]]$garch$Estimated$pars["beta",1]
              }
-             e <- HO@e
+             e <- H0@e
              w <- e/sqrt(g)
              z <- w/sqrt(h)
 
