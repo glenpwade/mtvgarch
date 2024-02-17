@@ -1,5 +1,6 @@
 
 ## -- generateRefData -- ####
+## generates Reference Data with TV, GARCH processes, optionally with Correlation
 setGeneric(name="generateRefData",
            valueClass = "matrix",
            signature = c("nr.series","nr.obs","tvObj","garchObj","corrObj","noiseDist"),
@@ -174,9 +175,6 @@ setMethod("generateRefData",
 ## -- generateDCCRefData -- ####
 generateDCCRefData=function(nr.series,nr.obs,Qbar,a,b)
 {
-
-  refData <- matrix(NA,nrow = nr.obs, ncol = nr.series)
-
   # Step1: Generate iid Data & create Correlation
   # u = un-correlated data
   u <- matrix(rnorm(nr.obs * nr.series),nrow=nr.obs, ncol=nr.series)
@@ -195,21 +193,73 @@ generateDCCRefData=function(nr.series,nr.obs,Qbar,a,b)
   # starting from t=2! (set Qt[1]=Qbar)
   Qt_1 <- Qbar
   for (t in 2:endRow){
-    Qt <- (1-a-b)*Qbar + a*t(e[t-1,,drop=FALSE])%*%e[t-1,,drop=FALSE] + b*Qt_1 # N x N
+    Qt <- (1-a-b)*Qbar + a*t(e[t-1,,drop=FALSE]) %*% e[t-1,,drop=FALSE] + b*Qt_1 # N x N
     #scale Qt by inverse of its sqrt diagonals (from front and back) to make it correlation matrix
-    Pt <- diag(sqrt(diag(Qt))^(-1),nrow=nr.series, ncol=nr.series)%*%Qt%*%diag(sqrt(diag(Qt))^(-1),nrow=nr.series, ncol=nr.series)  # N x N
+    Pt <- diag(sqrt(diag(Qt))^(-1),nrow=nr.series, ncol=nr.series) %*% Qt %*% diag(sqrt(diag(Qt))^(-1),nrow=nr.series, ncol=nr.series)  # N x N
     # create DCC correlated data
     Pt.sqrt <- sqrt_mat1(Pt)
     e[t,] <- t( Pt.sqrt %*% t(u[t,,drop=FALSE]) )
     # for the next loop round, store the "previous" Qt
     Qt_1 <- Qt
   }
-  #return e
-  startRow <- discard + 1
-  refData <- e[(startRow:endRow), ]
 
-  #Return:
-  refData
+  startRow <- discard + 1
+
+  #Return e:
+  e[(startRow:endRow), ]
 
 }
+
+
+## -- calc.Gt(spd,loc,Tobs) -- ##
+ .calc.Gt = function(speed,loc,Tobs){
+   st <- (1:Tobs)/Tobs
+   st_c <- st - loc
+   G <- 1/(1+exp(-exp(speed)*st_c))
+   return(matrix(G,nrow = Tobs,ncol = 1))
+ }
+
+## -- generateDynDCCRefData -- ####
+generateDynDCCRefData=function(nr.series,nr.obs,Q1,Q2,speed,loc,a,b)
+{
+
+  # Step1: Generate iid Data & create Correlation
+  # u = un-correlated data
+  u <- matrix(rnorm(nr.obs * nr.series),nrow=nr.obs, ncol=nr.series)
+
+  # e = correlated data (defaults to 'u' if there is no correlation object)
+  e <- u
+
+  # - - - dynDCC - - -
+  # pass in Q1 and Q2 matrices, speed and loc, and "a" alpha & "b" beta for DCC
+  # need to create more than just nr.obs, add discard amount then drop the discard part before returning
+  discard <- 2000
+  discardData <- matrix(rnorm(discard * nr.series),nrow=discard, ncol=nr.series)
+  u <- rbind(discardData,u)
+  e <- u
+  endRow <- discard + nr.obs
+  # starting from t=2! (set Qt[1]=Qbar)
+  Qt_1 <- Q1
+  for (t in 2:endRow){
+    if (t > discard){
+      Gt <- .calc.Gt(speed,loc,Tobs) # st=timetrend, loc=0.5, gamma s.t. transition takes place between 0.25 and 0.75 of the sample
+      Qbar <- (1-Gt) %*% Q1+Gt %*%Q2
+    } else Qbar<-Q1
+    Qt <- (1-a-b)*Qbar + a*t(e[t-1,,drop=FALSE]) %*% e[t-1,,drop=FALSE] + b*Qt_1 # N x N
+    #scale Qt by inverse of its sqrt diagonals (from front and back) to make it correlation matrix
+    Pt <- diag(sqrt(diag(Qt))^(-1),nrow=nr.series, ncol=nr.series) %*% Qt %*% diag(sqrt(diag(Qt))^(-1),nrow=nr.series, ncol=nr.series)  # N x N
+    # create DCC correlated data
+    Pt.sqrt <- sqrt_mat1(Pt)
+    e[t,] <- t( Pt.sqrt %*% t(u[t,,drop=FALSE]) )
+    # for the next loop round, store the "previous" Qt
+    Qt_1 <- Qt
+  }
+
+  startRow <- discard + 1
+
+  #Return e:
+  e[(startRow:endRow), ]
+
+}
+
 
