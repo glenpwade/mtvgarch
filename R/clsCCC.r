@@ -1,11 +1,11 @@
 ## -- The MTVGARCH package supports a number of Correlation objects
 ## -- This class file maintains the structure for CCC (Constant Conditional Correlation)
 
-## Note:  The CEC (Constant Equi-Correlation), CTC (Constant Touplitz-Correlation)
-##        Models can be implemented using this class.
+## Note:  The CTC (Constant Touplitz-Correlation)
+##        Model can also be implemented using this class.
 
 ccc <- setClass(Class = "ccc_class",
-                  slots = c(N="integer",Tobs="integer",nr.covPars="integer"),
+                  slots = c(N="integer",Tobs="integer",nr.covPars="integer",e="matrix"),
                   contains = c("namedList")
 )
 
@@ -18,9 +18,10 @@ setMethod("initialize","ccc_class",
             .Object@N <- as.integer(0)
             .Object@Tobs <- as.integer(0)
             .Object@nr.covPars <- as.integer(0)
-
+            .Object@e <- matrix("numeric")
+            # CCC@e will hold the data to be used by the model.
+            # Filtering will be automatically done by the Estimation & Test functions as needed.
             .Object$P <- matrix()
-
             # Return:
             .Object
           })
@@ -28,37 +29,31 @@ setMethod("initialize","ccc_class",
 ## -- Constructor:ccc -- ####
 setGeneric(name="ccc",
            valueClass = "ccc_class",
-           signature = c("nr.series","ntvgarchObj"),
-           def = function(nr.series,ntvgarchObj){
+           signature = c("ntvgarchObj","nr.series"),
+           def = function(ntvgarchObj,nr.series){
              this <- new("ccc_class")
 
              # Allow users to create object using either parameter...
 
              if(!is.null(ntvgarchObj)){
-               ## -- Do validation checks -- ##
-               objType <- class(ntvgarchObj)
-               if(objType[1] != "ntvgarch_class"){
-                 warning("a valid instance of the ntvgarch_class is required to create a ccc model")
-                 return(this)
-               }
-               # End validation
-
                # Set Default Values:
                this@N <- ntvgarchObj@N
                this@Tobs <- ntvgarchObj@Tobs
                N <- this@N
+               this@e <- matrix(nrow = this@Tobs,ncol = N)
 
-               # Add the Estimated components from the ntvgarch
+               # Extract the Data & Estimated components from the ntvgarch
                this$ntvgarch <- list()
                for(n in 1:N){
                  this$ntvgarch[[n]] <- list()
                  this$ntvgarch[[n]]$tv <- ntvgarchObj[[n]]@tvObj
                  this$ntvgarch[[n]]$garch <- ntvgarchObj[[n]]@garchObj
+                 this@e[,n] <- ntvgarchObj[[n]]@e
                }
                names(this$ntvgarch) <- names(ntvgarchObj)
-             }
 
-             if(!is.null(nr.series)){
+             }else if(!is.null(nr.series)) {
+               # Lightweight constructor provided for simulations etc.
                N <- this@N <- as.integer(nr.series)
              }
 
@@ -71,18 +66,38 @@ setGeneric(name="ccc",
            }
 )
 
-setMethod("ccc",signature = c("numeric","missing"),
-          function(nr.series){
-            # Create a ccc model
-            ccc(nr.series,NULL)
-          })
-
-setMethod("ccc",signature = c("missing","ntvgarch_class"),
+setMethod("ccc",signature = c("ntvgarch_class","missing"),
           function(ntvgarchObj){
-            # Create a ccc model
-            ccc(NULL,ntvgarchObj)
-          })
 
+            # Create a ccc model from an NTVGARCH Object
+            this <- new("ccc_class")
+            ## -- Do validation checks -- ##
+            objType <- class(ntvgarchObj)
+            if(objType[1] != "ntvgarch_class"){
+              warning("a valid instance of the ntvgarch_class is required to create a ccc model")
+              return(this)
+            }else{
+              ccc(ntvgarchObj,NULL)
+            }
+
+          }
+)
+
+
+setMethod("ccc",signature = c("missing","numeric"),
+          function(nr.series){
+            # Create a simple ccc model with N series
+            this <- new("ccc_class")
+            ## -- Do validation checks -- ##
+            objType <- class(nr.series)
+            if(objType[1] != "numeric"){
+              warning("a valid numeric value is required to create a ccc model")
+              return(this)
+            }else{
+              ccc(NULL,nr.series)
+            }
+
+          })
 
 
 ## -- .loglik.ccc -- ####
@@ -119,10 +134,10 @@ setGeneric(name=".loglik.ccc",
 ## --- estimateCCC --- ####
 setGeneric(name="estimateCCC",
            valueClass = "ccc_class",
-           signature = c("e","cccObj","estimationCtrl"),
-           def = function(e,cccObj,estimationCtrl){
+           signature = c("cccObj","estimationCtrl"),
+           def = function(cccObj,estimationCtrl){
              this <- cccObj
-
+             e <- this@e
              this$Estimated <- list()
 
              if(is.null(this$ntvgarch)){
@@ -161,15 +176,10 @@ setGeneric(name="estimateCCC",
 ##============================##
 setGeneric(name="test.CCCParsim",
            valueClass = "matrix",
-           signature = c("e","H0","st","testOrder"),
-           def = function(e,H0,st,testOrder){
+           signature = c("H0","st","testOrder"),
+           def = function(H0,st,testOrder){
 
              # Validation
-             # objType <- class(H0)
-             # if(objType[1] != "ccc_class" | objType[1] != "cec_class"){
-             #   warning("This test requires a valid instance of an estimated ccc or cec model as the null (H0)")
-             #   return(matrix(data = "Invalid Parameter - H0"))
-             # }
              objType <- class(st)
              if(objType[1] != "numeric"){
                warning("This test requires a valid smooth-transition variable (numeric vector) as the alternative")
@@ -189,6 +199,7 @@ setGeneric(name="test.CCCParsim",
                if (H0$ntvgarch[[n]]$garch$type!=garchtype$noGarch) h[,n] <- H0$ntvgarch[[n]]$garch@h
                if (H0$ntvgarch[[n]]$garch$type!=garchtype$noGarch) beta[1,n] <- H0$ntvgarch[[n]]$garch$Estimated$pars["beta",1]
              }
+             e <- HO@e
              w <- e/sqrt(g)
              z <- w/sqrt(h)
 
@@ -376,15 +387,10 @@ setGeneric(name=".im_cor_parsim",
 ##============================##
 setGeneric(name="test.CCCvSTCC1",
            valueClass = "matrix",
-           signature = c("e","H0","st","testOrder"),
-           def = function(e,H0,st,testOrder){
+           signature = c("H0","st","testOrder"),
+           def = function(H0,st,testOrder){
 
              # Validation
-             # objType <- class(H0)
-             # if(objType[1] != "ccc_class" | objType[1] != "cec_class"){
-             #   warning("This test requires a valid instance of an estimated ccc model as the null (H0)")
-             #   return(matrix(data = "Invalid Parameter - H0"))
-             # }
              objType <- class(st)
              if(objType[1] != "numeric") {
                warning("This test requires a valid transition variable (numeric vector) as the alternative (st)")
@@ -404,6 +410,7 @@ setGeneric(name="test.CCCvSTCC1",
                if (H0$ntvgarch[[n]]$garch$type!=garchtype$noGarch) h[,n] <- H0$ntvgarch[[n]]$garch@h
                if (H0$ntvgarch[[n]]$garch$type!=garchtype$noGarch) beta[1,n] <- H0$ntvgarch[[n]]$garch$Estimated$pars["beta",1]
              }
+             e <- HO@e
              w <- e/sqrt(g)
              z <- w/sqrt(h)
 
@@ -617,8 +624,8 @@ setGeneric(name=".Pinv.K",
 ##============================##
 setGeneric(name="test.TVCC1vTVCC2",
            valueClass = "numeric",
-           signature = c("e","H0","testOrder"),
-           def = function(e,H0,testOrder){
+           signature = c("H0","testOrder"),
+           def = function(H0,testOrder){
              # Purpose:
              # Test a time-series to identify evidence of a second transition...
 
@@ -638,6 +645,7 @@ setGeneric(name="test.TVCC1vTVCC2",
                h[,n] <- H0$ntvgarch[[n]]$garch@h
                beta[1,n] <- H0$ntvgarch[[n]]$garch$Estimated$pars["beta",1]
              }
+             e <- HO@e
              w <- e/sqrt(g)
              z <- w/sqrt(h)
 
