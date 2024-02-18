@@ -22,7 +22,7 @@ setMethod("initialize","dcc_class",
             .Object$ntvgarch <- list()
             .Object$speedopt <- corrspeedopt$eta
             .Object$optimcontrol <- list(fnscale = -1, reltol = 1e-5)
-            .Object$pars <- c(0.05,0.8)
+            .Object$pars <- c(0.05,0.80)
             names(.Object$pars) <- c("alpha","beta")
 
             # Return:
@@ -44,8 +44,7 @@ setGeneric(name="dcc",
              }
              # End validation
 
-             # Set Default Values based on type:
-             # Common:
+             # Set Common Default Values - for all types:
              N <- this@N <- ntvgarchObj@N
              this@Tobs <- ntvgarchObj@Tobs
              # TODO: Should we make this a variable?  Or inherit from NTVGarch?
@@ -70,6 +69,7 @@ setGeneric(name="dcc",
                z[,n] <- w[,n]/sqrt(this$ntvgarch[[n]]$garch@h)
              }
 
+             # Set Default Values based on type:
              if(dcctype == dcctype$General){
                this$Qbar <- toeplitz(0.5^seq.int(0, N-1))
              }else if (dcctype == dcctype$Dynamic){
@@ -96,22 +96,22 @@ calc.Gt.eta = function(speed,loc,Tobs){
   return(matrix(G,nrow = Tobs,ncol = 1))
 }
 
-## -- calc.Pt -- ####
-setGeneric(name=".calc.Pt",
+## -- .calc.Qbar -- ####
+setGeneric(name=".calc.Qbar",
            valueClass = "matrix",
            signature = c("dccObj"),
            def =   function(dccObj){
              this <- dccObj
 
-             vP1 <- vecL(this$Estimated$P1)
-             vP2 <- vecL(this$Estimated$P2)
+             vQ1 <- vecL(this$Estimated$Q1)
+             vQ2 <- vecL(this$Estimated$Q2)
 
-             Gt <- calc.Gt(this)
-             Pt <- apply(Gt,MARGIN = 1,FUN = function(X,P1,P2) ((1-X)*P1 + X*P2), P1=vP1, P2=vP2)
+             Gt <- calc.Gt.eta(this)
+             Qbar <- apply(Gt,MARGIN = 1,FUN = function(X,Q1,Q2) ((1-X)*Q1 + X*Q2), Q1=vQ1, Q2=vQ2)
 
-             if(is.vector(Pt)) Pt <- matrix(Pt,ncol = 1) else Pt <- t(Pt)
+             if(is.vector(Qbar)) Qbar <- matrix(Qbar,ncol = 1) else Qbar <- t(Qbar)
 
-             return(Pt)
+             return(Qbar)
 
            }
 )
@@ -202,11 +202,20 @@ setGeneric(name="estimateDCC",
 
              calcSE <- estimationCtrl$calcSE
              verbose <- estimationCtrl$verbose
-
              this$Estimated <- list()
 
-             optimpars <- c( vecL(this$P1), vecL(this$P2), this$pars )
-             optimpars <- optimpars[!is.na(optimpars)]
+             if(dccObj$type == dcctype$General){
+
+
+
+             }else if (dccObj$type == dcctype$Dynamic){
+               optimpars <- c( vecL(this$Q1), vecL(this$Q2), this$pars )
+               optimpars <- optimpars[!is.na(optimpars)]
+
+             }else {
+               warning("Invalid dcctype passed to estimateDCC")
+               return(this)
+              }
 
              ### ---  Call optim to calculate the estimate --- ###
              if (verbose) this$optimcontrol$trace <- 10
