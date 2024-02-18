@@ -4,6 +4,9 @@
 ## Note:  The CTC (Constant Touplitz-Correlation)
 ##        Model can also be implemented using this class.
 
+solve.tol = 1e-12
+
+
 ccc <- setClass(Class = "ccc_class",
                   slots = c(N="integer",Tobs="integer",nr.covPars="integer",e="matrix"),
                   contains = c("namedList")
@@ -110,16 +113,20 @@ setGeneric(name=".loglik.ccc",
 
              vP <- optimpars
              mP <- unVecL(vP)
+             # Check for: system is computationally singular:
+
              # Check for SPD - positive-definite check:
              eig <- NULL
              try( eig <- eigen(mP,symmetric=TRUE,only.values=TRUE) )
              if(is.null(eig)) return(err_output)
              #
-             if (isTRUE(min(eig$values) <= 0) ) {
-               nPD <- nearPD(mP,corr = TRUE, base.matrix=TRUE, maxit = 250)
-               if(isTRUE(nPD$converged)){ mP <- nPD$mat } else{ return(err_output) }
-             }
-             mPinv <- solve(mP)
+             # Try to invert mP
+             mPinv <- NULL
+             mPinv <- tryCatch(solve(mP),
+                             error = function(e){ warning(e) }
+             )
+             # Return err_output on failure:
+             if(is.null(mPinv)) return(err_output)
 
              # - - - calc loglik-value
              Tobs <- NROW(z)
@@ -262,7 +269,7 @@ setGeneric(name=".x_tau",
 
              One_N_1.1 <- matrix(1,nrow=(N-1),ncol=1)
              I <- diag(N,N) # NxN Identity matrix
-             I.P.Pinv <- I + P*solve(P)
+             I.P.Pinv <- I + P*qr.solve(P,tol=solve.tol)
              I.P.Pinv_scale <- NULL
              scaleFactor <- NULL
 
@@ -469,7 +476,7 @@ setGeneric(name=".v_rho",
 
              N <- H0@N
              P <- H0$Estimated$P
-             Pinv <- solve(P)
+             Pinv <- qr.solve(P,tol=solve.tol)
 
              # U matrix: N^2 x N*(N-1)/2
              U <- .get_U(H0@N)
@@ -499,7 +506,7 @@ setGeneric(name=".im_garch_cor",
 
              N <- H0@N
              P <- H0$Estimated$P
-             Pinv <- solve(P)
+             Pinv <- qr.solve(P,tol=solve.tol)
              I <- diag(nrow = N,ncol = N) # NxN Identity matrix
              # U matrix: N^2 x N*(N-1)/2
              U <- .get_U(H0@N)
@@ -534,7 +541,7 @@ setGeneric(name=".im_tv_cor",
            def = function(H0,x_tv,v_rho){
 
              N <- H0@N
-             Pinv <- solve(H0$Estimated$P)
+             Pinv <- qr.solve(H0$Estimated$P,tol=solve.tol)
              I <- diag(nrow = N,ncol = N) # NxN Identity matrix
              # U matrix: N^2 x N*(N-1)/2
              U <- .get_U(H0@N)
@@ -594,7 +601,7 @@ setGeneric(name=".Pinv.K",
            def = function(H0,Pt){
 
              N <- H0@N
-             Pinv <- solve(Pt)
+             Pinv <- qr.solve(Pt,tol=solve.tol)
              I <- diag(nrow = N,ncol = N) # NxN Identity matrix
 
              # K matrix: N^2 x N^2
@@ -677,7 +684,7 @@ setGeneric(name="test.TVCC1vTVCC2",
 
              for(t in 1:H0@Tobs){
                Pt <- unVecL(H0$Estimated$Pt[t,])
-               Ptinv <- solve(Pt)
+               Ptinv <- qr.solve(Pt,tol=solve.tol)
                P1 <- H0$Estimated$P1
                P2 <- H0$Estimated$P2
 
@@ -806,7 +813,7 @@ setGeneric(name=".U.Pinv.K.U",
            def = function(H0,Pt){
 
              N <- H0@N
-             Pinv <- solve(Pt)
+             Pinv <- qr.solve(Pt,tol=solve.tol)
              I <- diag(nrow = N,ncol = N) # NxN Identity matrix
 
              # U matrix: N^2 x N*(N-1)/2
@@ -862,7 +869,7 @@ setGeneric(name=".U.Pinv.K.U",
 
   N <- H0@N
   I <- diag(N,N) # NxN Identity matrix
-  I.P.Pinv <- I + Pt * solve(Pt)
+  I.P.Pinv <- I + Pt * qr.solve(Pt,tol=solve.tol)
   I.P.Pinv_scale <- NULL
 
   for (i in 1:N) {
@@ -1043,7 +1050,7 @@ setGeneric(name=".im_tv_garch",
              N <- H0@N
 
              I <- diag(nrow = N,ncol = N) # NxN Identity matrix
-             I.P.Pinv <- I + Pt * solve(Pt)
+             I.P.Pinv <- I + Pt * qr.solve(Pt,tol=solve.tol)
              I.P.Pinv_scale <- .I.P.Pinv_scale(H0,Pt,"tv","garch")
 
              IM_tv_garch <- (t(x_tv) %*% x_garch) * (I.P.Pinv_scale/H0@Tobs)  #  (total # of tvpars)x(total # of garchpars)
@@ -1069,7 +1076,7 @@ setGeneric(name=".LM",
 
              #IM <- rbind(IM_TV, IM_GARCH, IM_COR)
              IM <- rbind(cbind(IM_tv,IM_tv_garch,IM_tv_cor), cbind(t(IM_tv_garch),IM_garch,IM_garch_cor), cbind(t(IM_tv_cor),t(IM_garch_cor),IM_cor)) # the whole IM, not really needed...
-             IM_inv <- solve(IM)
+             IM_inv <- qr.solve(IM,tol=solve.tol)
              ## The above is not necessarily very efficient - could use block inversion methods - TO DO LATER
 
              if (!is.matrix(IM_inv)) stop("LM Test: Can't invert the information matrix IM_inv")
@@ -1106,7 +1113,7 @@ setGeneric(name=".LM_v2",
 
              #IM <- rbind(IM_TV, IM_GARCH, IM_COR)
              IM <- rbind(cbind(IM_tv,IM_tv_garch,IM_tv_tr,IM_tv_cor), cbind(t(IM_tv_garch),IM_garch,IM_garch_tr,IM_garch_cor),cbind(t(IM_tv_tr),t(IM_garch_tr),IM_tr,IM_tr_cor), cbind(t(IM_tv_cor),t(IM_garch_cor),t(IM_tr_cor),IM_cor)) # the whole IM, not really needed...
-             IM_inv <- solve(IM)
+             IM_inv <- qr.solve(IM,tol=solve.tol)
              ## The above is not necessarily very efficient - could use block inversion methods - TO DO LATER
 
              if (!is.matrix(IM_inv)) stop("LM Test: Can't invert the information matrix IM_inv")
