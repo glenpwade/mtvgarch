@@ -12,6 +12,8 @@ garchtype <- list(noGarch=0,general=1,gjr=2)
 corrtype <- list(CCC=1,STCC1=2,STCC2=3,STEC1=4,STEC2=5)
 corrshape <- list(single=1,double=2,double1loc=3)
 corrspeedopt <- list(gamma=1,gamma_std=2,eta=3)
+## Misc
+solve.tol = 1e-12
 
 ## -- vecl -- ####
 setGeneric(name="vecL",
@@ -144,13 +146,18 @@ setGeneric(name="sqrt_mat1",
              } else {
                m.eig <- eigen(m)
                if (isTRUE(min(m.eig$values) <= 0) ) {
-                 nPD <- nearPD(m, base.matrix=TRUE, maxit = 250)
-                 if(isTRUE(nPD$converged)){
-                   m.eig <- eigen(nPD$mat)
-                   warning("Could not compute the determinant of the matrix. Nearest PD matrix computed and used instead.")
-                   }
+                 nPD <- NULL
+                 nPD <- tryCatch(nearPD(m, base.matrix=TRUE, do2eigen = FALSE, conv.tol = 1e-15, maxit = 350),
+                                 error = function(e){ message(e) }
+                 )
+                 if(!is.null(nPD)){ if(isTRUE(nPD$converged)){ m.eig <- eigen(nPD$mat) }
+                                    else{
+                                        warning("Matrix Inversion failed to converge")
+                                        return(matrix())
+                                    }
+                                  }
                }
-               m.sqrt <- m.eig$vectors %*% diag(sqrt(m.eig$values)) %*% solve(m.eig$vectors)
+               m.sqrt <- m.eig$vectors %*% diag(sqrt(m.eig$values)) %*% qr.solve(m.eig$vectors,tol=solve.tol)
              }
              return(m.sqrt)
            }
@@ -168,11 +175,30 @@ setGeneric(name="sqrt_mat2",
              y <- mat
              z <- diag(rep(1,nrow(mat)))
              for (niter in 1:maxit) {
-               y.temp <- 0.5*(y+solve(z))
-               z <- 0.5*(z+solve(y))
+               y.temp <- 0.5*(y+qr.solve(z,tol=solve.tol))
+               z <- 0.5*(z+qr.solve(y,tol=solve.tol))
                y <- y.temp
              }
              return(list(sqrt=y,sqrt.inv=z))
            }
 )
 
+invertMatrix = function(mat){
+
+  if (isTRUE(min(eig$values) <= 0) ) {
+    # Create nearest PD approximation of mP
+    nPD <- NULL
+    nPD <- tryCatch(nearPD(mP,corr = TRUE, base.matrix=TRUE, do2eigen = FALSE, conv.tol = 1e-12, maxit = 250),
+                    error = function(e){ message(e) }
+    )
+    if(!is.null(nPD)){ if(isTRUE(nPD$converged)){ mP <- nPD$mat } else{ return(err_output) }  }
+  }
+  # Try to invert mP
+  mPinv <- NULL
+  mPinv <- tryCatch(qr.solve(mP,tol=solve.tol),
+                    error = function(e){ message(e) }
+  )
+  # Return err_output on failure:
+  if(is.null(mPinv)) return(err_output)
+
+}

@@ -211,8 +211,8 @@ generateDCCRefData=function(nr.series,nr.obs,Qbar,a,b)
 }
 
 
-## -- calc.Gt(spd,loc,Tobs) -- ##
- .calc.Gt = function(speed,loc,Tobs){
+## -- calc.Gt.eta(spd,loc,Tobs) -- ##
+ calc.Gt.eta = function(speed,loc,Tobs){
    st <- (1:Tobs)/Tobs
    st_c <- st - loc
    G <- 1/(1+exp(-exp(speed)*st_c))
@@ -240,12 +240,12 @@ generateDynDCCRefData=function(nr.series,nr.obs,Q1,Q2,speed,loc,a,b)
   endRow <- discard + nr.obs
   # starting from t=2! (set Qt[1]=Qbar)
   Qt_1 <- Q1
+  Gt <- calc.Gt.eta(speed,loc,endRow) # st=timetrend, loc=0.5, gamma s.t. transition takes place between 0.25 and 0.75 of the sample
   for (t in 2:endRow){
-    if (t > discard){
-      Gt <- .calc.Gt(speed,loc,Tobs) # st=timetrend, loc=0.5, gamma s.t. transition takes place between 0.25 and 0.75 of the sample
-      Qbar <- (1-Gt) %*% Q1+Gt %*%Q2
-    } else Qbar<-Q1
-    Qt <- (1-a-b)*Qbar + a*t(e[t-1,,drop=FALSE]) %*% e[t-1,,drop=FALSE] + b*Qt_1 # N x N
+    if (t < discard){
+      Qbar <- (1-Gt[t,1]) * Q1  +  Gt[t,1] * Q2
+    } else Qbar <- Q1
+    Qt <- (1-a-b)*Qt_1 + a*t(e[t-1,,drop=FALSE]) %*% e[t-1,,drop=FALSE] + b*Qt_1 # N x N
     #scale Qt by inverse of its sqrt diagonals (from front and back) to make it correlation matrix
     Pt <- diag(sqrt(diag(Qt))^(-1),nrow=nr.series, ncol=nr.series) %*% Qt %*% diag(sqrt(diag(Qt))^(-1),nrow=nr.series, ncol=nr.series)  # N x N
     # create DCC correlated data
