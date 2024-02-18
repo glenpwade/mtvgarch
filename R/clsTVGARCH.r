@@ -1776,7 +1776,7 @@ setGeneric(name=".test.misSpec.Robust",
              Y <- z2_1  # T x 1
              #tXX <- qr.solve(t(X),X,tol=1e-10)
              #b <- tXX %*% t(X) %*% Y  # vector len=ncol(X)
-             b <- solve(t(X) %*% X) %*% t(X) %*% Y  # vector len=ncol(X)
+             b <- qr.solve(t(X) %*% X) %*% t(X) %*% Y  # vector len=ncol(X)
              resid <- Y - (X %*% b)   # T x 1
              SSR1 <- t(resid) %*% resid # 1x1
              # LM stat
@@ -1792,7 +1792,7 @@ setGeneric(name=".test.misSpec.Robust",
                Y <- r2[,i,drop=FALSE]
                #tXX <- qr.solve(t(X),X,tol=1e-10)
                #b <- tXX %*% t(X) %*% Y  # vector len=ncol(X)
-               b <- solve(t(X) %*% X) %*% t(X) %*% Y  # vector len=ncol(X)
+               b <- qr.solve(t(X) %*% X) %*% t(X) %*% Y  # vector len=ncol(X)
                resid[,i] <- Y-(X %*% b)   # T x 1
              }
              # regress 1 on (z2_1)resid, get SSR
@@ -1800,7 +1800,7 @@ setGeneric(name=".test.misSpec.Robust",
              X <- as.vector(z2_1) * resid
              #tXX <- qr.solve(t(X),X,tol=1e-10)
              #b <- tXX %*% t(X) %*% Y  # vector len=ncol(X)
-             b <- solve(t(X) %*% X) %*% t(X) %*% Y  # vector len=ncol(X)
+             b <- qr.solve(t(X) %*% X) %*% t(X) %*% Y  # vector len=ncol(X)
              resid <- Y - (X %*% b)   # T x 1
              SSR <- t(resid) %*% resid # 1x1
              # LM Robust
