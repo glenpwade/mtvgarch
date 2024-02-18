@@ -185,20 +185,31 @@ setGeneric(name="sqrt_mat2",
 
 invertMatrix = function(mat){
 
-  if (isTRUE(min(eig$values) <= 0) ) {
-    # Create nearest PD approximation of mP
-    nPD <- NULL
-    nPD <- tryCatch(nearPD(mP,corr = TRUE, base.matrix=TRUE, do2eigen = FALSE, conv.tol = 1e-12, maxit = 250),
-                    error = function(e){ message(e) }
-    )
-    if(!is.null(nPD)){ if(isTRUE(nPD$converged)){ mP <- nPD$mat } else{ return(err_output) }  }
-  }
-  # Try to invert mP
-  mPinv <- NULL
-  mPinv <- tryCatch(qr.solve(mP,tol=solve.tol),
+  # Try to invert 'mat'
+  mat.inv <- NULL
+  mat.inv <- tryCatch(solve(mat),
                     error = function(e){ message(e) }
   )
-  # Return err_output on failure:
-  if(is.null(mPinv)) return(err_output)
+  if(!is.null(mat.inv)) { return(mat.inv) }
+  else{
+    # Create nearest PD approximation of 'mat'
+    mat.nPD <- NULL
+    mat.nPD <- tryCatch(nearPD(mat,corr = TRUE, base.matrix=TRUE, do2eigen = FALSE, conv.tol = 1e-12, maxit = 500),
+                        error = function(e){ message(e) } )
+    if(!is.null(mat.nPD)){
+        if(isTRUE(mat.nPD$converged)){
+          # Try to invert the nPD approximation
+          mat.inv <- tryCatch(solve(mat.nPD$mat),
+                              error = function(e){
+                                        msg = cat("Attempt to invert the nearest PD approximation failed\n" ,e)
+                                        warning(msg)
+                                        return(NULL)
+                                      }
+                              )
+          return(mat.inv)
+        }
+        else{ return(NULL) }  }
+  }
 
 }
+
