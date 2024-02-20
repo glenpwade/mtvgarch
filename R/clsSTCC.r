@@ -1,5 +1,6 @@
 ## -- The MTVGARCH package supports a number of Correlation objects
 ## -- This class file maintains the structure for STCC1 (STCC with One Transition)
+## -- This class file maintains the structure for STCC2 (STCC with Two Transitions)
 
 
 ## --- stcc1_class Definition --- ####
@@ -32,6 +33,103 @@ setGeneric(name="stcc1",
            signature = c("ntvgarchObj"),
            def = function(ntvgarchObj){
              this <- new("stcc1_class")
+
+             ## -- Do validation checks -- ####
+
+             if(class(ntvgarchObj)[1] != "ntvgarch_class"){
+               warning("a valid instance of the ntvgarch_class is required to create an STCC1 model")
+               return(this)
+             }
+             # End validation
+
+             # Set Default Values:
+             N <- this@N <- ntvgarchObj@N
+             this@Tobs <- ntvgarchObj@Tobs
+             # TODO: Should we make this a variable?  Or inherit from NTVGarch?
+             this@st <- (1:ntvgarchObj@Tobs)/ntvgarchObj@Tobs
+             this@nr.corPars <- as.integer((N^2-N)/2)
+             this@e <- matrix(nrow = this@Tobs,ncol = N)
+
+             # Extract the Data & Estimated components from the ntvgarch
+             this$ntvgarch <- list()
+             for(n in 1:ntvgarchObj@N){
+               this$ntvgarch[[n]] <- list()
+               this$ntvgarch[[n]]$tv <- ntvgarchObj[[n]]$Estimated$tv
+               this$ntvgarch[[n]]$garch <- ntvgarchObj[[n]]$Estimated$garch
+               this@e[,n] <- ntvgarchObj[[n]]@e
+             }
+             names(this$ntvgarch) <- names(ntvgarchObj)
+
+             # Filter the data:
+             z <- w <- e <- this@e
+             for(n in 1:this@N){
+               w[,n] <- e[,n]/sqrt(this$ntvgarch[[n]]$tv@g)
+               z[,n] <- w[,n]/sqrt(this$ntvgarch[[n]]$garch@h)
+             }
+
+             # Use the correlation of the first & last 1/3 of the data as starting values
+             zDiv3 <- round(this@Tobs/3)
+             z.start <- 1
+             z.end <- zDiv3
+             this$P1 <- cor(z[(z.start:z.end),])
+
+             z.start <- this@Tobs - zDiv3
+             z.end <- this@Tobs
+             this$P2 <- cor(z[(z.start:z.end),])
+
+             this$pars <- c(2.5,0.5,NA)
+             this@nr.trPars <- as.integer(2)
+             names(this$pars) <- c("speed","loc1","loc2")
+
+             ## TODO: Confirm code can handle corshape > single:
+
+             # if(this$shape==corrshape$double) {
+             #   this$P2 <- matrix(0.4,N,N)
+             #   diag(this$P2) <- 1
+             #   this@nr.trPars <- as.integer(3)
+             #   this$pars <- c(2.5,0.33,0.66)
+             #
+             # }else {
+             #   this$P2 <- matrix(0.7,N,N)
+             #   diag(this$P2) <- 1
+             #   this@nr.trPars <- as.integer(2)
+             #   this$pars <- c(2.5,0.5,NA)
+             # }
+             return(this)
+           }
+)
+
+
+## --- stcc2_class Definition --- ####
+stcc2 <- setClass(Class = "stcc2_class",
+                  slots = c(st="numeric",nr.corPars="integer",nr.trPars="integer",Tobs="integer",N="integer",e="matrix"),
+                  contains = c("namedList")
+)
+
+## --- Initialise --- ####
+setMethod("initialize","stcc2_class",
+          function(.Object,...){
+            .Object <- callNextMethod(.Object,...)
+
+            # Default initial values
+            .Object$ntvgarch <- list()
+            .Object@N <- as.integer(0)
+            .Object@Tobs <- as.integer(0)
+            .Object@e <- matrix("numeric")
+            .Object$shape <- corrshape$single
+            .Object$speedopt <- corrspeedopt$eta
+            .Object$optimcontrol <- list(fnscale = -1, reltol = 1e-5)
+
+            # Return:
+            .Object
+          })
+
+## -- Constructor:stcc2 -- ####
+setGeneric(name="stcc2",
+           valueClass = "stcc2_class",
+           signature = c("ntvgarchObj"),
+           def = function(ntvgarchObj){
+             this <- new("stcc2_class")
 
              ## -- Do validation checks -- ####
 
@@ -374,6 +472,151 @@ setGeneric(name="unCorrelateData",
              }
 
              return(u)
+           }
+)
+
+## -- loglik.stcc2() --####
+setGeneric(name=".loglik.stcc2",
+           valueClass = "numeric",
+           signature = c("optimpars","z","stcc2Obj"),
+           def = function(optimpars,z,stcc2Obj){
+
+             err_output <- -1e10
+             this <- stcc2Obj
+
+             this$Estimated$pars <- tail(optimpars,this@nr.trPars)
+             tmp.par <- optimpars
+
+             vP1 <- tmp.par[1:this@nr.corPars]
+             mP <- unVecL(vP1)
+             eig <- eigen(mP,symmetric=TRUE,only.values=TRUE)
+             # Check for SPD - positive-definite check:
+             if (min(eig$values) <= 0) return(err_output)
+             this$Estimated$P1 <- mP
+
+             #Remove the P1 corPars, then extract the P2 corPars
+             tmp.par <- tail(tmp.par,-this@nr.corPars)
+             vP2 <- tmp.par[1:this@nr.corPars]
+             mP <- unVecL(vP2)
+             eig <- eigen(mP,symmetric=TRUE,only.values=TRUE)
+             # Check for SPD - positive-definite check:
+             if (min(eig$values) <= 0) return(err_output)
+             this$Estimated$P2 <- mP
+
+             #### ======== constraint checks ======== ####
+
+             # Check 2: Check the boundary values for speed params:
+             speed <- this$Estimated$pars[1]
+             maxSpeed <- switch(this$speedopt,1000,(1000/sd(this@st)),7.0,0.30)
+             if (speed > maxSpeed) return(err_output)
+             if (speed < 0) return(err_output)
+
+             # Check 3: Check the locations fall within min-max values of st
+             loc1 <- this$Estimated$pars[2]
+             if(this$shape == corrshape$double) loc2 <- this$Estimated$pars[3] else loc2 <- NA
+             if (loc1 < min(this@st)) return(err_output)
+             if (loc1 > max(this@st)) return(err_output)
+             if (!is.na(loc2)) {
+               if (loc2 < min(this@st)) return(err_output)
+               if (loc2 > max(this@st)) return(err_output)
+             }
+
+
+             #### ======== calculate loglikelihood ======== ####
+             Pt <- .calc.Pt(this)  # T x nr.corPars
+
+             llt <- vector("numeric")
+             for(t in 1:this@Tobs) {
+               mPt <- unVecL(Pt[t,,drop=FALSE])
+               llt[t] <- -0.5*log(det(mPt)) -0.5*( z[t,,drop=FALSE] %*% (solve(mPt)) %*% t(z[t,,drop=FALSE]) )
+             }
+             # Return:
+             return(sum(llt))
+
+           }
+)
+
+
+## --- estimateSTCC2 --- ####
+setGeneric(name="estimateSTCC2",
+           valueClass = "stcc2_class",
+           signature = c("stcc2Obj","estimationCtrl"),
+           def = function(stcc2Obj,estimationCtrl){
+             this <- stcc2Obj
+             e <- this@e
+
+             calcSE <- estimationCtrl$calcSE
+             verbose <- estimationCtrl$verbose
+
+             this$Estimated <- list()
+
+             optimpars <- c( vecL(this$P1), vecL(this$P2), this$pars )
+             optimpars <- optimpars[!is.na(optimpars)]
+
+             ### ---  Call optim to calculate the estimate --- ###
+             if (verbose) this$optimcontrol$trace <- 10
+
+             # Filter the data:
+             z <- w <- e <- this@e
+             for(n in 1:this@N){
+               w[,n] <- e[,n]/sqrt(this$ntvgarch[[n]]$tv@g)
+               z[,n] <- w[,n]/sqrt(this$ntvgarch[[n]]$garch@h)
+             }
+
+             tmp <- NULL
+             try(tmp <- optim(optimpars,.loglik.stcc2,z,this,gr=NULL,method="BFGS",control=this$optimcontrol,hessian=calcSE))
+
+             ### ---  Interpret the response from optim --- ###
+             # An unhandled error could result in a NULL being returned by optim()
+             if (is.null(tmp)) {
+               this$Estimated$value <- -1e10
+               this$Estimated$error <- TRUE
+               return(this)
+             }
+
+             #Optim converged successfully => we expect tmp$par to have good estimates!
+             if (tmp$convergence==0) {
+               this$Estimated$error <- FALSE
+               this$Estimated$value <- tmp$value
+
+               tmp.par <- tmp$par
+               this$Estimated$P1 <- unVecL(tmp.par[1:this@nr.corPars])
+               tmp.par <- tail(tmp.par,-this@nr.corPars)
+               this$Estimated$P2 <- unVecL(tmp.par[1:this@nr.corPars])
+               tmp.par <- tail(tmp.par,-this@nr.corPars)
+               this$Estimated$pars <- tmp.par
+               if(this$shape != corrshape$double) this$Estimated$pars <- c(this$Estimated$pars,NA)
+               names(this$Estimated$pars) <- names(this$pars)
+
+               if (calcSE) {
+                 cat("\nCalculating STCC standard errors...\n")
+                 this$Estimated$hessian <- tmp$hessian
+                 vecSE <- vector("numeric")
+                 try(vecSE <- sqrt(-diag(qr.solve(tmp$hessian))))
+
+                 if(length(vecSE) > 0) {
+                   this$Estimated$P1.se <- unVecL(vecSE[1:this@nr.corPars])
+                   vecSE <- tail(vecSE,-this@nr.corPars)
+                   this$Estimated$P2.se <- unVecL(vecSE[1:this@nr.corPars])
+                   vecSE <- tail(vecSE,-this@nr.corPars)
+
+                   this$Estimated$pars.se <- vecSE
+                   if(this$shape != corrshape$double) this$Estimated$pars.se <- c(this$Estimated$pars.se,NA)
+                   names(this$Estimated$pars.se) <- names(this$pars)
+                 }
+               }
+               this$Estimated$Pt <- .calc.Pt(this)
+
+             } else {
+               #Failed to converge
+               this$Estimated$error <- TRUE
+               this$Estimated$value <- -1e10
+               this$Estimated$optimoutput <- tmp
+             }
+
+             if (verbose) this$Estimated$optimoutput <- tmp
+             #Return:
+             return(this)
            }
 )
 
