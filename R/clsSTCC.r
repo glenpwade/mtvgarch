@@ -63,8 +63,8 @@ setGeneric(name="stcc1",
              # Filter the data:
              z <- w <- e <- this@e
              for(n in 1:this@N){
-               w[,n] <- e[,n]/sqrt(this$ntvgarch[[n]]$tv@g)
-               z[,n] <- w[,n]/sqrt(this$ntvgarch[[n]]$garch@h)
+               w[,n] <- e[,n]/sqrt(this$ntvgarch[[n]]$tv$g)
+               z[,n] <- w[,n]/sqrt(this$ntvgarch[[n]]$garch$h)
              }
 
              # Use the correlation of the first & last 1/3 of the data as starting values
@@ -387,8 +387,8 @@ setGeneric(name="estimateSTCC1",
              # Filter the data:
              z <- w <- e <- this@e
              for(n in 1:this@N){
-               w[,n] <- e[,n]/sqrt(this$ntvgarch[[n]]$tv@g)
-               z[,n] <- w[,n]/sqrt(this$ntvgarch[[n]]$garch@h)
+               w[,n] <- e[,n]/sqrt(this$ntvgarch[[n]]$tv$g)
+               z[,n] <- w[,n]/sqrt(this$ntvgarch[[n]]$garch$h)
              }
 
              tmp <- NULL
