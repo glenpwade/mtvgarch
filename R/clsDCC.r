@@ -117,7 +117,7 @@ setGeneric(name=".calc.Qbar",
 )
 
 
-## -- loglik.dcc() --####
+## -- .loglik.dcc() --####
 setGeneric(name=".loglik.dcc",
            valueClass = "numeric",
            signature = c("optimpars","z","dccObj"),

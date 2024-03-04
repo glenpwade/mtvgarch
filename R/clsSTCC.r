@@ -289,7 +289,7 @@ setGeneric(name=".calc.Pt2",
 )
 
 
-## -- loglik.stcc1() --####
+## -- .loglik.stcc1() --####
 setGeneric(name=".loglik.stcc1",
            valueClass = "numeric",
            signature = c("optimpars","z","stcc1Obj"),
@@ -441,7 +441,7 @@ setMethod("estimateSTCC1",signature = c("stcc1_class","missing"),
 
 
 
-## -- loglik.stcc2() --####
+## -- .loglik.stcc2() --####
 setGeneric(name=".loglik.stcc2",
            valueClass = "numeric",
            signature = c("optimpars","z","stcc2Obj"),
