@@ -183,7 +183,7 @@ setGeneric(name="sqrt_mat2",
            }
 )
 
-invertMatrix = function(mat){
+invertMatrix_NPD = function(mat){
 
   # Try to invert 'mat'
   mat.inv <- NULL
