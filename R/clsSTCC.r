@@ -1,6 +1,6 @@
 ## -- The MTVGARCH package supports a number of Correlation objects
-## -- This class file maintains the structure for STCC1 (STCC with One Transition)
-## -- This class file maintains the structure for STCC2 (STCC with Two Transitions)
+## -- This class file maintains the structure for STCC1 (STCC with One Transition) & STCC2 (STCC with Two Transitions)
+## -- Both classes only support single transitions at this time
 
 
 ## --- stcc1_class Definition --- ####
@@ -160,38 +160,28 @@ setGeneric(name="stcc2",
              # Filter the data:
              z <- w <- e <- this@e
              for(n in 1:this@N){
-               w[,n] <- e[,n]/sqrt(this$ntvgarch[[n]]$tv@g)
-               z[,n] <- w[,n]/sqrt(this$ntvgarch[[n]]$garch@h)
+               w[,n] <- e[,n]/sqrt(this$ntvgarch[[n]]$tv$g)
+               z[,n] <- w[,n]/sqrt(this$ntvgarch[[n]]$garch$h)
              }
 
-             # Use the correlation of the first & last 1/3 of the data as starting values
+             # Use the correlation of the first & middle & last 1/3 of the data as starting values
              zDiv3 <- round(this@Tobs/3)
              z.start <- 1
              z.end <- zDiv3
              this$P1 <- cor(z[(z.start:z.end),])
 
-             z.start <- this@Tobs - zDiv3
-             z.end <- this@Tobs
+             z.start <- z.end+1
+             z.end <- this@Tobs - zDiv3 - 1
              this$P2 <- cor(z[(z.start:z.end),])
 
-             this$pars <- c(2.5,0.5,NA)
+             z.start <- this@Tobs - zDiv3
+             z.end <- this@Tobs
+             this$P3 <- cor(z[(z.start:z.end),])
+
+             this$pars <- c(2.5,0.33,NA,  2.5,0.67,NA)
+             names(this$pars) <- c("speed1","loc11","loc12","speed2","loc21","loc22")
              this@nr.trPars <- as.integer(2)
-             names(this$pars) <- c("speed","loc1","loc2")
 
-             ## TODO: Confirm code can handle corshape > single:
-
-             # if(this$shape==corrshape$double) {
-             #   this$P2 <- matrix(0.4,N,N)
-             #   diag(this$P2) <- 1
-             #   this@nr.trPars <- as.integer(3)
-             #   this$pars <- c(2.5,0.33,0.66)
-             #
-             # }else {
-             #   this$P2 <- matrix(0.7,N,N)
-             #   diag(this$P2) <- 1
-             #   this@nr.trPars <- as.integer(2)
-             #   this$pars <- c(2.5,0.5,NA)
-             # }
              return(this)
            }
 )
@@ -221,7 +211,7 @@ setGeneric(name=".calc.Gt",
            }
 )
 
-## -- calc.Pt -- ####
+## -- .calc.Pt -- ####
 setGeneric(name=".calc.Pt",
            valueClass = "matrix",
            signature = c("stcc1Obj"),
@@ -231,7 +221,7 @@ setGeneric(name=".calc.Pt",
              vP1 <- vecL(this$Estimated$P1)
              vP2 <- vecL(this$Estimated$P2)
 
-             Gt <- calc.Gt(this)
+             Gt <- .calc.Gt(this)
              Pt <- apply(Gt,MARGIN = 1,FUN = function(X,P1,P2) ((1-X)*P1 + X*P2), P1=vP1, P2=vP2)
 
              if(is.vector(Pt)) Pt <- matrix(Pt,ncol = 1) else Pt <- t(Pt)
@@ -241,65 +231,60 @@ setGeneric(name=".calc.Pt",
            }
 )
 
-## -- set.St -- ####
-setGeneric(name="set.St",
-           valueClass = "stcc1_class",
-           signature = c("st","stcc1Obj"),
-           def = function(st,stcc1Obj){
-             this <- stcc1Obj
-             # Validate:
-             if(this@Tobs != NROW(st)){
-               warning("The smooth transition variable supplied is not the same size as the model data\nNo changes applied")
-             }else this@st <- st
-             return(this)
+## -- .calc.Gt2 -- ####
+setGeneric(name=".calc.Gt2",
+           valueClass = "matrix",
+           signature = c("stcc2Obj"),
+           def = function(stcc2Obj){
+             this <- stcc2Obj
+
+             speed1 <- this$Estimated$pars["speed1"]
+             loc11 <- this$Estimated$pars["loc11"]
+             loc12 <- this$Estimated$pars["loc12"]
+             speed2 <- this$Estimated$pars["speed2"]
+             loc21 <- this$Estimated$pars["loc21"]
+             loc22 <- this$Estimated$pars["loc22"]
+
+             st_c_1 <- 0
+             if(this$shape == corrshape$single) { st_c_1 <- this@st - loc11 }
+             if(this$shape == corrshape$double) { st_c_1 <- (this@st - loc11)*(this@st - loc12) }
+             if(this$shape == corrshape$double1loc) { st_c_1 <- (this@st - loc11)^2 }
+             st_c_2 <- 0
+             if(this$shape == corrshape$single) { st_c_2 <- this@st - loc21 }
+             if(this$shape == corrshape$double) { st_c_2 <- (this@st - loc21)*(this@st - loc22) }
+             if(this$shape == corrshape$double1loc) { st_c_2 <- (this@st - loc21)^2 }
+
+             G <- matrix(0,nrow = this@Tobs, ncol = 2)
+             if(this$speedopt == corrspeedopt$gamma) { G[,1] <- 1/(1+exp(-speed1*st_c_1)) }
+             if(this$speedopt == corrspeedopt$gamma_std) { G[,1] <- 1/(1+exp(-speed1/sd(this@st)*st_c_1)) }
+             if(this$speedopt == corrspeedopt$eta) { G[,1] <- 1/(1+exp(-exp(speed1)*st_c_1)) }
+             if(this$speedopt == corrspeedopt$gamma) { G[,2] <- 1/(1+exp(-speed2*st_c_2)) }
+             if(this$speedopt == corrspeedopt$gamma_std) { G[,2] <- 1/(1+exp(-speed2/sd(this@st)*st_c_2)) }
+             if(this$speedopt == corrspeedopt$eta) { G[,2] <- 1/(1+exp(-exp(speed2)*st_c_2)) }
+
+             return(matrix(G,nrow = this@Tobs,ncol = 2))
            }
 )
 
 
-## -- .dG_dtr(STCC) ####
-setGeneric(name=".dG_dtr",
+
+## -- .calc.Pt2 -- ####
+setGeneric(name=".calc.Pt2",
            valueClass = "matrix",
-           signature = c("stccObj","trNum"),
-           def =  function(stccObj,trNum){
-           this <- stccObj
+           signature = c("stcc2Obj"),
+           def =   function(stcc2Obj){
+             this <- stcc2Obj
 
-           rtn <- matrix(nrow=this@Tobs,ncol=this@nr.trPars)
+             vP1 <- matrix(vecL(this$Estimated$P1),nrow=1)
+             vP2 <- matrix(vecL(this$Estimated$P2),nrow=1)
+             vP3 <- matrix(vecL(this$Estimated$P3),nrow=1)
 
-           G <- calc.Gt(this)  # T x 1
+             Gt <- .calc.Gt2(this) # T x 2
+             Pt <- ((1-Gt[,2])*(1-Gt[,1]))%*%vP1 + ((1-Gt[,2])*Gt[,1])%*%vP2 + Gt[,2]%*%vP3 # T x N(N-1)/2
 
-           loc1 <- loc2 <- speed <- 0
-           if(trNum == 1){
-             loc1 <- this$Estimated$pars["loc1"]
-             loc2 <- this$Estimated$pars["loc2"]
-             speed <- this$Estimated$pars["speed"]
-           }
+             if(is.vector(Pt)) Pt <- matrix(Pt,ncol = 1)
 
-            # corrshape$single,
-            if(this$speedopt == corrspeedopt$gamma) {
-               col_idx <- 1
-               rtn[,col_idx] <- G * (1-G) * (this@st - loc1)
-               col_idx <- 2
-               rtn[,col_idx] <- -1 * G * (1-G) * speed
-            }
-
-           if(this$speedopt == corrspeedopt$gamma_std) {
-             col_idx <- 1
-             rtn[,col_idx] <- G * (1-G) * (this@st - loc1) / sd(this@st)
-             col_idx <- 2
-             rtn[,col_idx] <- -1 * G * (1-G) * speed / sd(this@st)
-           }
-
-           if(this$speedopt == corrspeedopt$eta) {
-             col_idx <- 1
-             rtn[,col_idx] <- G * (1-G) * (this@st - loc1) * exp(speed)
-             col_idx <- 2
-             rtn[,col_idx] <- -1 * G * (1-G) * exp(speed)
-           }
-
-           # # TODO:  Complete for other corrshapes & other corr speedOpt's:
-
-           return(rtn)
-
+             return(Pt)
            }
 )
 
@@ -420,7 +405,7 @@ setGeneric(name="estimateSTCC1",
                  cat("\nCalculating STCC standard errors...\n")
                  this$Estimated$hessian <- tmp$hessian
                  vecSE <- vector("numeric")
-                 try(vecSE <- sqrt(-diag(qr.solve(tmp$hessian))))
+                 try(vecSE <- sqrt(-diag(solve(tmp$hessian))))
 
                  if(length(vecSE) > 0) {
                    this$Estimated$P1.se <- unVecL(vecSE[1:this@nr.corPars])
@@ -454,26 +439,7 @@ setMethod("estimateSTCC1",signature = c("stcc1_class","missing"),
             estimateSTCC1(stcc1Obj,estimationControl)
           })
 
-## --- unCorrelateData --- ####
-setGeneric(name="unCorrelateData",
-           valueClass = "matrix",
-           signature = c("e","stcc1Obj"),
-           def = function(e,stcc1Obj){
-             this <- stcc1Obj
 
-             # Return matrix 'u' of uncorrelated data:
-             u <- matrix(0,nrow = NROW(e),ncol = NCOL(e))
-
-             Pt <- this$Estimated$Pt
-             for(t in 1:this@Tobs){
-               P <- unVecL(Pt[t,,drop=FALSE])
-               P.sqrt <- sqrt_mat1(P)
-               u[t,] <- t(solve(P.sqrt) %*% t(e[t,,drop=FALSE]))
-             }
-
-             return(u)
-           }
-)
 
 ## -- loglik.stcc2() --####
 setGeneric(name=".loglik.stcc2",
@@ -484,7 +450,7 @@ setGeneric(name=".loglik.stcc2",
              err_output <- -1e10
              this <- stcc2Obj
 
-             this$Estimated$pars <- tail(optimpars,this@nr.trPars)
+             this$Estimated$pars <- tail(optimpars,2*this@nr.trPars)
              tmp.par <- optimpars
 
              vP1 <- tmp.par[1:this@nr.corPars]
@@ -503,17 +469,56 @@ setGeneric(name=".loglik.stcc2",
              if (min(eig$values) <= 0) return(err_output)
              this$Estimated$P2 <- mP
 
+             #Remove the P2 corPars, then extract the P3 corPars
+             tmp.par <- tail(tmp.par,-this@nr.corPars)
+             vP3 <- tmp.par[1:this@nr.corPars]
+             mP <- unVecL(vP3)
+             eig <- eigen(mP,symmetric=TRUE,only.values=TRUE)
+             # Check for SPD - positive-definite check:
+             if (min(eig$values) <= 0) return(err_output)
+             this$Estimated$P3 <- mP
+
              #### ======== constraint checks ======== ####
 
-             # Check 2: Check the boundary values for speed params:
-             speed <- this$Estimated$pars[1]
+             # Check 2.1: Check the boundary values for speed params:
+             pos <- 1
+             speed <- this$Estimated$pars[pos]
              maxSpeed <- switch(this$speedopt,1000,(1000/sd(this@st)),7.0,0.30)
              if (speed > maxSpeed) return(err_output)
              if (speed < 0) return(err_output)
+             pos<- pos+1
 
-             # Check 3: Check the locations fall within min-max values of st
+             # Check 3.1: Check the locations fall within min-max values of st
+             loc1 <- this$Estimated$pars[pos]
+             if(this$shape == corrshape$double){
+               pos<-pos+1
+               loc2 <- this$Estimated$pars[pos]
+             } else {
+               loc2 <- NA
+             }
+             if (loc1 < min(this@st)) return(err_output)
+             if (loc1 > max(this@st)) return(err_output)
+             if (!is.na(loc2)) {
+               if (loc2 < min(this@st)) return(err_output)
+               if (loc2 > max(this@st)) return(err_output)
+             }
+             pos<-pos+1
+
+             # Check 2.2: Check the boundary values for speed params:
+             speed <- this$Estimated$pars[pos]
+             maxSpeed <- switch(this$speedopt,1000,(1000/sd(this@st)),7.0,0.30)
+             if (speed > maxSpeed) return(err_output)
+             if (speed < 0) return(err_output)
+             pos<- pos+1
+
+             # Check 3.2: Check the locations fall within min-max values of st
              loc1 <- this$Estimated$pars[2]
-             if(this$shape == corrshape$double) loc2 <- this$Estimated$pars[3] else loc2 <- NA
+             if(this$shape == corrshape$double){
+               pos<-pos+1
+               loc2 <- this$Estimated$pars[pos]
+             } else {
+               loc2 <- NA
+             }
              if (loc1 < min(this@st)) return(err_output)
              if (loc1 > max(this@st)) return(err_output)
              if (!is.na(loc2)) {
@@ -521,9 +526,8 @@ setGeneric(name=".loglik.stcc2",
                if (loc2 > max(this@st)) return(err_output)
              }
 
-
              #### ======== calculate loglikelihood ======== ####
-             Pt <- .calc.Pt(this)  # T x nr.corPars
+             Pt <- .calc.Pt2(this)  # T x nr.corPars
 
              llt <- vector("numeric")
              for(t in 1:this@Tobs) {
@@ -550,7 +554,7 @@ setGeneric(name="estimateSTCC2",
 
              this$Estimated <- list()
 
-             optimpars <- c( vecL(this$P1), vecL(this$P2), this$pars )
+             optimpars <- c( vecL(this$P1), vecL(this$P2), vecL(this$P3), this$pars )
              optimpars <- optimpars[!is.na(optimpars)]
 
              ### ---  Call optim to calculate the estimate --- ###
@@ -559,8 +563,8 @@ setGeneric(name="estimateSTCC2",
              # Filter the data:
              z <- w <- e <- this@e
              for(n in 1:this@N){
-               w[,n] <- e[,n]/sqrt(this$ntvgarch[[n]]$tv@g)
-               z[,n] <- w[,n]/sqrt(this$ntvgarch[[n]]$garch@h)
+               w[,n] <- e[,n]/sqrt(this$ntvgarch[[n]]$tv$g)
+               z[,n] <- w[,n]/sqrt(this$ntvgarch[[n]]$garch$h)
              }
 
              tmp <- NULL
@@ -584,7 +588,14 @@ setGeneric(name="estimateSTCC2",
                tmp.par <- tail(tmp.par,-this@nr.corPars)
                this$Estimated$P2 <- unVecL(tmp.par[1:this@nr.corPars])
                tmp.par <- tail(tmp.par,-this@nr.corPars)
-               this$Estimated$pars <- tmp.par
+               this$Estimated$P3 <- unVecL(tmp.par[1:this@nr.corPars])
+               tmp.par <- tail(tmp.par,-this@nr.corPars)
+               # TO DO : probaly going to fall over but likely never to be generlised to double
+               pars1 <- tmp.par[1:this@nr.trPars]
+               pars2 <- tail(tmp.par,-this@nr.trPars)
+               this$Estimated$pars <- pars1
+               if(this$shape != corrshape$double) this$Estimated$pars <- c(this$Estimated$pars,NA)
+               this$Estimated$pars <- c(this$Estimated$pars,pars2)
                if(this$shape != corrshape$double) this$Estimated$pars <- c(this$Estimated$pars,NA)
                names(this$Estimated$pars) <- names(this$pars)
 
@@ -592,20 +603,25 @@ setGeneric(name="estimateSTCC2",
                  cat("\nCalculating STCC standard errors...\n")
                  this$Estimated$hessian <- tmp$hessian
                  vecSE <- vector("numeric")
-                 try(vecSE <- sqrt(-diag(qr.solve(tmp$hessian))))
+                 try(vecSE <- sqrt(-diag(solve(tmp$hessian))))
 
                  if(length(vecSE) > 0) {
                    this$Estimated$P1.se <- unVecL(vecSE[1:this@nr.corPars])
                    vecSE <- tail(vecSE,-this@nr.corPars)
                    this$Estimated$P2.se <- unVecL(vecSE[1:this@nr.corPars])
                    vecSE <- tail(vecSE,-this@nr.corPars)
-
-                   this$Estimated$pars.se <- vecSE
+                   this$Estimated$P3.se <- unVecL(vecSE[1:this@nr.corPars])
+                   vecSE <- tail(vecSE,-this@nr.corPars)
+                   vecSE1 <- vecSE[1:this@nr.trPars]
+                   vecSE2 <- tail(vecSE,-this@nr.trPars)
+                   this$Estimated$pars.se <- vecSE1
+                   if(this$shape != corrshape$double) this$Estimated$pars.se <- c(this$Estimated$pars.se,NA)
+                   this$Estimated$pars.se <- c(this$Estimated$pars.se,vecSE2)
                    if(this$shape != corrshape$double) this$Estimated$pars.se <- c(this$Estimated$pars.se,NA)
                    names(this$Estimated$pars.se) <- names(this$pars)
                  }
                }
-               this$Estimated$Pt <- .calc.Pt(this)
+               this$Estimated$Pt <- .calc.Pt2(this)
 
              } else {
                #Failed to converge
@@ -621,4 +637,73 @@ setGeneric(name="estimateSTCC2",
 )
 
 
+
+##   Might be needed later:
+## --- unCorrelateData --- ####
+setGeneric(name="unCorrelateData",
+           valueClass = "matrix",
+           signature = c("e","stcc1Obj"),
+           def = function(e,stcc1Obj){
+             this <- stcc1Obj
+
+             # Return matrix 'u' of uncorrelated data:
+             u <- matrix(0,nrow = NROW(e),ncol = NCOL(e))
+
+             Pt <- this$Estimated$Pt
+             for(t in 1:this@Tobs){
+               P <- unVecL(Pt[t,,drop=FALSE])
+               P.sqrt <- sqrt_mat1(P)
+               u[t,] <- t(solve(P.sqrt) %*% t(e[t,,drop=FALSE]))
+             }
+
+             return(u)
+           }
+)
+
+## -- .dG_dtr(STCC) ####
+setGeneric(name=".dG_dtr",
+           valueClass = "matrix",
+           signature = c("stccObj","trNum"),
+           def =  function(stccObj,trNum){
+             this <- stccObj
+
+             rtn <- matrix(nrow=this@Tobs,ncol=this@nr.trPars)
+
+             G <- calc.Gt(this)  # T x 1
+
+             loc1 <- loc2 <- speed <- 0
+             if(trNum == 1){
+               loc1 <- this$Estimated$pars["loc1"]
+               loc2 <- this$Estimated$pars["loc2"]
+               speed <- this$Estimated$pars["speed"]
+             }
+
+             # corrshape$single,
+             if(this$speedopt == corrspeedopt$gamma) {
+               col_idx <- 1
+               rtn[,col_idx] <- G * (1-G) * (this@st - loc1)
+               col_idx <- 2
+               rtn[,col_idx] <- -1 * G * (1-G) * speed
+             }
+
+             if(this$speedopt == corrspeedopt$gamma_std) {
+               col_idx <- 1
+               rtn[,col_idx] <- G * (1-G) * (this@st - loc1) / sd(this@st)
+               col_idx <- 2
+               rtn[,col_idx] <- -1 * G * (1-G) * speed / sd(this@st)
+             }
+
+             if(this$speedopt == corrspeedopt$eta) {
+               col_idx <- 1
+               rtn[,col_idx] <- G * (1-G) * (this@st - loc1) * exp(speed)
+               col_idx <- 2
+               rtn[,col_idx] <- -1 * G * (1-G) * exp(speed)
+             }
+
+             # # TODO:  Complete for other corrshapes & other corr speedOpt's:
+
+             return(rtn)
+
+           }
+)
 

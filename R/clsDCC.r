@@ -256,7 +256,7 @@ setGeneric(name="estimateDCC",
                  cat("\nCalculating STCC standard errors...\n")
                  this$Estimated$hessian <- tmp$hessian
                  vecSE <- vector("numeric")
-                 try(vecSE <- sqrt(-diag(qr.solve(tmp$hessian))))
+                 try(vecSE <- sqrt(-diag(solve(tmp$hessian))))
 
                  if(length(vecSE) > 0) {
                    this$Estimated$P1.se <- unVecL(vecSE[1:this@nr.corPars])

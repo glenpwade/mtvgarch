@@ -251,7 +251,7 @@ estimateGARCH <- function(e,garchObj,estimationControl,tvObj){0}
                cat("\nCalculating GARCH standard errors...\n")
                this$Estimated$hessian <- tmp$hessian
                StdErrors <- NULL
-               try(StdErrors <- sqrt(-diag(qr.solve(tmp$hessian))))
+               try(StdErrors <- sqrt(-diag(solve(tmp$hessian))))
                if(is.null(StdErrors)) {
                  this$Estimated$se <- matrix(NA,nrow=this@nr.pars)
                }else {
@@ -390,7 +390,7 @@ estimateGARCH_RollingWindow <- function(e,garchObj,estimationControl){0}
              if (isTRUE(calcSE)) {
                this$Estimated$hessian <- tmp$hessian
                StdErrors <- NULL
-               try(StdErrors <- sqrt(-diag(qr.solve(tmp$hessian))))
+               try(StdErrors <- sqrt(-diag(solve(tmp$hessian))))
                if(is.null(StdErrors)) {
                  this$Estimated$se <- matrix(NA,nrow=(this@nr.pars))
                }else {
@@ -831,7 +831,7 @@ estimateTV <- function(e,tvObj,estimationControl,garchObj){0}
     stdErrors <- NULL
     this$Estimated$hessian <- tmp$hessian
 
-    try(stdErrors <- sqrt(-diag(qr.solve(tmp$hessian))))
+    try(stdErrors <- sqrt(-diag(solve(tmp$hessian))))
     if(!is.null(stdErrors)){
       parsVec <-  as.vector(this$pars)
 
@@ -907,7 +907,7 @@ setGeneric(name="test.LM.TR2",
 
              # 3. Invert crossprod(X) to calculate SSR1
              Xinv <- NULL
-             try(Xinv <- qr.solve(crossprod(X)))
+             try(Xinv <- solve(crossprod(X)))
              if (is.null(Xinv)){
                rm(g,dgdt,dgdt2)
                return(NaN)
@@ -954,7 +954,7 @@ setGeneric(name="test.LM.Robust",
 
              # 3. Invert crossprod(X) to calculate SSR1
              Xinv <- NULL
-             try(Xinv <- qr.solve(crossprod(X)))
+             try(Xinv <- solve(crossprod(X)))
              if (is.null(Xinv)){
                message("error")
                rm(g,X,dgdt,dgdt2)
@@ -971,7 +971,7 @@ setGeneric(name="test.LM.Robust",
 
              #5. Compute test statistic:
              Xinv <- NULL
-             try(Xinv <- qr.solve(crossprod(X)))
+             try(Xinv <- solve(crossprod(X)))
              if(is.null(Xinv)) {
                message("error")
                rm(psi2_1,g,W,Y,X,XXXXdgdt,dgdt2)
@@ -1774,9 +1774,9 @@ setGeneric(name=".test.misSpec.Robust",
              # 2: regress z2_1 on r1~r2, get SSR
              X <- cbind(r1,r2) # T x ncol(r1)+ncol(r2)
              Y <- z2_1  # T x 1
-             #tXX <- qr.solve(t(X),X,tol=1e-10)
+             #tXX <- solve(t(X),X,tol=1e-10)
              #b <- tXX %*% t(X) %*% Y  # vector len=ncol(X)
-             b <- qr.solve(t(X) %*% X) %*% t(X) %*% Y  # vector len=ncol(X)
+             b <- solve(t(X) %*% X) %*% t(X) %*% Y  # vector len=ncol(X)
              resid <- Y - (X %*% b)   # T x 1
              SSR1 <- t(resid) %*% resid # 1x1
              # LM stat
@@ -1790,17 +1790,17 @@ setGeneric(name=".test.misSpec.Robust",
              X <- r1
              for (i in 1:NCOL(r2)){
                Y <- r2[,i,drop=FALSE]
-               #tXX <- qr.solve(t(X),X,tol=1e-10)
+               #tXX <- solve(t(X),X,tol=1e-10)
                #b <- tXX %*% t(X) %*% Y  # vector len=ncol(X)
-               b <- qr.solve(t(X) %*% X) %*% t(X) %*% Y  # vector len=ncol(X)
+               b <- solve(t(X) %*% X) %*% t(X) %*% Y  # vector len=ncol(X)
                resid[,i] <- Y-(X %*% b)   # T x 1
              }
              # regress 1 on (z2_1)resid, get SSR
              Y <- matrix(1,Tobs,1)
              X <- as.vector(z2_1) * resid
-             #tXX <- qr.solve(t(X),X,tol=1e-10)
+             #tXX <- solve(t(X),X,tol=1e-10)
              #b <- tXX %*% t(X) %*% Y  # vector len=ncol(X)
-             b <- qr.solve(t(X) %*% X) %*% t(X) %*% Y  # vector len=ncol(X)
+             b <- solve(t(X) %*% X) %*% t(X) %*% Y  # vector len=ncol(X)
              resid <- Y - (X %*% b)   # T x 1
              SSR <- t(resid) %*% resid # 1x1
              # LM Robust

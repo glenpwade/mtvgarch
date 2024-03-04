@@ -135,7 +135,7 @@ setGeneric(name="estimateCEC",
                  this$Estimated$hessian <- tmp$hessian
                  #colnames(this$Estimated$se) <- "rho_se"
 
-                 try(stdErrors <- sqrt(-diag(qr.solve(tmp$hessian))))
+                 try(stdErrors <- sqrt(-diag(solve(tmp$hessian))))
                  if(!is.null(stdErrors)){
                      this$Estimated$se <- stdErrors
                    }else this$Estimated$se <- NaN
