@@ -221,7 +221,7 @@ estimateGARCH <- function(e,garchObj,estimationControl,tvObj){0}
 
              # Now call optim:
              tmp <- NULL
-             try(tmp <- optim(optimpars,loglik.garch.univar,gr=NULL,e,this,tvObj, method="BFGS",control=this$optimcontrol,hessian=estimationControl$calcSE))
+             try(tmp <- optim(optimpars,loglik.garch.univar,gr=NULL,e,this,tvObj, method="BFGS",control=this$optimcontrol))
 
              # An unhandled error could result in a NULL being returned by optim()
              if (is.null(tmp)) {
@@ -249,9 +249,9 @@ estimateGARCH <- function(e,garchObj,estimationControl,tvObj){0}
              # Calc Std Errors
              if (isTRUE(estimationControl$calcSE)) {
                cat("\nCalculating GARCH standard errors...\n")
-               this$Estimated$hessian <- tmp$hessian
+               this$Estimated$hessian <- optimHess(tmp$par,loglik.garch.univar,gr=NULL,e,this,tvObj,control=this$optimcontrol)
                StdErrors <- NULL
-               try(StdErrors <- sqrt(-diag(solve(tmp$hessian))))
+               try(StdErrors <- sqrt(-diag(invertMatrix_NPD(this$Estimated$hessian))))
                if(is.null(StdErrors)) {
                  this$Estimated$se <- matrix(NA,nrow=this@nr.pars)
                }else {
@@ -339,7 +339,7 @@ estimateGARCH_RollingWindow <- function(e,garchObj,estimationControl){0}
 
              # Now call optim:
              tmp <- NULL
-             try(tmp <- optim(optimpars,.loglik.garch.rollingWin,gr=NULL,e,this,vartargetWindow, method="BFGS",control=this$optimcontrol,hessian=calcSE))
+             try(tmp <- optim(optimpars,.loglik.garch.rollingWin,gr=NULL,e,this,vartargetWindow, method="BFGS",control=this$optimcontrol))
 
              # An unhandled error could result in a NULL being returned by optim()
              if (is.null(tmp)) {
@@ -388,9 +388,9 @@ estimateGARCH_RollingWindow <- function(e,garchObj,estimationControl){0}
 
              # Calc Std Errors
              if (isTRUE(calcSE)) {
-               this$Estimated$hessian <- tmp$hessian
+               this$Estimated$hessian <- optimHess(tmp$par,.loglik.garch.rollingWin,gr=NULL,e,this,vartargetWindow, control=this$optimcontrol)
                StdErrors <- NULL
-               try(StdErrors <- sqrt(-diag(solve(tmp$hessian))))
+               try(StdErrors <- sqrt(-diag(invertMatrix_NPD(this$Estimated$hessian))))
                if(is.null(StdErrors)) {
                  this$Estimated$se <- matrix(NA,nrow=(this@nr.pars))
                }else {
@@ -708,7 +708,7 @@ setMethod("summary",signature="garch_class",
 ## --- Public TV Methods --- ####
 
 
-## Estimated Pars to Matrix ####
+## .Estimated Pars to Matrix ####
 setGeneric(name=".estimatedParsToMatrix",
            valueClass = "tv_class",
            signature = c("tvObj","optimpars"),
@@ -788,7 +788,7 @@ estimateTV <- function(e,tvObj,estimationControl,garchObj){0}
 
   # Now call optim:
   tmp <- NULL
-  try(tmp <- optim(optimpars,loglik.tv.univar,gr=NULL,e,this,garchObj,method="BFGS",control=this$optimcontrol,hessian=estimationControl$calcSE))
+  try(tmp <- optim(optimpars,loglik.tv.univar,gr=NULL,e,this,garchObj,method="BFGS",control=this$optimcontrol))
 
   ## --- Attach results of estimation to the object --- ##
 
@@ -829,9 +829,9 @@ estimateTV <- function(e,tvObj,estimationControl,garchObj){0}
     cat("\nCalculating TV standard errors...\n")
     this$Estimated$se <- NULL
     stdErrors <- NULL
-    this$Estimated$hessian <- tmp$hessian
+    this$Estimated$hessian <- optim(tmp$par,loglik.tv.univar,gr=NULL,e,this,garchObj,control=this$optimcontrol)
 
-    try(stdErrors <- sqrt(-diag(solve(tmp$hessian))))
+    try(stdErrors <- sqrt(-diag(invertMatrix_NPD(this$Estimated$hessian))))
     if(!is.null(stdErrors)){
       parsVec <-  as.vector(this$pars)
 

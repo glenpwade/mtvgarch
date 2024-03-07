@@ -49,6 +49,7 @@ setGeneric(name="ntvgarch",
                }
 
                this[[series.names[n]]] <- tvgarch_list[[n]]
+               # Confirm / Overwrite the @tv & @garch slots with the results from the $Estimated$ values!
              }
 
              return(this)

@@ -1,7 +1,7 @@
 Package: MTVGARCH
 Type: Package
 Title: Smooth Transition Modelling of GARCH Processes with Time-Varying Variance
-Version: 0.9.1.21
+Version: 0.9.2.0
 Author: Glen Wade
 Maintainer: The package maintainer <glenpwade@gmail.com>
 Description: MTVGARCH is multiplicative object describing both the Garch process and a time-varying variance (tv) component.
@@ -11,10 +11,3 @@ Encoding: UTF-8
 LazyData: True
 Depends: methods
 Imports: stats,doParallel,Matrix,foreach
-#
-
-## TO DO
-## 1. Use .method() to hide private methods in clsTVGARCH.r
-## 2. Test the optim.hess() for calculating hessian after estimation converges - use if good
-## 3. Use the invertMatrix_NPD() to invert hessian
-## 4. Add doco & publish Ver.1.0
