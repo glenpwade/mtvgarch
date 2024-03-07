@@ -361,8 +361,7 @@ estimateGARCH_RollingWindow <- function(e,garchObj,estimationControl){0}
 
              #Update the GARCH object paramters using optimised pars:
              omega <- 1 - tmp$par[1] - tmp$par[2]
-             tmp$par <- c(omega,tmp$par)
-             this$Estimated$pars <- .parsVecToMatrix(this,tmp$par)
+             this$Estimated$pars <- .parsVecToMatrix(this,c(omega,tmp$par))
 
              # Get conditional variance - 'h'
              Tobs <- NROW(e)
