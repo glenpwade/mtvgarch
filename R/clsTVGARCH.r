@@ -242,14 +242,16 @@ estimateGARCH <- function(e,garchObj,estimationControl,tvObj){0}
              this$Estimated$error <- FALSE
 
              this$Estimated$pars <- .parsVecToMatrix(this,tmp$par)
-             # Get conditional variance
 
+             # Get conditional variance
              this@h <- .calculate_h(this,e/sqrt(tvObj@g))
 
              # Calc Std Errors
              if (isTRUE(estimationControl$calcSE)) {
                cat("\nCalculating GARCH standard errors...\n")
-               this$Estimated$hessian <- optimHess(tmp$par,loglik.garch.univar,gr=NULL,e,this,tvObj,control=this$optimcontrol)
+               this$Estimated$hessian <- NULL
+               try(this$Estimated$hessian <- optimHess(tmp$par,loglik.garch.univar,gr=NULL,e,this,tvObj,control=this$optimcontrol))
+               # Handle optimHess returns non-matrix
                StdErrors <- NULL
                try(StdErrors <- sqrt(-diag(invertMatrix_NPD(this$Estimated$hessian))))
                if(is.null(StdErrors)) {
@@ -387,7 +389,9 @@ estimateGARCH_RollingWindow <- function(e,garchObj,estimationControl){0}
 
              # Calc Std Errors
              if (isTRUE(calcSE)) {
-               this$Estimated$hessian <- optimHess(tmp$par,.loglik.garch.rollingWin,gr=NULL,e,this,vartargetWindow, control=this$optimcontrol)
+               this$Estimated$hessian <- NULL
+               try(this$Estimated$hessian <- optimHess(tmp$par,.loglik.garch.rollingWin,gr=NULL,e,this,vartargetWindow, control=this$optimcontrol))
+               # Handle optimHess errors
                StdErrors <- NULL
                try(StdErrors <- sqrt(-diag(invertMatrix_NPD(this$Estimated$hessian))))
                if(is.null(StdErrors)) {
@@ -826,10 +830,12 @@ estimateTV <- function(e,tvObj,estimationControl,garchObj){0}
   if (isTRUE(estimationControl$calcSE)){
 
     cat("\nCalculating TV standard errors...\n")
+    this$Estimated$hessian <- NULL
     this$Estimated$se <- NULL
     stdErrors <- NULL
-    this$Estimated$hessian <- optim(tmp$par,loglik.tv.univar,gr=NULL,e,this,garchObj,control=this$optimcontrol)
 
+    try(this$Estimated$hessian <- optimHess(tmp$par,loglik.tv.univar,gr=NULL,e,this,garchObj,control=this$optimcontrol))
+    # Handle optimHess errors
     try(stdErrors <- sqrt(-diag(invertMatrix_NPD(this$Estimated$hessian))))
     if(!is.null(stdErrors)){
       parsVec <-  as.vector(this$pars)

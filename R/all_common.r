@@ -1,6 +1,8 @@
 
 ##--- All the general, common functions that don't belong to any one specific class in the MTVGARCH Package ---##
 
+library(Matrix)
+
 ## ---  Enums:
 
 ## TV
@@ -12,8 +14,6 @@ garchtype <- list(noGarch=0,general=1,gjr=2)
 corrtype <- list(CCC=1,STCC1=2,STCC2=3,STEC1=4,STEC2=5)
 corrshape <- list(single=1,double=2,double1loc=3)
 corrspeedopt <- list(gamma=1,gamma_std=2,eta=3)
-## Misc
-solve.tol = 1e-12
 
 ## -- vecl -- ####
 setGeneric(name="vecL",
@@ -157,7 +157,7 @@ setGeneric(name="sqrt_mat1",
                                     }
                                   }
                }
-               m.sqrt <- m.eig$vectors %*% diag(sqrt(m.eig$values)) %*% qr.solve(m.eig$vectors,tol=solve.tol)
+               m.sqrt <- m.eig$vectors %*% diag(sqrt(m.eig$values)) %*% solve(m.eig$vectors)
              }
              return(m.sqrt)
            }
@@ -175,8 +175,8 @@ setGeneric(name="sqrt_mat2",
              y <- mat
              z <- diag(rep(1,nrow(mat)))
              for (niter in 1:maxit) {
-               y.temp <- 0.5*(y+qr.solve(z,tol=solve.tol))
-               z <- 0.5*(z+qr.solve(y,tol=solve.tol))
+               y.temp <- 0.5*(y+solve(z))
+               z <- 0.5*(z+solve(y))
                y <- y.temp
              }
              return(list(sqrt=y,sqrt.inv=z))
@@ -187,16 +187,13 @@ invertMatrix_NPD = function(mat){
 
   # Try to invert 'mat'
   mat.inv <- NULL
-  mat.inv <- tryCatch(solve(mat),
-                    error = function(e){ message(e) }
-  )
+  mat.inv <- try(solve(mat))
   if(!is.null(mat.inv)) { return(mat.inv) }
   else{
     # Create nearest PD approximation of 'mat'
     mat.nPD <- NULL
-    mat.nPD <- tryCatch(nearPD(mat,corr = TRUE, base.matrix=TRUE, do2eigen = FALSE, conv.tol = 1e-12, maxit = 500),
-                        error = function(e){ message(e) } )
-    if(!is.null(mat.nPD)){
+    mat.nPD <- try(nearPD(mat,corr = TRUE, base.matrix=TRUE, do2eigen = FALSE, conv.tol = 1e-18, maxit = 500))
+      if(!is.null(mat.nPD)){
         if(isTRUE(mat.nPD$converged)){
           # Try to invert the nPD approximation
           mat.inv <- tryCatch(solve(mat.nPD$mat),
