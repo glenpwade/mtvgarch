@@ -1,8 +1,6 @@
 
 ##--- All the general, common functions that don't belong to any one specific class in the MTVGARCH Package ---##
 
-#require(Matrix,quietly = TRUE)
-
 ## ---  Enums:
 
 ## TV
@@ -183,34 +181,28 @@ setGeneric(name="sqrt_mat2",
            }
 )
 
-setGeneric(name="invertMatrix_NPD",
+# invertHess ####
+setGeneric(name="invertHess",
            valueClass = "matrix",
-           signature = c("matrix"),
+           signature = c("mat"),
            def = function(mat){
 
-          # Try to invert 'mat'
-          mat.inv <- mat
-          mat.inv <- try(solve(mat))
-          if(!is.null(mat.inv)) { return(mat.inv) }
-          else{
-            # Create nearest PD approximation of 'mat'
-            mat.nPD <- NULL
-            mat.nPD <- try(nearPD(mat,corr = FALSE, base.matrix=TRUE, conv.tol = 1e-18, maxit = 500))
-              if(!is.null(mat.nPD)){
-                if(isTRUE(mat.nPD$converged)){
-                  # Try to invert the nPD approximation
-                  mat.inv <- tryCatch(solve(mat.nPD$mat),
-                                      error = function(e){
-                                                msg = cat("Attempt to invert the nearest PD approximation failed\n" ,e)
-                                                warning(msg)
-                                                return(mat)
-                                              }
-                                      )
-                  return(mat.inv)
-                }
-                else{ return(mat) }  }
+          # Try to invert 'matrix'
+          mat.inv <- tryCatch(solve(mat),error=function(e){ warning(e) } )
+          # Return 'solve'd inversion, else carry on...
+          if(is.matrix(mat.inv)) return(mat.inv)
+
+          # Create nearest PD approximation of 'matrix'
+          nPD <- tryCatch(nearPD(mat,corr = FALSE, base.matrix=TRUE, conv.tol = 1e-18, maxit = 500),
+                          error=function(e){  warning(e) })
+          if(identical(class(nPD)[1],"nearPD") && isTRUE(nPD$converged)){
+              # Try to invert the nPD approximation
+              mat.inv <- tryCatch(solve(nPD$mat), error=function(e){ warning(e) } )
+              if(is.matrix(mat.inv)) {
+                warning("Nearest PD matrix was used for Matrix Inversion\n")
+                return(mat.inv)
+              } else return(matrix())
           }
 
 })
-
 
