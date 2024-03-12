@@ -192,7 +192,7 @@ invertMatrix_NPD = function(mat){
   else{
     # Create nearest PD approximation of 'mat'
     mat.nPD <- NULL
-    mat.nPD <- try(nearPD(mat,corr = TRUE, base.matrix=TRUE, do2eigen = FALSE, conv.tol = 1e-18, maxit = 500))
+    mat.nPD <- try(nearPD(mat,corr = FALSE, base.matrix=TRUE, do2eigen = FALSE, conv.tol = 1e-18, maxit = 500))
       if(!is.null(mat.nPD)){
         if(isTRUE(mat.nPD$converged)){
           # Try to invert the nPD approximation
