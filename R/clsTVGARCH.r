@@ -221,7 +221,7 @@ estimateGARCH <- function(e,garchObj,estimationControl,tvObj){0}
 
              # Now call optim:
              tmp <- NULL
-             try(tmp <- optim(optimpars,loglik.garch.univar,gr=NULL,e,this,tvObj, method="BFGS",control=this$optimcontrol))
+             try(tmp <- optim(optimpars,.loglik.garch.univar,gr=NULL,e,this,tvObj, method="BFGS",control=this$optimcontrol))
 
              # An unhandled error could result in a NULL being returned by optim()
              if (is.null(tmp)) {
@@ -250,10 +250,10 @@ estimateGARCH <- function(e,garchObj,estimationControl,tvObj){0}
              if (isTRUE(estimationControl$calcSE)) {
                cat("\nCalculating GARCH standard errors...\n")
                this$Estimated$hessian <- NULL
-               try(this$Estimated$hessian <- optimHess(tmp$par,loglik.garch.univar,gr=NULL,e,this,tvObj,control=this$optimcontrol))
+               try(this$Estimated$hessian <- optimHess(tmp$par,.loglik.garch.univar,gr=NULL,e,this,tvObj,control=this$optimcontrol))
                # Handle optimHess returns non-matrix
                StdErrors <- NULL
-               try(StdErrors <- sqrt(-diag(invertMatrix_NPD(this$Estimated$hessian))))
+               try(StdErrors <- sqrt(-diag(invertHess(this$Estimated$hessian))))
                if(is.null(StdErrors)) {
                  this$Estimated$se <- matrix(NA,nrow=this@nr.pars)
                }else {
@@ -393,7 +393,7 @@ estimateGARCH_RollingWindow <- function(e,garchObj,estimationControl){0}
                try(this$Estimated$hessian <- optimHess(tmp$par,.loglik.garch.rollingWin,gr=NULL,e,this,vartargetWindow, control=this$optimcontrol))
                # Handle optimHess errors
                StdErrors <- NULL
-               try(StdErrors <- sqrt(-diag(invertMatrix_NPD(this$Estimated$hessian))))
+               try(StdErrors <- sqrt(-diag(invertHess(this$Estimated$hessian))))
                if(is.null(StdErrors)) {
                  this$Estimated$se <- matrix(NA,nrow=(this@nr.pars))
                }else {
@@ -559,8 +559,8 @@ setGeneric(name="get_h",
 
 )
 
-## -- loglik.garch.univar() ####
-setGeneric(name="loglik.garch.univar",
+## -- .loglik.garch.univar() ####
+setGeneric(name=".loglik.garch.univar",
            valueClass = "numeric",
            signature = c("optimpars","e","garchObj"),
            def =  function(optimpars,e,garchObj,tvObj){
@@ -791,7 +791,7 @@ estimateTV <- function(e,tvObj,estimationControl,garchObj){0}
 
   # Now call optim:
   tmp <- NULL
-  try(tmp <- optim(optimpars,loglik.tv.univar,gr=NULL,e,this,garchObj,method="BFGS",control=this$optimcontrol))
+  try(tmp <- optim(optimpars,.loglik.tv.univar,gr=NULL,e,this,garchObj,method="BFGS",control=this$optimcontrol))
 
   ## --- Attach results of estimation to the object --- ##
 
@@ -834,9 +834,9 @@ estimateTV <- function(e,tvObj,estimationControl,garchObj){0}
     this$Estimated$se <- NULL
     stdErrors <- NULL
 
-    try(this$Estimated$hessian <- optimHess(tmp$par,loglik.tv.univar,gr=NULL,e,this,garchObj,control=this$optimcontrol))
+    try(this$Estimated$hessian <- optimHess(tmp$par,.loglik.tv.univar,gr=NULL,e,this,garchObj,control=this$optimcontrol))
     # Handle optimHess errors
-    try(stdErrors <- sqrt(-diag(invertMatrix_NPD(this$Estimated$hessian))))
+    try(stdErrors <- sqrt(-diag(invertHess(this$Estimated$hessian))))
     if(!is.null(stdErrors)){
       parsVec <-  as.vector(this$pars)
 
@@ -1358,8 +1358,8 @@ setGeneric(name="get_g",
 )
 
 
-## -- loglik.tv.univar(e,tv,garch) ####
-setGeneric(name="loglik.tv.univar",
+## -- .loglik.tv.univar(e,tv,garch) ####
+setGeneric(name=".loglik.tv.univar",
            valueClass = "numeric",
            signature = c("optimpars","e","tvObj","garchObj"),
            def = function(optimpars,e,tvObj,garchObj){
@@ -1605,67 +1605,40 @@ estimateTVGARCH <- function(e,tvgarchObj,estimationControl){0}
              cat(".")
              tvg.value <- loglik.tvgarch.univar(e,TV@g,GARCH@h)
 
-             # If we are re-estimating the same data, then...
-             if(identical(e,this@e)){
+             if(isFALSE(TV$Estimated$error)){
+               # Confirm LL has improved - to avoid divergence
+               if(tvg.value > this$Estimated$value) cat("\nTV Estimate Improved, now re-estimating Garch...\n")
 
-               if(isFALSE(TV$Estimated$error)){
-                 # Confirm LL has improved - to avoid divergence
-                 if(tvg.value > this$Estimated$value) cat("\nTV Estimate Improved, now re-estimating Garch...\n")
-
-               } else {
-                 TV <- this@tvObj
-                 cat("\nTV Estimate could not be Improved, now re-estimating Garch with original TV...\n")
-               }
-
-             }
-
-             if (interactive())
-             {
-               summary(TV)
-               invisible(readline(prompt = "Does the estimation above look like an improvement?\nPress <Enter key> to continue... (or <Esc key> to abort this estimation)\n"))
+             } else {
+               TV <- this@tvObj
+               cat("\nTV Estimate could not be Improved, now re-estimating Garch with original TV...\n")
              }
 
              GARCH <- estimateGARCH(e,GARCH,estimationControl,TV)
              cat(".")
              tvg.value <- loglik.tvgarch.univar(e,TV@g,GARCH@h)
 
-             # If we are re-estimating the same data, then...
-             if(identical(e,this@e)){
 
-               if(isFALSE(GARCH$Estimated$error)){
-                 # Confirm LL has improved - to avoid divergence
-                 if(tvg.value > this$Estimated$value) {
+             if(isFALSE(GARCH$Estimated$error)){
+               # Confirm LL has improved - to avoid divergence
+               if(tvg.value > this$Estimated$value) {
 
-                   # Put the final model into the Estimated list
-                   this$Estimated$tv <- TV$Estimated
-                   this$Estimated$tv$g <- TV@g
-                   this$Estimated$garch <- GARCH$Estimated
-                   this$Estimated$garch$h <- GARCH@h
-                   this$Estimated$value <- tvg.value
-                   #
-                   cat("\nTVGARCH Estimation Completed - Improved\n")
-                 } else cat("\nTVGARCH Estimation Completed - could not be improved\n")
+                 # Put the final model into the Estimated list
+                 this$Estimated$tv <- TV$Estimated
+                 this$Estimated$tv$g <- TV@g
+                 this$Estimated$garch <- GARCH$Estimated
+                 this$Estimated$garch$h <- GARCH@h
+                 this$Estimated$value <- tvg.value
+                 # Update the internal objects with the Estimated objects:
+                 this@tvObj <- TV
+                 this@garchObj <- GARCH
+                 # Populate the convenience attributes:
+                 this$Estimated$g <- TV@g
+                 this$Estimated$h <- GARCH@h
+                 cat("\nTVGARCH Estimation Completed - Improved\n")
+               } else cat("\nTVGARCH Estimation Completed - could not be improved\n")
 
-               }else cat("\nTVGARCH Estimation Failed! estimateGARCH() caused the error.\n")
-             } else {
-
-               # TODO: Remove this section - no logical reason to re-estimate with diff data!
-
-               # Put the final model into the Estimated list
-               this$Estimated$tv <- TV$Estimated
-               this$Estimated$tv$g <- TV@g
-               this$Estimated$garch <- GARCH$Estimated
-               this$Estimated$garch$h <- GARCH@h
-               this$Estimated$value <- tvg.value
-               #
-               cat("\nTVGARCH Estimation Completed\n")
-             }
-             # Update the internal objects with the Estimated objects:
-             this@tvObj <- TV
-             this@garchObj <- GARCH
-             # Populate the convenience attributes:
-             this$Estimated$g <- TV@g
-             this$Estimated$h <- GARCH@h
+             }else cat("\nTVGARCH Estimation Failed! estimateGARCH() caused the error.\n")
 
              return(this)
 
@@ -2001,10 +1974,9 @@ setMethod("summary",signature="tvgarch_class",
             cat("\n -- TVGARCH Model Specification --\n")
             cat("\nMultiplicative Model Log-Likelihood Value: ", this$Estimated$value)
             cat("\n\nTVGARCH Model Parameters:")
-            this@tvObj$Estimated <- this$Estimated$tv
-            this@garchObj$Estimated <- this$Estimated$garch
-            summary(this@garchObj)
-            summary(this@tvObj)
+            ## TODO:  Fix the Summary - it stopped working  :(   Changing to 'call' didn't help
+            call("summary",this@garchObj)
+            call("summary",this@tvObj)
             cat("\n\n -- End of TVGARCH Model Specification --")
 
           }
