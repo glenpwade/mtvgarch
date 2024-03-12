@@ -1,7 +1,7 @@
 
 ##--- All the general, common functions that don't belong to any one specific class in the MTVGARCH Package ---##
 
-library(Matrix)
+#require(Matrix,quietly = TRUE)
 
 ## ---  Enums:
 
@@ -183,30 +183,34 @@ setGeneric(name="sqrt_mat2",
            }
 )
 
-invertMatrix_NPD = function(mat){
+setGeneric(name="invertMatrix_NPD",
+           valueClass = "matrix",
+           signature = c("matrix"),
+           def = function(mat){
 
-  # Try to invert 'mat'
-  mat.inv <- NULL
-  mat.inv <- try(solve(mat))
-  if(!is.null(mat.inv)) { return(mat.inv) }
-  else{
-    # Create nearest PD approximation of 'mat'
-    mat.nPD <- NULL
-    mat.nPD <- try(nearPD(mat,corr = FALSE, base.matrix=TRUE, do2eigen = FALSE, conv.tol = 1e-18, maxit = 500))
-      if(!is.null(mat.nPD)){
-        if(isTRUE(mat.nPD$converged)){
-          # Try to invert the nPD approximation
-          mat.inv <- tryCatch(solve(mat.nPD$mat),
-                              error = function(e){
-                                        msg = cat("Attempt to invert the nearest PD approximation failed\n" ,e)
-                                        warning(msg)
-                                        return(NULL)
-                                      }
-                              )
-          return(mat.inv)
-        }
-        else{ return(NULL) }  }
-  }
+          # Try to invert 'mat'
+          mat.inv <- mat
+          mat.inv <- try(solve(mat))
+          if(!is.null(mat.inv)) { return(mat.inv) }
+          else{
+            # Create nearest PD approximation of 'mat'
+            mat.nPD <- NULL
+            mat.nPD <- try(nearPD(mat,corr = FALSE, base.matrix=TRUE, conv.tol = 1e-18, maxit = 500))
+              if(!is.null(mat.nPD)){
+                if(isTRUE(mat.nPD$converged)){
+                  # Try to invert the nPD approximation
+                  mat.inv <- tryCatch(solve(mat.nPD$mat),
+                                      error = function(e){
+                                                msg = cat("Attempt to invert the nearest PD approximation failed\n" ,e)
+                                                warning(msg)
+                                                return(mat)
+                                              }
+                                      )
+                  return(mat.inv)
+                }
+                else{ return(mat) }  }
+          }
 
-}
+})
+
 
