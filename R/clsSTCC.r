@@ -377,7 +377,7 @@ setGeneric(name="estimateSTCC1",
              }
 
              tmp <- NULL
-             try(tmp <- optim(optimpars,.loglik.stcc1,z,this,gr=NULL,method="BFGS",control=this$optimcontrol,hessian=calcSE))
+             try(tmp <- optim(optimpars,.loglik.stcc1,z,this,gr=NULL,method="BFGS",control=this$optimcontrol))
 
              ### ---  Interpret the response from optim --- ###
              # An unhandled error could result in a NULL being returned by optim()
@@ -403,10 +403,11 @@ setGeneric(name="estimateSTCC1",
 
                if (calcSE) {
                  cat("\nCalculating STCC standard errors...\n")
-                 this$Estimated$hessian <- tmp$hessian
+                 this$Estimated$hessian <- NULL
+                 try(this$Estimated$hessian <- optimHess(tmp$par,.loglik.stcc1,z,this,gr=NULL,e,this,tvObj,control=this$optimcontrol))
+                 # Handle optimHess returns non-matrix
                  vecSE <- vector("numeric")
-                 try(vecSE <- sqrt(-diag(solve(tmp$hessian))))
-
+                 try(StdErrors <- sqrt(-diag(invertHess(this$Estimated$hessian))))
                  if(length(vecSE) > 0) {
                    this$Estimated$P1.se <- unVecL(vecSE[1:this@nr.corPars])
                    vecSE <- tail(vecSE,-this@nr.corPars)
@@ -568,7 +569,7 @@ setGeneric(name="estimateSTCC2",
              }
 
              tmp <- NULL
-             try(tmp <- optim(optimpars,.loglik.stcc2,z,this,gr=NULL,method="BFGS",control=this$optimcontrol,hessian=calcSE))
+             try(tmp <- optim(optimpars,.loglik.stcc2,z,this,gr=NULL,method="BFGS",control=this$optimcontrol))
 
              ### ---  Interpret the response from optim --- ###
              # An unhandled error could result in a NULL being returned by optim()
@@ -601,10 +602,11 @@ setGeneric(name="estimateSTCC2",
 
                if (calcSE) {
                  cat("\nCalculating STCC standard errors...\n")
-                 this$Estimated$hessian <- tmp$hessian
+                 this$Estimated$hessian <- NULL
+                 try(this$Estimated$hessian <- optimHess(tmp$par,.loglik.stcc1,z,this,gr=NULL,e,this,tvObj,control=this$optimcontrol))
+                 # Handle optimHess returns non-matrix
                  vecSE <- vector("numeric")
-                 try(vecSE <- sqrt(-diag(solve(tmp$hessian))))
-
+                 try(StdErrors <- sqrt(-diag(invertHess(this$Estimated$hessian))))
                  if(length(vecSE) > 0) {
                    this$Estimated$P1.se <- unVecL(vecSE[1:this@nr.corPars])
                    vecSE <- tail(vecSE,-this@nr.corPars)
