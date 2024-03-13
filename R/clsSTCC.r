@@ -404,10 +404,10 @@ setGeneric(name="estimateSTCC1",
                if (calcSE) {
                  cat("\nCalculating STCC standard errors...\n")
                  this$Estimated$hessian <- NULL
-                 try(this$Estimated$hessian <- optimHess(tmp$par,.loglik.stcc1,z,this,gr=NULL,e,this,tvObj,control=this$optimcontrol))
+                 try(this$Estimated$hessian <- optimHess(tmp$par,.loglik.stcc1,z,this,gr=NULL,control=this$optimcontrol))
                  # Handle optimHess returns non-matrix
                  vecSE <- vector("numeric")
-                 try(StdErrors <- sqrt(-diag(invertHess(this$Estimated$hessian))))
+                 try(vecSE <- sqrt(-diag(invertHess(this$Estimated$hessian))))
                  if(length(vecSE) > 0) {
                    this$Estimated$P1.se <- unVecL(vecSE[1:this@nr.corPars])
                    vecSE <- tail(vecSE,-this@nr.corPars)
@@ -603,10 +603,10 @@ setGeneric(name="estimateSTCC2",
                if (calcSE) {
                  cat("\nCalculating STCC standard errors...\n")
                  this$Estimated$hessian <- NULL
-                 try(this$Estimated$hessian <- optimHess(tmp$par,.loglik.stcc1,z,this,gr=NULL,e,this,tvObj,control=this$optimcontrol))
+                 try(this$Estimated$hessian <- optimHess(tmp$par,.loglik.stcc2,z,this,gr=NULL,control=this$optimcontrol))
                  # Handle optimHess returns non-matrix
                  vecSE <- vector("numeric")
-                 try(StdErrors <- sqrt(-diag(invertHess(this$Estimated$hessian))))
+                 try(vecSE <- sqrt(-diag(invertHess(this$Estimated$hessian))))
                  if(length(vecSE) > 0) {
                    this$Estimated$P1.se <- unVecL(vecSE[1:this@nr.corPars])
                    vecSE <- tail(vecSE,-this@nr.corPars)

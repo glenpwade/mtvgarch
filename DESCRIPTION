@@ -1,7 +1,7 @@
 Package: MTVGARCH
 Type: Package
 Title: Smooth Transition Modelling of GARCH Processes with Time-Varying Variance
-Version: 0.9.3.1
+Version: 0.9.3.2
 Author: Glen Wade
 Maintainer: The package maintainer <glenpwade@gmail.com>
 Description: MTVGARCH is multiplicative object describing both the Garch process and a time-varying variance (tv) component.
