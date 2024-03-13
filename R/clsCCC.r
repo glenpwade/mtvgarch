@@ -155,8 +155,8 @@ setGeneric(name="estimateCCC",
                #TODO: Replace for(loop) with apply()
                z <- w <- e
                for(n in 1:this@N){
-                 w[,n] <- e[,n]/sqrt(this$ntvgarch[[n]]$tv@g)
-                 z[,n] <- w[,n]/sqrt(this$ntvgarch[[n]]$garch@h)
+                 w[,n] <- e[,n]/sqrt(this$ntvgarch[[n]]$tv$g)
+                 z[,n] <- w[,n]/sqrt(this$ntvgarch[[n]]$garch$h)
                }
                this$Estimated$P <- cor(z)
                optimpars <- vecL(this$Estimated$P)
@@ -190,8 +190,8 @@ setGeneric(name="test.CCCParsim",
              h <- matrix(1,H0@Tobs,H0@N)
              beta <- matrix(1,1,H0@N)
              for (n in 1:H0@N) {
-               g[,n] <- H0$ntvgarch[[n]]$tv@g
-               if (H0$ntvgarch[[n]]$garch$type!=garchtype$noGarch) h[,n] <- H0$ntvgarch[[n]]$garch@h
+               g[,n] <- H0$ntvgarch[[n]]$tv$g
+               if (H0$ntvgarch[[n]]$garch$type!=garchtype$noGarch) h[,n] <- H0$ntvgarch[[n]]$garch$h
                if (H0$ntvgarch[[n]]$garch$type!=garchtype$noGarch) beta[1,n] <- H0$ntvgarch[[n]]$garch$Estimated$pars["beta",1]
              }
              e <- H0@e
@@ -397,8 +397,8 @@ setGeneric(name="test.CCCvSTCC1",
              h <- matrix(1,H0@Tobs,H0@N)
              beta <- matrix(1,1,H0@N)
              for (n in 1:H0@N) {
-               g[,n] <- H0$ntvgarch[[n]]$tv@g
-               if (H0$ntvgarch[[n]]$garch$type!=garchtype$noGarch) h[,n] <- H0$ntvgarch[[n]]$garch@h
+               g[,n] <- H0$ntvgarch[[n]]$tv$g
+               if (H0$ntvgarch[[n]]$garch$type!=garchtype$noGarch) h[,n] <- H0$ntvgarch[[n]]$garch$h
                if (H0$ntvgarch[[n]]$garch$type!=garchtype$noGarch) beta[1,n] <- H0$ntvgarch[[n]]$garch$Estimated$pars["beta",1]
              }
              e <- H0@e
@@ -632,13 +632,14 @@ setGeneric(name="test.TVCC1vTVCC2",
              h <- matrix(1,H0@Tobs,H0@N)
              beta <- matrix(1,1,H0@N)
              for (n in 1:H0@N) {
-               g[,n] <- H0$ntvgarch[[n]]$tv@g
-               h[,n] <- H0$ntvgarch[[n]]$garch@h
-               beta[1,n] <- H0$ntvgarch[[n]]$garch$Estimated$pars["beta",1]
+               g[,n] <- H0$ntvgarch[[n]]$tv$g
+               if (H0$ntvgarch[[n]]$garch$type!=garchtype$noGarch) h[,n] <- H0$ntvgarch[[n]]$garch$h
+               if (H0$ntvgarch[[n]]$garch$type!=garchtype$noGarch) beta[1,n] <- H0$ntvgarch[[n]]$garch$Estimated$pars["beta",1]
              }
              e <- H0@e
              w <- e/sqrt(g)
              z <- w/sqrt(h)
+
 
              # Get x_tv - T x Total Nr.TvPars
              x_tv <- .x_tv(z,H0,g,h,beta)

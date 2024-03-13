@@ -65,8 +65,8 @@ setGeneric(name="dcc",
              # Filter the data:
              z <- w <- e <- this@e
              for(n in 1:this@N){
-               w[,n] <- e[,n]/sqrt(this$ntvgarch[[n]]$tv@g)
-               z[,n] <- w[,n]/sqrt(this$ntvgarch[[n]]$garch@h)
+               w[,n] <- e[,n]/sqrt(this$ntvgarch[[n]]$tv$g)
+               z[,n] <- w[,n]/sqrt(this$ntvgarch[[n]]$garch$h)
              }
 
              # Set Default Values based on type:
@@ -223,8 +223,8 @@ setGeneric(name="estimateDCC",
              # Filter the data:
              z <- w <- e <- this@e
              for(n in 1:this@N){
-               w[,n] <- e[,n]/sqrt(this$ntvgarch[[n]]$tv@g)
-               z[,n] <- w[,n]/sqrt(this$ntvgarch[[n]]$garch@h)
+               w[,n] <- e[,n]/sqrt(this$ntvgarch[[n]]$tv$g)
+               z[,n] <- w[,n]/sqrt(this$ntvgarch[[n]]$garch$h)
              }
 
              tmp <- NULL

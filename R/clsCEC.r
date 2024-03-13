@@ -94,8 +94,8 @@ setGeneric(name="estimateCEC",
                #TODO: Replace for(loop) with apply() - check FilterData() function in clsNTVGarch
                z <- w <- e
                for(n in 1:this@N){
-                 w[,n] <- e[,n]/sqrt(this$ntvgarch[[n]]$tv@g)
-                 z[,n] <- w[,n]/sqrt(this$ntvgarch[[n]]$garch@h)
+                 w[,n] <- e[,n]/sqrt(this$ntvgarch[[n]]$tv$g)
+                 z[,n] <- w[,n]/sqrt(this$ntvgarch[[n]]$garch$h)
                }
 
                # 3. Call optim()
