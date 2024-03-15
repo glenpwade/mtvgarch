@@ -19,8 +19,7 @@ setMethod("initialize","ccc_class",
             .Object$e <- matrix("numeric")
             .Object$Tobs <- 0
             .Object$nr.covPars <- 0
-            # CCC@e will hold the data to be used by the model.
-            # Filtering will be automatically done by the Estimation & Test functions as needed.
+            # CCC$e will hold the data to be used by the model.
             .Object$P <- matrix()
             # Return:
             .Object
@@ -154,8 +153,7 @@ setGeneric(name="test.CCCParsim",
            def = function(H0,st,testOrder){
 
              # Validation
-             objType <- class(st)
-             if(objType[1] != "numeric"){
+             if(class(st)[1] != "numeric"){
                warning("This test requires a valid smooth-transition variable (numeric vector) as the alternative")
                return(matrix(data = "Invalid Parameter - st"))
              }
@@ -357,8 +355,7 @@ setGeneric(name="test.CCCvSTCC1",
            def = function(H0,st,testOrder){
 
              # Validation
-             objType <- class(st)
-             if(objType[1] != "numeric") {
+             if(class(st)[1] != "numeric") {
                warning("This test requires a valid transition variable (numeric vector) as the alternative (st)")
                return(matrix(data = "Invalid Parameter - st"))
              }
@@ -588,9 +585,8 @@ setGeneric(name="test.TVCC1vTVCC2",
              # Test a time-series to identify evidence of a second transition...
 
              # Validation
-             objType <- class(H0)
-             if(objType[1] != "stcc1_class"){
-               warning("This test requires a valid instance of an estimated stcc model as the null (H0)")
+             if(class(H0)[1] != "stcc1_class"){
+               warning("This test requires a valid instance of an estimated stcc1 model as the null (H0)")
                return(0)
              }
 
