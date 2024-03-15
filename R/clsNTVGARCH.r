@@ -58,8 +58,8 @@ setGeneric(name="ntvgarch",
              this$z <- this$w <- this$e <- matrix(NA,nrow = this$Tobs, ncol = this$N)
              this$h <- this$g <- matrix(1,nrow = this$Tobs, ncol = this$N)
              this$beta <- matrix(1,nrow = 1, ncol = this$N)
-             this$nr.tv.pars <- matrix(NA,nrow = 1, ncol = this$N)
-             this$nr.garch.pars <- matrix(NA,nrow = 1, ncol = this$N)
+             #this$nr.tv.pars <- matrix(NA,nrow = 1, ncol = this$N)
+             #this$nr.garch.pars <- matrix(NA,nrow = 1, ncol = this$N)
 
 
              for(n in 1:this$N){
@@ -73,8 +73,8 @@ setGeneric(name="ntvgarch",
                this$g[,n] <- tvgarch_list[[n]]$Estimated$tv$g
                if (tvgarch_list[[n]]$garchtype!=garchtype$noGarch) this$h[,n] <- tvgarch_list[[n]]$Estimated$garch$h
                if (tvgarch_list[[n]]$garchtype!=garchtype$noGarch) this$beta[1,n] <- tvgarch_list[[n]]$Estimated$garch$pars["beta",1]
-               this$nr.tv.pars[,n] <- tvgarch_list[[n]]@tvObj@nr.pars
-               this$nr.garch.pars[,n] <- tvgarch_list[[n]]@garchObj@nr.pars
+               #this$nr.tv.pars[,n] <- tvgarch_list[[n]]@tvObj@nr.pars
+               #this$nr.garch.pars[,n] <- tvgarch_list[[n]]@garchObj@nr.pars
 
              }
 
