@@ -589,7 +589,7 @@ setGeneric(name="estimateSTCC2",
                    }
 
                    this$Estimated$pars.se <- tail(vecSE,2*this@nr.trPars)
-                   names(this$Estimated$pars.se) <- names(this$pars)
+                   #names(this$Estimated$pars.se) <- names(this$pars)
 
                    vecSE <- vecSE[1:this@nr.corPars]
                    this$Estimated$P1.se <- unVecL(vecSE)

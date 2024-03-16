@@ -252,21 +252,22 @@ setGeneric(name="vector.insert",
            }
 )
 
-setGeneric(name=".updateEstimatedwithOptimpars",
-           valueClass = "list",
-           signature = c("optimpars","estList"),
-           def = function(optimpars,estList){0}
-)
 
-setMethod(".updateEstimatedwithOptimpars",signature="numeric","stcc2_class",
-          function(optimpars,stcc2Obj){
-            this <- object
-            if(is.null(this$Estimated)){
-              #cat("\n\nPlease estimate the TVGARCH Model first")
-              return("Please estimate the TVGARCH Model first")
-            }
-          }
-)
+# setGeneric(name=".updateEstimatedwithOptimpars",
+#            valueClass = "list",
+#            signature = c("optimpars","estList"),
+#            def = function(optimpars,estList){0}
+# )
+#
+# setMethod(".updateEstimatedwithOptimpars",signature="numeric","stcc2_class",
+#           function(optimpars,stcc2Obj){
+#             this <- object
+#             if(is.null(this$Estimated)){
+#               #cat("\n\nPlease estimate the TVGARCH Model first")
+#               return("Please estimate the TVGARCH Model first")
+#             }
+#           }
+# )
 
 
 
