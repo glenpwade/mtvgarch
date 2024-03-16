@@ -9,8 +9,7 @@ speedopt <- list(none=0,gamma=1,gamma_std=2,eta=3,lamda2_inv=4)
 ## GARCH
 garchtype <- list(noGarch=0,general=1,gjr=2)
 ## COR
-corrtype <- list(CCC=1,STCC1=2,STCC2=3,STEC1=4,STEC2=5)
-corrshape <- list(single=1,double=2,double1loc=3)
+corrshape <- list(single=1,double1loc=2)
 corrspeedopt <- list(gamma=1,gamma_std=2,eta=3)
 
 ## -- vecl -- ####
@@ -205,4 +204,71 @@ setGeneric(name="invertHess",
           }
 
 })
+
+## -- sqrt_mat2 -- ####
+setGeneric(name="vector.insert",
+           valueClass = "vector",
+           signature = c("x","ins.pos","val"),
+           def = function(x,ins.pos,val){
+             # x       : vector we want to insert into
+             # ins.pos : index positions to insert new values (old values push right)
+             # val     : vector of values to insert at ins.pos
+
+             # Validation:
+
+             if(!(is.vector(x) && is.vector(ins.pos) && is.vector(val) ) ) {
+               msg = paste0("It's called 'vector.insert' for a reason.  Please provide vector params  :P")
+               warning(msg)
+               return(vector())
+             }
+             if(max(ins.pos) > length(x)+length(val)) {
+               msg = paste0("Length Mismatch: Please check your ins.pos.  Seems you are trying to insert")
+               warning(msg)
+               return(vector())
+             }
+             if(mode(ins.pos) != "numeric") {
+               msg = paste0("Please provide a valid numeric vector for 'ins.pos' ")
+               warning(msg)
+               return(vector())
+             }
+             if(mode(x) != mode(val)) {
+               msg = paste0("Type Mismatch:  You are trying to insert a ", mode(val), " vector into a ",mode(x), " one.  This might cause errors.")
+               warning(msg)
+             }
+
+             # Function Logic:
+             rtnVec <- vector(mode(x),length(x)+length(val))
+             for(n in 1:length(rtnVec)){
+               if(n %in% ins.pos){
+                 rtnVec[n] <- val[1]
+                 val <-  val[-1]
+               }else{
+                 rtnVec[n] <- x[1]
+                 x <- x[-1]
+               }
+             }
+
+             return(rtnVec)
+           }
+)
+
+setGeneric(name=".updateEstimatedwithOptimpars",
+           valueClass = "list",
+           signature = c("optimpars","estList"),
+           def = function(optimpars,estList){0}
+)
+
+setMethod(".updateEstimatedwithOptimpars",signature="numeric","stcc2_class",
+          function(optimpars,stcc2Obj){
+            this <- object
+            if(is.null(this$Estimated)){
+              #cat("\n\nPlease estimate the TVGARCH Model first")
+              return("Please estimate the TVGARCH Model first")
+            }
+          }
+)
+
+
+
+
 

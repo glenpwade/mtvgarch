@@ -58,19 +58,8 @@ setGeneric(name="stcc1",
              this@ntvg <- ntvgarchObj
 
              this$st <- (1:ntvgarchObj$Tobs)/ntvgarchObj$Tobs
-             this@nr.corPars <- as.integer((N^2-N)/2)
+             this@nr.corPars <- as.integer((N^2-N)/2 )
              this@nr.trPars <- as.integer(2)
-
-             # # Extract the Data & Estimated components from the ntvgarch
-             # this@ntvg <- list()
-             # for(n in 1:ntvgarchObj@N){
-             #   this@ntvg[[n]] <- list()
-             #   this@ntvg[[n]]$tv <- ntvgarchObj[[n]]$Estimated$tv
-             #   this@ntvg[[n]]$garch <- ntvgarchObj[[n]]$Estimated$garch
-             #   this$e[,n] <- ntvgarchObj[[n]]@e
-             # }
-             # names(this@ntvg) <- names(ntvgarchObj)
-
 
              # Use the unconditional correlation of the first & last 1/3 of the data as starting values
              zDiv3 <- round(this$Tobs/3)
@@ -82,6 +71,17 @@ setGeneric(name="stcc1",
              z.end <- this$Tobs
              this$P2 <- cor(z[(z.start:z.end),])
 
+             # Set default gradient step-size for correlation pars
+             this$optimcontrol$ndeps <- rep(1e-05,this@nr.corPars * 2)
+             # Set default gradient step-size for transition pars; Speed & Location
+             this$optimcontrol$ndeps <- c(this$optimcontrol$ndeps,1e-07,1e-07)
+
+             # Set default optim parameter-scaling for correlation pars
+             this$optimcontrol$parscale <- rep(2,this@nr.corPars * 2)
+             # Set default optim parameter-scaling for transition pars; Speed & Location
+             this$optimcontrol$parscale <- c(this$optimcontrol$parscale,4,1)
+
+
              return(this)
            }
 )
@@ -89,7 +89,7 @@ setGeneric(name="stcc1",
 
 ## --- stcc2_class Definition --- ####
 stcc2 <- setClass(Class = "stcc2_class",
-                  slots = c(ntvg="ntvgarch_class",nr.corPars="integer",nr.trPars="integer",z="matrix"),
+                  slots = c(ntvg="ntvgarch_class",nr.corPars="integer",nr.trPars="integer",optim.NApos="numeric",z="matrix"),
                   contains = c("namedList")
 )
 
@@ -113,9 +113,6 @@ setMethod("initialize","stcc2_class",
             .Object$pars <- c(3,0.33,3,0.66)
             names(.Object$pars) <- c("speed1","loc1","speed2","loc2")
 
-            # TODO: Update parscale, ndeps
-            .Object$optimcontrol$parscale
-
             # Return:
             .Object
           })
@@ -125,6 +122,7 @@ setGeneric(name="stcc2",
            valueClass = "stcc2_class",
            signature = c("ntvgarchObj"),
            def = function(ntvgarchObj){
+
              this <- new("stcc2_class")
 
              ## -- Do validation checks -- ####
@@ -134,6 +132,8 @@ setGeneric(name="stcc2",
                return(this)
              }
              # End validation
+
+             this@optim.NApos <- vector("numeric")
 
              # Set Default Values:
              N <- this$N <- ntvgarchObj$N
@@ -145,7 +145,7 @@ setGeneric(name="stcc2",
              this@ntvg <- ntvgarchObj
 
              this$st <- (1:ntvgarchObj$Tobs)/ntvgarchObj$Tobs
-             this@nr.corPars <- as.integer((N^2-N)/2)
+             this@nr.corPars <- as.integer((N^2-N)/2 )
              this@nr.trPars <- as.integer(2)
 
              # Use the correlation of the first & middle & last 1/3 of the data as starting values
@@ -161,6 +161,16 @@ setGeneric(name="stcc2",
              z.start <- this$Tobs - zDiv3
              z.end <- this$Tobs
              this$P3 <- cor(z[(z.start:z.end),])
+
+             # Set default gradient step-size for correlation pars
+             this$optimcontrol$ndeps <- rep(1e-05,this@nr.corPars * 3)
+             # Set default gradient step-size for transition pars; Speed1, Location1 & Speed2, Location2
+             this$optimcontrol$ndeps <- c(this$optimcontrol$ndeps,1e-07,1e-07,1e-07,1e-07)
+
+             # Set default optim parameter-scaling for correlation pars
+             this$optimcontrol$parscale <- rep(2,this@nr.corPars * 3)
+             # Set default optim parameter-scaling for transition pars; Speed1, Location1 & Speed2, Location2
+             this$optimcontrol$parscale <- c(this$optimcontrol$parscale,4,1,4,1)
 
              return(this)
            }
@@ -178,6 +188,7 @@ setGeneric(name=".calc.Gt",
 
              st_c <- 0
              if(this$shape == corrshape$single) { st_c <- this$st - loc1 }
+             if(this$shape == corrshape$double1loc) { st_c <- (this@st - loc1)^2 }
 
              G <- 0
              if(this$speedopt == corrspeedopt$gamma) { G <- 1/(1+exp(-speed*st_c)) }
@@ -320,21 +331,25 @@ setGeneric(name="estimateSTCC1",
            signature = c("stcc1Obj","estimationCtrl"),
            def = function(stcc1Obj,estimationCtrl){
              this <- stcc1Obj
-             e <- this$e
+
+             # Validation
+             if(class(stcc1Obj)[1] != "stcc1_class"){
+               warning("This estimator requires a valid 'stcc1_class' object.  Try using the stcc1() method to create one.")
+               return(new("stcc1_class"))
+             }
+
+             this$Estimated <- list()
+             z <- this@z
 
              calcSE <- estimationCtrl$calcSE
              verbose <- estimationCtrl$verbose
 
-             this$Estimated <- list()
-
              optimpars <- c( vecL(this$P1), vecL(this$P2), this$pars )
-             optimpars <- optimpars[!is.na(optimpars)]
+             optimpars <- optimpars[!is.na(optimpars)]  #Note: There should be no way for NA's to be in here.
 
              ### ---  Call optim to calculate the estimate --- ###
              if (verbose) this$optimcontrol$trace <- 10
 
-             # Filter the data:
-             z <- this$z
              tmp <- NULL
              try(tmp <- optim(optimpars,.loglik.stcc1,z,this,gr=NULL,method="BFGS",control=this$optimcontrol))
 
@@ -354,29 +369,31 @@ setGeneric(name="estimateSTCC1",
                tmp.par <- tmp$par
                this$Estimated$P1 <- unVecL(tmp.par[1:this@nr.corPars])
                tmp.par <- tail(tmp.par,-this@nr.corPars)
+
                this$Estimated$P2 <- unVecL(tmp.par[1:this@nr.corPars])
                tmp.par <- tail(tmp.par,-this@nr.corPars)
+
                this$Estimated$pars <- tmp.par
                names(this$Estimated$pars) <- names(this$pars)
+
+               this$Estimated$Pt <- .calc.Pt(this)
 
                if (calcSE) {
                  cat("\nCalculating STCC standard errors...\n")
                  this$Estimated$hessian <- NULL
                  try(this$Estimated$hessian <- optimHess(tmp$par,.loglik.stcc1,z,this,gr=NULL,control=this$optimcontrol))
-                 # Handle optimHess returns non-matrix
                  vecSE <- vector("numeric")
                  try(vecSE <- sqrt(-diag(invertHess(this$Estimated$hessian))))
-                 if(length(vecSE) > 0) {
+
                    this$Estimated$P1.se <- unVecL(vecSE[1:this@nr.corPars])
                    vecSE <- tail(vecSE,-this@nr.corPars)
+                   #
                    this$Estimated$P2.se <- unVecL(vecSE[1:this@nr.corPars])
                    vecSE <- tail(vecSE,-this@nr.corPars)
 
                    this$Estimated$pars.se <- vecSE
                    names(this$Estimated$pars.se) <- names(this$pars)
                  }
-               }
-               this$Estimated$Pt <- .calc.Pt(this)
 
              } else {
                #Failed to converge
@@ -408,74 +425,54 @@ setGeneric(name=".loglik.stcc2",
              err_output <- -1e10
              this <- stcc2Obj
 
-             this$Estimated$pars <- tail(optimpars,2*this@nr.trPars)
-             tmp.par <- optimpars
+             # Rebuild 'this' with the values from optimpars
+             if(length(this@optim.NApos) > 0 ){
+               # Add a '1' in place of the NA.  This will be put into the $Estimated$Pn matrices
+               tmp.par <- vector.insert(optimpars,this@optim.NApos,rep(1,length(this@optim.NApos)) )
+             } else tmp.par <- optimpars
 
-             # P1 always full of parameters:
-             vP1 <- tmp.par[1:this@nr.corPars]
-             mP <- unVecL(vP1)
-             eig <- eigen(mP,symmetric=TRUE,only.values=TRUE)
-             # Check for SPD - positive-definite check:
-             if (min(eig$values) <= 0) return(err_output)
-             this$Estimated$P1 <- mP
+             this$Estimated$pars <- tail(tmp.par,2*this@nr.trPars)
 
-             #Remove the P1 corPars, then extract the P2 corPars
+             vecP <- tmp.par[1:this@nr.corPars]
+             this$Estimated$P1 <- unVecL(vecP)
+             # Now drop these values from tmp.par
              tmp.par <- tail(tmp.par,-this@nr.corPars)
-             nr.freepars2 <- sum(this$sel.vec2,na.rm=TRUE) # count of number of free pars
-             freepars <- tmp.par[1:nr.freepars2]
-             vP2<-vP1 # copy of P1
-             # replace vP2 elements that have 1's in selvec by free pars
-             vP2[which(as.logical(this$sel.vec2))] <- freepars
-             mP <- unVecL(vP2)
-             eig <- eigen(mP,symmetric=TRUE,only.values=TRUE)
-             # Check for SPD - positive-definite check:
-             if (min(eig$values) <= 0) return(err_output)
-             this$Estimated$P2 <- mP
-
-             #Remove the P2 corPars, then extract the P3 corPars
-             tmp.par <- tail(tmp.par,-nr.freepars2)
-             nr.freepars3 <- sum(this$sel.vec3,na.rm=TRUE) # count of number of free pars
-             freepars <- tmp.par[1:nr.freepars3]
-             vP3<-vP2 # copy of P2
-             # replace vP3 elements that have 1's in selvec by free pars
-             vP3[which(as.logical(this$sel.vec3))] <- freepars
-             mP <- unVecL(vP3)
-             eig <- eigen(mP,symmetric=TRUE,only.values=TRUE)
-             # Check for SPD - positive-definite check:
-             if (min(eig$values) <= 0) return(err_output)
-             this$Estimated$P3 <- mP
+             #
+             vecP <- tmp.par[1:this@nr.corPars]
+             this$Estimated$P2 <- unVecL(vecP)
+             # Now drop these values from tmp.par
+             tmp.par <- tail(tmp.par,-this@nr.corPars)
+             #
+             vecP <- tmp.par[1:this@nr.corPars]
+             this$Estimated$P3 <- unVecL(vecP)
 
 
              #### ======== constraint checks ======== ####
 
-             # Check 2.1: Check the boundary values for speed params:
-             pos = 1
-             speed <- this$Estimated$pars[pos]
+             # Check 1: Check the boundary values for speed1 param:
+             speed <- this$Estimated$pars[1]
              maxSpeed <- switch(this$speedopt,1000,(1000/sd(this$st)),7.0,0.30)
              if (speed > maxSpeed) return(err_output)
              if (speed < 0) return(err_output)
-             pos = pos+1
 
-             # Check 3.1: Check the locations fall within min-max values of st
-             loc1 <- this$Estimated$pars[pos]
+             # Check 2: Check the first location falls within min-max values of st
+             loc1 <- this$Estimated$pars[2]
              if (loc1 < min(this$st)) return(err_output)
              if (loc1 > max(this$st)) return(err_output)
-             pos = pos+1
 
-             # Check 2.2: Check the boundary values for speed params:
-             speed <- this$Estimated$pars[pos]
+             # Check 3: Check the boundary values for speed2 param:
+             speed <- this$Estimated$pars[3]
              maxSpeed <- switch(this$speedopt,1000,(1000/sd(this$st)),7.0,0.30)
              if (speed > maxSpeed) return(err_output)
              if (speed < 0) return(err_output)
-             pos = pos+1
 
-             # Check 3.2: Check the locations fall within min-max values of st
-             loc2 <- this$Estimated$pars[pos]
+             # Check 4: Check the second location falls within min-max values of st
+             loc2 <- this$Estimated$pars[4]
              if (loc2 < min(this$st)) return(err_output)
              if (loc2 > max(this$st)) return(err_output)
 
+             # Check 5: Check that loc1 is before loc 2
              if (loc2 < loc1) return(err_output)
-             #if (loc2 - loc1 < 0.2) return(err_output)
 
 
              #### ======== calculate loglikelihood ======== ####
@@ -500,8 +497,13 @@ setGeneric(name="estimateSTCC2",
            def = function(stcc2Obj,estimationCtrl){
 
              this <- stcc2Obj
+             # Validation
+             if(class(stcc2Obj)[1] != "stcc2_class"){
+               warning("This estimator requires a valid 'stcc1_class' object.  Try using the stcc2() method to create one.")
+               return(new("stcc2_class"))
+             }
+
              this$Estimated <- list()
-             e <- this$e
              z <- this@z
 
              calcSE <- estimationCtrl$calcSE
@@ -511,20 +513,32 @@ setGeneric(name="estimateSTCC2",
              veclP2 <- vecL(this$P2)
              veclP3 <- vecL(this$P3)
 
-             # Set the selection vectors to manage free/restricted parameters
-             this$sel.vec2 = as.numeric(!is.na(veclP2))
-             this$sel.vec3 = as.numeric(!is.na(veclP3))
+             allPars <- c( veclP1, veclP2, veclP3, this$pars )
 
-             optimpars <- c( veclP1, veclP2, veclP3, this$pars )
-             optimpars <- optimpars[!is.na(optimpars)]
+             if(any(is.na(allPars))){
+               this@optim.NApos <- which(is.na(allPars))
+               optimpars <- allPars[-this@optim.NApos]
+               # Manage the optimControl params to deal with any NA's above
+               if(length(this$optimcontrol$parscale) == length(optimpars)){
+                 # Have to assume the user made correct changes
+               } else {
+                 this$optimcontrol$parscale <- this$optimcontrol$parscale[-this@optim.NApos]
+               }
+               #
+               if(length(this$optimcontrol$ndeps) == length(optimpars)){
+                 # Have to assume the user made correct changes
+               } else {
+                 this$optimcontrol$ndeps <- this$optimcontrol$ndeps[-this@optim.NApos]
+               }
 
-             # Manage the optimControl params
+             } else optimpars <- allPars
+             #Note: NA's can be sent due to restricted (constant cor) parameters
 
              ### ---  Call optim to calculate the estimate --- ###
              if (verbose) this$optimcontrol$trace <- 10
 
              tmp <- NULL
-             try(tmp <- optim(optimpars,.loglik.stcc2,z,this,gr=NULL,method="BFGS",control=this$optimcontrol,hessian=calcSE))
+             try(tmp <- optim(optimpars,.loglik.stcc2,z,this,gr=NULL,method="BFGS",control=this$optimcontrol))
 
              ### ---  Interpret the response from optim --- ###
              # An unhandled error could result in a NULL being returned by optim()
@@ -539,65 +553,61 @@ setGeneric(name="estimateSTCC2",
                this$Estimated$error <- FALSE
                this$Estimated$value <- tmp$value
 
-               tmp.par <- tmp$par
-               vP1 <- tmp.par[1:this@nr.corPars]
-               this$Estimated$P1 <- unVecL(vP1)
+               if(length(this@optim.NApos) > 0 ){
+                 tmp.par <- vector.insert(tmp$par,this@optim.NApos,rep(NA,length(this@optim.NApos)) )
+               }else tmp.par <- tmp$par
+
+               vecP <- tmp.par[1:this@nr.corPars]
+               this$Estimated$P1 <- unVecL(vecP)
+               # Now drop these values from tmp.par
                tmp.par <- tail(tmp.par,-this@nr.corPars)
-
-               nr.freepars2 <- sum(this$sel.vec2,na.rm=TRUE) # count of number of free pars
-               freepars <- tmp.par[1:nr.freepars2]
-               vP2 <- vP1 # copy of P1
-               # replace vP2 elements that have 1's in selvec by free pars
-               vP2[which(as.logical(this$sel.vec2))] <- freepars
-               this$Estimated$P2 <- unVecL(vP2)
-               tmp.par <- tail(tmp.par,-nr.freepars2)
-
-               nr.freepars3 <- sum(this$sel.vec3,na.rm=TRUE) # count of number of free pars
-               freepars <- tmp.par[1:nr.freepars3]
-               vP3 <- vP2 # copy of P2
-               # replace vP3 elements that have 1's in selvec by free pars
-               vP3[which(as.logical(this$sel.vec3))] <- freepars
-               this$Estimated$P3 <- unVecL(vP3)
-               tmp.par <- tail(tmp.par,-nr.freepars3)
-
-               # TO DO : probably going to fall over but likely never to be generlised to double
-               trPars <- tail(tmp$par,(2*this@nr.trPars))
-               pars1 <- trPars[1:this@nr.trPars]
-               pars2 <- tail(trPars,-this@nr.trPars)
                #
-               this$Estimated$pars <- c(pars1,pars2)
+               vecP <- tmp.par[1:this@nr.corPars]
+               this$Estimated$P2 <- unVecL(vecP)
+               # Now drop these values from tmp.par
+               tmp.par <- tail(tmp.par,-this@nr.corPars)
+               #
+               vecP <- tmp.par[1:this@nr.corPars]
+               this$Estimated$P3 <- unVecL(vecP)
+
+               this$Estimated$pars <- tail(tmp$par,(2*this@nr.trPars))
                names(this$Estimated$pars) <- names(this$pars)
 
-               if (calcSE) cat("\nCalculating STCC standard errors...\n")
-               if (calcSE) {
-                 this$Estimated$hessian <- tmp$hessian
-                 vecSE <- vector("numeric")
-                 try(vecSE <- sqrt(-diag(qr.solve(tmp$hessian))))
-
-                 if(length(vecSE) > 0) {
-                   vecSE1 <- vecSE[1:this@nr.corPars]
-                   this$Estimated$P1.se <- unVecL(vecSE1)
-                   vecSE <- tail(vecSE,-this@nr.corPars)
-
-                   vecSE2 <- vecSE1
-                   vecSE2[which(as.logical(this$sel.vec2))] <- vecSE[1:nr.freepars2]
-                   this$Estimated$P2.se <- unVecL(vecSE2)
-                   vecSE <- tail(vecSE,-nr.freepars2)
-
-                   vecSE3 <- vecSE2
-                   vecSE3[which(as.logical(this$sel.vec3))] <- vecSE[1:nr.freepars3]
-                   this$Estimated$P3.se <- unVecL(vecSE3)
-                   vecSE <- tail(vecSE,-nr.freepars3)
-
-                   vecSE1 <- vecSE[1:this@nr.trPars]
-                   vecSE2 <- tail(vecSE, -this@nr.trPars)
-                   this$Estimated$pars.se <- c(vecSE1,vecSE2)
-                   #
-                   names(this$Estimated$pars.se) <- names(this$pars)
-                 }
-               }
+               # Finally use these values to calc P(t)
                this$Estimated$Pt <- .calc.Pt2(this)
 
+               if (calcSE) {
+                 cat("\nCalculating STCC standard errors...\n")
+                 this$Estimated$hessian <- NULL
+                 try(this$Estimated$hessian <- optimHess(tmp$par,.loglik.stcc2,z,this,gr=NULL,control=this$optimcontrol))
+                 vecSE <- vector("numeric")
+                 try(vecSE <- sqrt(-diag(invertHess(this$Estimated$hessian))))
+                 if(length(vecSE) > 0 && !is.null(this$Estimated$hessian) ) {
+
+                   if(length(this@optim.NApos) > 0 ){
+                     vecSE <- vector.insert(vecSE,this@optim.NApos,rep(NA,length(this@optim.NApos)) )
+                   }
+
+                   this$Estimated$pars.se <- tail(vecSE,2*this@nr.trPars)
+                   names(this$Estimated$pars.se) <- names(this$pars)
+
+                   vecSE <- vecSE[1:this@nr.corPars]
+                   this$Estimated$P1.se <- unVecL(vecSE)
+                   # Now drop these values from tmp.par
+                   vecSE <- tail(vecSE,-this@nr.corPars)
+                   #
+                   vecSE <- vecSE[1:this@nr.corPars]
+                   this$Estimated$P2.se <- unVecL(vecSE)
+                   # Now drop these values from tmp.par
+                   vecSE <- tail(vecSE,-this@nr.corPars)
+                   #
+                   vecSE <- vecSE[1:this@nr.corPars]
+                   this$Estimated$P3.se <- unVecL(vecSE)
+                   # No need to drop anymore
+
+
+                 }
+               }
              } else {
                #Failed to converge
                this$Estimated$error <- TRUE
