@@ -5,7 +5,7 @@
 
 ## --- stcc1_class Definition --- ####
 stcc1 <- setClass(Class = "stcc1_class",
-               slots = c(ntvg="ntvgarch_class",nr.corPars="integer",nr.trPars="integer",z="matrix"),
+               slots = c(ntvg="ntvgarch_class",nr.corPars="integer",z="matrix"),
                contains = c("namedList")
                )
 
@@ -59,7 +59,6 @@ setGeneric(name="stcc1",
 
              this$st <- (1:ntvgarchObj$Tobs)/ntvgarchObj$Tobs
              this@nr.corPars <- as.integer((N^2-N)/2 )
-             this@nr.trPars <- as.integer(2)
 
              # Use the unconditional correlation of the first & last 1/3 of the data as starting values
              zDiv3 <- round(this$Tobs/3)
@@ -89,7 +88,7 @@ setGeneric(name="stcc1",
 
 ## --- stcc2_class Definition --- ####
 stcc2 <- setClass(Class = "stcc2_class",
-                  slots = c(ntvg="ntvgarch_class",nr.corPars="integer",nr.trPars="integer",optim.NApos="numeric",z="matrix"),
+                  slots = c(ntvg="ntvgarch_class",nr.corPars="integer",nr.trPars="integer",fixedPar.idx="numeric",z="matrix"),
                   contains = c("namedList")
 )
 
@@ -133,7 +132,7 @@ setGeneric(name="stcc2",
              }
              # End validation
 
-             this@optim.NApos <- vector("numeric")
+             this@fixedPar.idx <- vector("numeric")
 
              # Set Default Values:
              N <- this$N <- ntvgarchObj$N
@@ -146,7 +145,6 @@ setGeneric(name="stcc2",
 
              this$st <- (1:ntvgarchObj$Tobs)/ntvgarchObj$Tobs
              this@nr.corPars <- as.integer((N^2-N)/2 )
-             this@nr.trPars <- as.integer(2)
 
              # Use the correlation of the first & middle & last 1/3 of the data as starting values
              zDiv3 <- round(this$Tobs/3)
@@ -183,8 +181,8 @@ setGeneric(name=".calc.Gt",
            def = function(stcc1Obj){
              this <- stcc1Obj
 
-             speed <- this$Estimated$pars["speed"]
-             loc1 <- this$Estimated$pars["loc1"]
+             speed <- this$Estimated$pars[1]  # speed
+             loc1 <- this$Estimated$pars[2]   # loc
 
              st_c <- 0
              if(this$shape == corrshape$single) { st_c <- this$st - loc1 }
@@ -226,10 +224,10 @@ setGeneric(name=".calc.Gt2",
            def = function(stcc2Obj){
              this <- stcc2Obj
 
-             speed1 <- this$Estimated$pars["speed1"]
-             loc1 <- this$Estimated$pars["loc1"]
-             speed2 <- this$Estimated$pars["speed2"]
-             loc2 <- this$Estimated$pars["loc2"]
+             speed1 <- this$Estimated$pars[1]  # speed1
+             loc1 <- this$Estimated$pars[2]    # loc1
+             speed2 <- this$Estimated$pars[3]  # speed2
+             loc2 <- this$Estimated$pars[4]    # loc2
 
              st_c_1 <- this$st - loc1
              st_c_2 <- this$st - loc2
@@ -278,7 +276,7 @@ setGeneric(name=".loglik.stcc1",
              err_output <- -1e10
              this <- stcc1Obj
 
-             this$Estimated$pars <- tail(optimpars,this@nr.trPars)
+             this$Estimated$pars <- tail(optimpars,2)
              tmp.par <- optimpars
 
              vP1 <- tmp.par[1:this@nr.corPars]
@@ -434,28 +432,40 @@ setGeneric(name=".loglik.stcc2",
 
              # Rebuild 'this' with the values from optimpars
              tmp.par <- optimpars
-             if(length(this@optim.NApos) > 0 ){
+             if(length(this@fixedPar.idx) > 0 ){
+               # First reset the optimpars to the original length with NA's
+               tmp.par <- vector.insert(optimpars,this@fixedPar.idx,rep(NaN,length(this@fixedPar.idx)))
                # Add the previous correlation param in place of the NA.  This will be put into the $Estimated$Pn matrices
-               tmp.par <- .fixCorPars(optimpars,this@optim.NApos,this@nr.corPars)
-               #fixed.par.idx = this@optim.NApos-this@nr.corPars
-               #tmp.par <- vector.insert(optimpars,this@optim.NApos,optimpars[fixed.par.idx] )
-             } else tmp.par <- optimpars
+               tmp.par <- .fixCorPars(tmp.par,this@fixedPar.idx,this@nr.corPars)
+             }
 
-             this$Estimated$pars <- tail(tmp.par,2*this@nr.trPars)
+             this$Estimated$pars <- tail(tmp.par,4)
              names(this$Estimated$pars) <- c("speed1","loc1","speed2","loc2")
 
              vecP <- tmp.par[1:this@nr.corPars]
-             this$Estimated$P1 <- unVecL(vecP)
+             mP <- unVecL(vecP)
+             eig <- eigen(mP,symmetric=TRUE,only.values=TRUE)
+             # Check for SPD - positive-definite check:
+             if (min(eig$values) <= 0) return(err_output)
+             this$Estimated$P1 <- mP
              # Now drop these values from tmp.par
              tmp.par <- tail(tmp.par,-this@nr.corPars)
              #
              vecP <- tmp.par[1:this@nr.corPars]
-             this$Estimated$P2 <- unVecL(vecP)
+             mP <- unVecL(vecP)
+             eig <- eigen(mP,symmetric=TRUE,only.values=TRUE)
+             # Check for SPD - positive-definite check:
+             if (min(eig$values) <= 0) return(err_output)
+             this$Estimated$P2 <- mP
              # Now drop these values from tmp.par
              tmp.par <- tail(tmp.par,-this@nr.corPars)
              #
              vecP <- tmp.par[1:this@nr.corPars]
-             this$Estimated$P3 <- unVecL(vecP)
+             mP <- unVecL(vecP)
+             eig <- eigen(mP,symmetric=TRUE,only.values=TRUE)
+             # Check for SPD - positive-definite check:
+             if (min(eig$values) <= 0) return(err_output)
+             this$Estimated$P3 <- mP
 
 
              #### ======== constraint checks ======== ####
@@ -510,7 +520,7 @@ setGeneric(name="estimateSTCC2",
              this <- stcc2Obj
              # Validation
              if(class(stcc2Obj)[1] != "stcc2_class"){
-               warning("This estimator requires a valid 'stcc1_class' object.  Try using the stcc2() method to create one.")
+               warning("This estimator requires a valid 'stcc2_class' object.  Try using the stcc2() method to create one.")
                return(new("stcc2_class"))
              }
 
@@ -524,26 +534,25 @@ setGeneric(name="estimateSTCC2",
              veclP2 <- vecL(this$P2)
              veclP3 <- vecL(this$P3)
 
-             optimpars <- c( veclP1, veclP2, veclP3, this$pars )
-             this@optim.NApos <- which(is.na(optimpars))
+             allPars <- c( veclP1, veclP2, veclP3, this$pars )
 
-             # if(any(is.na(allPars))){
-             #   this@optim.NApos <- which(is.na(allPars))
-             #   optimpars <- allPars[-this@optim.NApos]
-             #   # Manage the optimControl params to deal with any NA's above
-             #   if(length(this$optimcontrol$parscale) == length(optimpars)){
-             #     # Have to assume the user made correct changes
-             #   } else {
-             #     this$optimcontrol$parscale <- this$optimcontrol$parscale[-this@optim.NApos]
-             #   }
-             #   #
-             #   if(length(this$optimcontrol$ndeps) == length(optimpars)){
-             #     # Have to assume the user made correct changes
-             #   } else {
-             #     this$optimcontrol$ndeps <- this$optimcontrol$ndeps[-this@optim.NApos]
-             #   }
-             #
-             # } else optimpars <- allPars
+             if(any(is.na(allPars))){
+               this@fixedPar.idx <- which(is.na(allPars))
+               optimpars <- allPars[-this@fixedPar.idx]
+               # Manage the optimControl params to deal with any NA's above
+               if(length(this$optimcontrol$parscale) == length(optimpars)){
+                 # Have to assume the user made correct changes
+               } else {
+                 this$optimcontrol$parscale <- this$optimcontrol$parscale[-this@fixedPar.idx]
+               }
+               #
+               if(length(this$optimcontrol$ndeps) == length(optimpars)){
+                 # Have to assume the user made correct changes
+               } else {
+                 this$optimcontrol$ndeps <- this$optimcontrol$ndeps[-this@fixedPar.idx]
+               }
+
+             } else optimpars <- allPars
              #Note: NA's can be sent due to restricted (constant cor) parameters
 
              ### ---  Call optim to calculate the estimate --- ###
@@ -565,10 +574,16 @@ setGeneric(name="estimateSTCC2",
                this$Estimated$error <- FALSE
                this$Estimated$value <- tmp$value
 
-               # if(length(this@optim.NApos) > 0 ){
-               #   tmp.par <- vector.insert(tmp$par,this@optim.NApos,rep(NA,length(this@optim.NApos)) )
-               # }else
-                tmp.par <- tmp$par
+               # Rebuild 'this' with the values from tmp$pars, so we can calc final Pt
+               tmp.par <- tmp$par
+               if(length(this@fixedPar.idx) > 0 ){
+                 # First reset the optimpars to the original length with NA's
+                 tmp.par <- vector.insert(optimpars,this@fixedPar.idx,rep(NA,length(this@fixedPar.idx)))
+                 # Add the previous correlation param in place of the NA.  This will be put into the $Estimated$Pn matrices
+                 tmp.par <- .fixCorPars(tmp.par,this@fixedPar.idx,this@nr.corPars)
+               }
+
+               this$Estimated$pars <- tail(tmp$par,(4))
 
                vecP <- tmp.par[1:this@nr.corPars]
                this$Estimated$P1 <- unVecL(vecP)
@@ -583,11 +598,12 @@ setGeneric(name="estimateSTCC2",
                vecP <- tmp.par[1:this@nr.corPars]
                this$Estimated$P3 <- unVecL(vecP)
 
-               this$Estimated$pars <- tail(tmp$par,(2*this@nr.trPars))
-               names(this$Estimated$pars) <- names(this$pars)
-
-               # Finally use these values to calc P(t)
+               # Now use these values to calc P(t)
                this$Estimated$Pt <- .calc.Pt2(this)
+
+               # Finally re-insert the NA's into the estimated pars:
+               this$Estimated$P2[which(is.na(this$P2))] <- NA
+               this$Estimated$P3[which(is.na(this$P3))] <- NA
 
                if (calcSE) {
                  cat("\nCalculating STCC standard errors...\n")
@@ -597,12 +613,11 @@ setGeneric(name="estimateSTCC2",
                  try(vecSE <- sqrt(-diag(invertHess(this$Estimated$hessian))))
                  if(length(vecSE) > 0 && !is.null(this$Estimated$hessian) ) {
 
-                   # if(length(this@optim.NApos) > 0 ){
-                   #   vecSE <- vector.insert(vecSE,this@optim.NApos,rep(NA,length(this@optim.NApos)) )
-                   # }
+                   if(length(this@fixedPar.idx) > 0 ){
+                     vecSE <- vector.insert(vecSE,this@fixedPar.idx,rep(NA,length(this@fixedPar.idx)) )
+                   }
 
-                   this$Estimated$pars.se <- tail(vecSE,2*this@nr.trPars)
-                   #names(this$Estimated$pars.se) <- names(this$pars)
+                   this$Estimated$pars.se <- tail(vecSE,4)
 
                    vecSE <- vecSE[1:this@nr.corPars]
                    this$Estimated$P1.se <- unVecL(vecSE)
@@ -617,8 +632,6 @@ setGeneric(name="estimateSTCC2",
                    vecSE <- vecSE[1:this@nr.corPars]
                    this$Estimated$P3.se <- unVecL(vecSE)
                    # No need to drop anymore
-
-
                  }
                }
              } else {
@@ -704,4 +717,8 @@ setGeneric(name=".dG_dtr",
 
            }
 )
+
+
+
+
 
