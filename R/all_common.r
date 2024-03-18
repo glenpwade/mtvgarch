@@ -205,7 +205,7 @@ setGeneric(name="invertHess",
 
 })
 
-## -- sqrt_mat2 -- ####
+## -- vector.insert -- ####
 setGeneric(name="vector.insert",
            valueClass = "vector",
            signature = c("x","ins.pos","val"),
@@ -232,8 +232,11 @@ setGeneric(name="vector.insert",
                return(vector())
              }
              if(mode(x) != mode(val)) {
-               msg = paste0("Type Mismatch:  You are trying to insert a ", mode(val), " vector into a ",mode(x), " one.  This might cause errors.")
-               warning(msg)
+               # Allow NA's
+               if(!is.na(val[1])){
+                 msg = paste0("Type Mismatch:  You are trying to insert a ", mode(val), " vector into a ",mode(x), " one.  This might cause errors.")
+                 warning(msg)
+               }
              }
 
              # Function Logic:
@@ -251,6 +254,8 @@ setGeneric(name="vector.insert",
              return(rtnVec)
            }
 )
+
+
 
 
 # setGeneric(name=".updateEstimatedwithOptimpars",
