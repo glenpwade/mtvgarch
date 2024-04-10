@@ -21,11 +21,11 @@ setMethod("initialize","stcc1_class",
 
             .Object$shape <- corrshape$single
             .Object$speedopt <- corrspeedopt$eta
-            .Object$optimcontrol <- list(fnscale = -1, reltol = 1e-5, trace = 0)
+            .Object$optimcontrol <- list(fnscale = -1, reltol = 1e-5, trace = 10)
 
             .Object$P1 <- matrix("numeric")
             .Object$P2 <- matrix("numeric")
-            .Object$pars <- c(3,0.5)
+            .Object$pars <- c(2.5,0.5)
             names(.Object$pars) <- c("speed","loc")
 
 
@@ -73,12 +73,12 @@ setGeneric(name="stcc1",
              # Set default gradient step-size for correlation pars
              this$optimcontrol$ndeps <- rep(1e-05,this@nr.corPars * 2)
              # Set default gradient step-size for transition pars; Speed & Location
-             this$optimcontrol$ndeps <- c(this$optimcontrol$ndeps,1e-07,1e-07)
+             this$optimcontrol$ndeps <- c(this$optimcontrol$ndeps,1e-06,1e-07)
 
              # Set default optim parameter-scaling for correlation pars
-             this$optimcontrol$parscale <- rep(2,this@nr.corPars * 2)
+             this$optimcontrol$parscale <- rep(1,this@nr.corPars * 2)
              # Set default optim parameter-scaling for transition pars; Speed & Location
-             this$optimcontrol$parscale <- c(this$optimcontrol$parscale,4,1)
+             this$optimcontrol$parscale <- c(this$optimcontrol$parscale,21,3)
 
 
              return(this)
@@ -109,7 +109,7 @@ setMethod("initialize","stcc2_class",
             .Object$P1 <- matrix("numeric")
             .Object$P2 <- matrix("numeric")
             .Object$P3 <- matrix("numeric")
-            .Object$pars <- c(3,0.33,3,0.66)
+            .Object$pars <- c(2.5,0.33,2.5,0.66)
             names(.Object$pars) <- c("speed1","loc1","speed2","loc2")
 
             # Return:
@@ -163,12 +163,12 @@ setGeneric(name="stcc2",
              # Set default gradient step-size for correlation pars
              this$optimcontrol$ndeps <- rep(1e-05,this@nr.corPars * 3)
              # Set default gradient step-size for transition pars; Speed1, Location1 & Speed2, Location2
-             this$optimcontrol$ndeps <- c(this$optimcontrol$ndeps,1e-07,1e-07,1e-07,1e-07)
+             this$optimcontrol$ndeps <- c(this$optimcontrol$ndeps,1e-06,1e-07,1e-06,1e-07)
 
              # Set default optim parameter-scaling for correlation pars
-             this$optimcontrol$parscale <- rep(2,this@nr.corPars * 3)
+             this$optimcontrol$parscale <- rep(1,this@nr.corPars * 3)
              # Set default optim parameter-scaling for transition pars; Speed1, Location1 & Speed2, Location2
-             this$optimcontrol$parscale <- c(this$optimcontrol$parscale,4,1,4,1)
+             this$optimcontrol$parscale <- c(this$optimcontrol$parscale,21,3,21,5)
 
              return(this)
            }
@@ -619,18 +619,18 @@ setGeneric(name="estimateSTCC2",
 
                    this$Estimated$pars.se <- tail(vecSE,4)
 
-                   vecSE <- vecSE[1:this@nr.corPars]
-                   this$Estimated$P1.se <- unVecL(vecSE)
+                   vSE <- vecSE[1:this@nr.corPars]
+                   this$Estimated$P1.se <- unVecL(vSE)
                    # Now drop these values from tmp.par
                    vecSE <- tail(vecSE,-this@nr.corPars)
                    #
-                   vecSE <- vecSE[1:this@nr.corPars]
-                   this$Estimated$P2.se <- unVecL(vecSE)
+                   vSE <- vecSE[1:this@nr.corPars]
+                   this$Estimated$P2.se <- unVecL(vSE)
                    # Now drop these values from tmp.par
                    vecSE <- tail(vecSE,-this@nr.corPars)
                    #
-                   vecSE <- vecSE[1:this@nr.corPars]
-                   this$Estimated$P3.se <- unVecL(vecSE)
+                   vSE <- vecSE[1:this@nr.corPars]
+                   this$Estimated$P3.se <- unVecL(vSE)
                    # No need to drop anymore
                  }
                }
@@ -671,54 +671,84 @@ setGeneric(name="unCorrelateData",
            }
 )
 
-## -- .dG_dtr(STCC) ####
-setGeneric(name=".dG_dtr",
-           valueClass = "matrix",
-           signature = c("stccObj","trNum"),
-           def =  function(stccObj,trNum){
-             this <- stccObj
-
-             rtn <- matrix(nrow=this$Tobs,ncol=this@nr.trPars)
-
-             G <- calc.Gt(this)  # T x 1
-
-             loc1 <- loc2 <- speed <- 0
-             if(trNum == 1){
-               loc1 <- this$Estimated$pars["loc1"]
-               loc2 <- this$Estimated$pars["loc2"]
-               speed <- this$Estimated$pars["speed"]
-             }
-
-             # corrshape$single,
-             if(this$speedopt == corrspeedopt$gamma) {
-               col_idx <- 1
-               rtn[,col_idx] <- G * (1-G) * (this$st - loc1)
-               col_idx <- 2
-               rtn[,col_idx] <- -1 * G * (1-G) * speed
-             }
-
-             if(this$speedopt == corrspeedopt$gamma_std) {
-               col_idx <- 1
-               rtn[,col_idx] <- G * (1-G) * (this$st - loc1) / sd(this$st)
-               col_idx <- 2
-               rtn[,col_idx] <- -1 * G * (1-G) * speed / sd(this$st)
-             }
-
-             if(this$speedopt == corrspeedopt$eta) {
-               col_idx <- 1
-               rtn[,col_idx] <- G * (1-G) * (this$st - loc1) * exp(speed)
-               col_idx <- 2
-               rtn[,col_idx] <- -1 * G * (1-G) * exp(speed)
-             }
-
-             # # TODO:  Complete for other corrshapes & other corr speedOpt's:
-
-             return(rtn)
-
-           }
-)
-
-
-
+# ## -- .dG_dtr(STCC) ####
+# setGeneric(name=".dG_dtr",
+#            valueClass = "matrix",
+#            signature = c("stccObj","trNum"),
+#            def =  function(stccObj,trNum){
+#              this <- stccObj
+#
+#              rtn <- matrix(nrow=this$Tobs,ncol=this@nr.trPars)
+#
+#              G <- calc.Gt(this)  # T x 1
+#
+#              loc1 <- loc2 <- speed <- 0
+#              if(trNum == 1){
+#                loc1 <- this$Estimated$pars["loc1"]
+#                loc2 <- this$Estimated$pars["loc2"]
+#                speed <- this$Estimated$pars["speed"]
+#              }
+#
+#              # corrshape$single,
+#              if(this$speedopt == corrspeedopt$gamma) {
+#                col_idx <- 1
+#                rtn[,col_idx] <- G * (1-G) * (this$st - loc1)
+#                col_idx <- 2
+#                rtn[,col_idx] <- -1 * G * (1-G) * speed
+#              }
+#
+#              if(this$speedopt == corrspeedopt$gamma_std) {
+#                col_idx <- 1
+#                rtn[,col_idx] <- G * (1-G) * (this$st - loc1) / sd(this$st)
+#                col_idx <- 2
+#                rtn[,col_idx] <- -1 * G * (1-G) * speed / sd(this$st)
+#              }
+#
+#              if(this$speedopt == corrspeedopt$eta) {
+#                col_idx <- 1
+#                rtn[,col_idx] <- G * (1-G) * (this$st - loc1) * exp(speed)
+#                col_idx <- 2
+#                rtn[,col_idx] <- -1 * G * (1-G) * exp(speed)
+#              }
+#
+#              # # TODO:  Complete for other corrshapes & other corr speedOpt's:
+#
+#              return(rtn)
+#
+#            }
+# )
+#
+#
+# ## -- summary() ####
+# setGeneric(name=".summary.stcc2",
+#            signature = c("stcc2Obj"),
+#            def =  function(stcc2Obj){
+#              this <- stcc2Obj
+#
+#              cat("\nSTCC2 OBJECT\n")
+#              if(!is.null(this$Estimated)){
+#                cat("\nEstimation Results:\n")
+#                print(this$Estimated$pars)
+#                cat("\nP1:\n", vecL(this$P1), " -> ", vecL(this$Estimated$P1))
+#                cat("\nP2:\n", vecL(this$P2), " -> ", vecL(this$Estimated$P2))
+#                cat("\nP3:\n", vecL(this$P3), " -> ", vecL(this$Estimated$P3))
+#                cat("\n\nLog-likelihood value(GARCH): ",this$Estimated$value)
+#              }
+#              return(TRUE)
+#            }
+# )
+#
+#
+# ## -- summary() ####
+# setMethod("summary",signature="stcc2_class",
+#           function(object,...){
+#
+#             return(.summary.stcc2(object))
+#
+#            }
+#
+#           )
+#
+#
 
 
