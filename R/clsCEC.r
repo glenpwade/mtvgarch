@@ -45,14 +45,18 @@ setGeneric(name="cec",
                this@Tobs <- ntvgarchObj@Tobs
                N <- this@N
 
-               # Add the Estimated components from the ntvgarch
-               this$ntvgarch <- list()
-               for(n in 1:N){
-                 this$ntvgarch[[n]] <- list()
-                 this$ntvgarch[[n]]$tv <- ntvgarchObj[[n]]@tvObj
-                 this$ntvgarch[[n]]$garch <- ntvgarchObj[[n]]@garchObj
-               }
-               names(this$ntvgarch) <- names(ntvgarchObj)
+               #this@e <- matrix(nrow = this@Tobs,ncol = N)
+
+             # Extract the Data & Estimated components from the ntvgarch
+             this$ntvgarch <- list()
+             for(n in 1:ntvgarchObj@N){
+               this$ntvgarch[[n]] <- list()
+               this$ntvgarch[[n]]$tv <- ntvgarchObj[[n]]$Estimated$tv
+               this$ntvgarch[[n]]$garch <- ntvgarchObj[[n]]$Estimated$garch
+               this$ntvgarch[[n]]$garchtype <- ntvgarchObj[[n]]$garchtype
+               #this@e[,n] <- ntvgarchObj[[n]]@e
+             }
+             names(this$ntvgarch) <- names(ntvgarchObj)
              }
 
              if(!is.null(nr.series)){
