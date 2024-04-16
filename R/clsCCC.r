@@ -26,6 +26,27 @@ setMethod("initialize","ccc_class",
           })
 
 ## -- Constructor:ccc -- ####
+#' @title
+#' Create a Conditional Constant Correlation object
+#'
+#' @description
+#' `ccc` returns a CCC Object based on a specified number of series, or an ntvgarch object
+#'
+#' @usage ccc(ntvgarchObj)
+#'  .. or ..
+#' ccc(nr.series)
+#'
+#' @param ntvgarchObj A valid ntvgarch object
+#' @param nr.series Non-negative Integer. Will generate a simple CCC object (typically used for testing)
+#'
+#' @details
+#' I wanna write stuff
+#'
+#' @returns A ccc_class object.  Suitable for use in Correlation Modelling.
+#'
+#' @note
+#' I am a note
+#'
 setGeneric(name="ccc",
            valueClass = "ccc_class",
            signature = c("ntvgarchObj","nr.series"),
@@ -114,6 +135,32 @@ setGeneric(name=".loglik.ccc",
 )
 
 ## --- estimateCCC --- ####
+#' @title
+#' Estimate a Conditional Constant Correlation object
+#'
+#' @description
+#' `estimateCCC` returns an Estimated CCC Object
+#'
+#' @usage estimateCCC(cccObj,estimationCtrl)
+#'
+#' @param cccObj A valid CCC object
+#' @param estimationCtrl Optional. Provides controls for creating Standard Errors and displaying estimation progress
+#'
+#' @details
+#' A newly created ccc object represents a model specification.  When we estimate this model using:
+#'
+#' ```
+#'   myCCC = estimateCCC(myCCC)
+#' ```
+#'
+#' we will find all the estimated information has been added to the object, e.g. estimated parameters, log-likelihood value, etc.
+#' This results in a single object that contains the model specification and the estimated values.
+#'
+#' @returns A ccc_class object.
+#'
+#' @note
+#' I am a note
+#'
 setGeneric(name="estimateCCC",
            valueClass = "ccc_class",
            signature = c("cccObj","estimationCtrl"),
@@ -147,6 +194,35 @@ setGeneric(name="estimateCCC",
 ##============================##
 ##===   test.CCCParsim   ===####
 ##============================##
+#' @title
+#' Parsimonious Test for Constancy in a CCC model
+#'
+#' @description
+#' `test.CCCParsim` uses Eigenvectors to reduce the numerical/processing complexity of the test
+#'
+#' @usage test.CCCParsim(H0,st,testOrder)
+#'
+#' @param H0 Null Hypothesis of the test: A valid, estimated CCC object
+#' @param st Numeric vector representing the smooth-transition variable
+#' @param testOrder Integer = 1,2,3 or 4.
+#'
+#' @details
+#' A newly created ccc object represents a model specification.  When we estimate this model using:
+#'
+#' ```
+#'   testResult = test.CCCParsim(H0,st,testOrder)
+#' ```
+#'
+#' we will find all the estimated information has been added to the object, e.g. estimated parameters, log-likelihood value, etc.
+#' This results in a single object that contains the model specification and the estimated values.
+#'
+#' @returns A named 2x1 matrix, with the Test Statistic Value and the P Value.
+#'
+#' @note
+#' I am a note
+#'
+#'
+#'
 setGeneric(name="test.CCCParsim",
            valueClass = "matrix",
            signature = c("H0","st","testOrder"),
@@ -349,6 +425,33 @@ setGeneric(name=".im_cor_parsim",
 ##============================##
 ##===   test.CCCvSTCC1   ===####
 ##============================##
+#' @title
+#' LM Test for Constancy in a CCC model
+#'
+#' @description
+#' `test.CCCvSTCC1` uses black magic to determine if the correlations are constant over time
+#'
+#' @usage test.CCCvSTCC1(H0,st,testOrder)
+#'
+#' @param H0 Null Hypothesis of the test: A valid, estimated CCC object
+#' @param st Numeric vector representing the smooth-transition variable
+#' @param testOrder Integer = 1,2,3 or 4.
+#'
+#' @details
+#' A newly created ccc object represents a model specification.  When we estimate this model using:
+#'
+#' ```
+#'   testResult = test.CCCvSTCC1(H0,st,testOrder)
+#' ```
+#'
+#'
+#'
+#' @returns A named 2x1 matrix, with the Test Statistic Value and the P Value.
+#'
+#' @note
+#' I am a note
+#'
+#'
 setGeneric(name="test.CCCvSTCC1",
            valueClass = "matrix",
            signature = c("H0","st","testOrder"),

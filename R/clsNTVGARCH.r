@@ -16,7 +16,33 @@ setMethod("initialize","ntvgarch_class",
             .Object
           })
 
-## === Constructor  ===####
+## === Constructor: ntvgarch  ===####
+#' @title
+#' A list of estimated mtvgarch models
+#'
+#' @description
+#' `ntvgarch` is a convenience object designed to hold a list of estimated mtvgarch models, to be used for multivariate correlation modelling
+#'
+#' @usage ntvgarch("tvgarch_list","series.names")
+#'
+#' @param tvgarch_list A standard R list() containing 2 or more univariate estimated mtvgarch models
+#' @param series.names Optional. A character vector containing the names of the series in order.
+#'
+#' @details
+#' This object was created to avoid issues with simple named lists.  By forcing the user to create this object, we can
+#' ensure that all relevant validations are run and that the multivariate correlation models that use this will function as expected
+#'
+#' ```
+#'   myNTVG = ntvgarch("tvgarch_list","series.names")
+#' ```
+#'
+#'
+#' @returns An ntvgarch_class object. Basically a named list with some useful attributes added.
+#'
+#' @note
+#' I am a note
+#'
+#'
 setGeneric(name="ntvgarch",
            valueClass = "ntvgarch_class",
            signature = c("tvgarch_list","series.names"),

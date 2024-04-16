@@ -1,6 +1,6 @@
-## --- Contains class definitions & methods for the garch_class, tv_class and tvgarch_class
+# --- Contains class definitions & methods for the garch_class, tv_class and tvgarch_class
 
-## --- TV_CLASS Definition --- ####
+# --- TV_CLASS Definition --- ####
 
 tv <- setClass(Class = "tv_class",
                slots = c(Tobs="integer",st="numeric",g="numeric",delta0free="logical",nr.pars="integer", nr.transitions="integer"),
@@ -28,6 +28,33 @@ setMethod("initialize","tv_class",
             .Object
           })
 
+# Constructor: tv() ####
+#' @title
+#' A time-varying
+#'
+#' @description
+#' `tv` is a
+#'
+#' @usage tv(st,shape)
+#'
+#' @param st A smooth
+#' @param shape Use enum, tvshape$...
+#'
+#' @details
+#' This object
+#'
+#' ```
+#'   myTV = tv(st,tvshape$single)
+#' ```
+#'
+#'
+#' @returns A tv_class object.
+#'
+#' @note
+#' I am a note
+#'
+#'
+#'
 setGeneric(name="tv",
            valueClass = "tv_class",
            signature = c("st","shape"),
@@ -67,7 +94,7 @@ setGeneric(name="tv",
            }
 )
 
-## --- GARCH_CLASS Definition --- ####
+# --- GARCH_CLASS Definition --- ####
 garch <- setClass(Class = "garch_class",
                   slots = c(h="numeric",nr.pars="integer",order="numeric"),
                   contains = c("namedList")
@@ -87,6 +114,35 @@ setMethod("initialize","garch_class",
             .Object
           })
 
+
+# Constructor: garch() ####
+#' @title
+#' A garch object
+#'
+#' @description
+#' `garch` is a
+#'
+#' @usage garch(type,order)
+#'
+#' @param type Use Enum, garchtype$...
+#' @param order Optional. Integer, defaults to 1, e.g. Default is a Garch(1,1) model.
+#'
+#' @details
+#' This object
+#'
+#' ```
+#'   myGarch = garch(garchtype$standard)
+#' ```
+#'
+#' This package provide support for standard Garch and GJR-Garch specifications
+#'
+#' @returns A garch_class object.
+#'
+#' @note
+#' I am a note
+#'
+#'
+#'
 setGeneric(name="garch",
            valueClass = "garch_class",
            signature = c("type","order"),
@@ -115,7 +171,7 @@ setMethod("garch",signature = c("numeric","missing"),
           })
 
 
-## --- tvgarch_CLASS Definition --- ####
+# --- tvgarch_CLASS Definition --- ####
 tvgarch <- setClass(Class = "tvgarch_class",
                     slots = c(Tobs="integer",tvObj="tv_class",garchObj="garch_class",e="numeric"),
                     contains = c("namedList")
@@ -144,6 +200,33 @@ setMethod("initialize","tvgarch_class",
             .Object
           })
 
+
+# Constructor: tvgarch()  ####
+#' @title
+#' A multiplicative tvgarch object
+#'
+#' @description
+#' `tvgarch` is a
+#'
+#' @usage tvgarch(tvObj,garchType)
+#'
+#' @param tvObj An estimated TV model
+#' @param garchType Use Enum, garchtype$...
+#'
+#' @details
+#' This object
+#'
+#' ```
+#'   myTvGarch = tvgarch(myTV,garchtype$standard)
+#' ```
+#'
+#'
+#' @returns A tvgarch_class object.
+#'
+#' @note
+#' I am a note
+#'
+#'
 setGeneric(name="tvgarch",
            valueClass = "tvgarch_class",
            signature = c("tvObj","garchType"),
@@ -196,7 +279,32 @@ setGeneric(name="tvgarch",
 ## --- Public GARCH Methods --- ####
 
 ## -- estimateGARCH() ####
-
+#' @title
+#' Estimates a garch model
+#'
+#' @description
+#' `estimateGARCH` is a
+#'
+#' @usage estimateGARCH(e,garchObj,estimationControl)
+#'
+#' @param e An estimated TV model
+#' @param garchObj Use Enum, garchtype$...
+#' @param estimationControl A list
+#'
+#' @details
+#' This object
+#'
+#' ```
+#'   myGarch = estimateGARCH(e,myGarch,estimationControl)
+#' ```
+#'
+#'
+#' @returns A garch_class object.
+#'
+#' @note
+#' I am a note
+#'
+#'
 estimateGARCH <- function(e,garchObj,estimationControl,tvObj){0}
 .estimateGARCH <- function(e,garchObj,estimationControl,tvObj){
              this <- garchObj
@@ -294,6 +402,33 @@ setMethod("estimateGARCH",
 )
 
 ## == estimateGARCH_RollingWindow == ####
+#' @title
+#' Approximately estimates a garch model
+#'
+#' @description
+#' `estimateGARCH_RollingWindow` is a
+#'
+#' @usage estimateGARCH_RollingWindow(e,garchObj,estimationControl)
+#'
+#' @param e An estimated TV model
+#' @param garchObj Use Enum, garchtype$...
+#' @param estimationControl A list
+#'
+#' @details
+#' This object
+#'
+#' ```
+#'   estimationControl$vartargetWindow = 400
+#'   myGarch = estimateGARCH_RollingWindow(e,myGarch,estimationControl)
+#' ```
+#'
+#'
+#' @returns A garch_class object.
+#'
+#' @note
+#' I am a note
+#'
+#'
 estimateGARCH_RollingWindow <- function(e,garchObj,estimationControl){0}
 .estimateGARCH_RollingWindow <- function(e,garchObj,estimationControl){
              this <- garchObj
@@ -711,37 +846,36 @@ setMethod("summary",signature="garch_class",
 ## --- Public TV Methods --- ####
 
 
-## .Estimated Pars to Matrix ####
-setGeneric(name=".estimatedParsToMatrix",
-           valueClass = "tv_class",
-           signature = c("tvObj","optimpars"),
-           def = function(tvObj,optimpars){
-             this <- tvObj
-
-             if(this@nr.transitions == 0) stop("There are no parameters on this tv object")
-
-             # Add NA's for all missing locn.2 pars:
-             naPars <- NULL
-             for (i in seq_along(this$shape)) {
-               if (this$shape[i] == tvshape$double) {
-                 naPars <- c(naPars,optimpars[1:4])
-                 optimpars <- optimpars[-(1:4)]
-               } else {
-                 naPars <- c(naPars,optimpars[1:3],NA)
-                 optimpars <- optimpars[-(1:3)]
-               }
-             }
-             this$Estimated$pars <- matrix(naPars,nrow=4,ncol=NROW(this$shape),dimnames=list(c("deltaN","speedN","locN1","locN2"),NULL))
-
-             # Return
-             this
-           }
-)
 
 
 
 ## -- estimateTV(e,tv,ctrl,garch) ####
-
+#' @title
+#' Estimates a tv model
+#'
+#' @description
+#' `estimateTV` is a
+#'
+#' @usage estimateTV(e,tvObj,estimationControl)
+#'
+#' @param e An estimated TV model
+#' @param tvObj Use Enum, garchtype$...
+#' @param estimationControl A list
+#'
+#' @details
+#' This object
+#'
+#' ```
+#'   myTv = estimateTV(e,myTv,estimationControl)
+#' ```
+#'
+#'
+#' @returns A tv_class object.
+#'
+#' @note
+#' I am a note
+#'
+#'
 estimateTV <- function(e,tvObj,estimationControl,garchObj){0}
 .estimateTV <- function(e,tvObj,estimationControl,garchObj){
   this <- tvObj
@@ -888,6 +1022,33 @@ setMethod("estimateTV",
 )
 
 ## -- test.LM.TR2(e,tv,ord) ####
+#' @title
+#' LM TR-Squared Test
+#'
+#' @description
+#' `test.LM.TR2` is a
+#'
+#' @usage test.LM.TR2(e,tvObj,testOrder)
+#'
+#' @param e An estimated TV model
+#' @param tvObj Use Enum, garchtype$...
+#' @param testOrder An integer
+#'
+#' @details
+#' This object
+#'
+#' ```
+#'  testOrder = 1
+#'  testResult = test.LM.TR2(e,myTv,testOrder)
+#' ```
+#'
+#'
+#' @returns A numeric test statistic
+#'
+#' @note
+#' I am a note
+#'
+#'
 setGeneric(name="test.LM.TR2",
            valueClass = "numeric",
            signature = c("e","tvObj","testOrder"),
@@ -937,6 +1098,33 @@ setGeneric(name="test.LM.TR2",
 )
 
 ## -- test.LM.Robust(e,tv,ord) ####
+#' @title
+#' LM TR-Squared Test - Robust Version
+#'
+#' @description
+#' `test.LM.Robust` is a
+#'
+#' @usage test.LM.Robust(e,tvObj,testOrder)
+#'
+#' @param e An estimated TV model
+#' @param tvObj Use Enum, garchtype$...
+#' @param testOrder An integer
+#'
+#' @details
+#' This object
+#'
+#' ```
+#'  testOrder = 1
+#'  testResult = test.LM.Robust(e,myTv,testOrder)
+#' ```
+#'
+#'
+#' @returns A numeric test statistic
+#'
+#' @note
+#' I am a note
+#'
+#'
 setGeneric(name="test.LM.Robust",
            valueClass = "numeric",
            signature = c("e","tvObj","testOrder"),
@@ -1012,9 +1200,65 @@ setGeneric(name="getTestStats",
 
 ## --- PRIVATE TV METHODS --- ####
 
+## .Estimated Pars to Matrix ####
+setGeneric(name=".estimatedParsToMatrix",
+           valueClass = "tv_class",
+           signature = c("tvObj","optimpars"),
+           def = function(tvObj,optimpars){
+             this <- tvObj
+
+             if(this@nr.transitions == 0) stop("There are no parameters on this tv object")
+
+             # Add NA's for all missing locn.2 pars:
+             naPars <- NULL
+             for (i in seq_along(this$shape)) {
+               if (this$shape[i] == tvshape$double) {
+                 naPars <- c(naPars,optimpars[1:4])
+                 optimpars <- optimpars[-(1:4)]
+               } else {
+                 naPars <- c(naPars,optimpars[1:3],NA)
+                 optimpars <- optimpars[-(1:3)]
+               }
+             }
+             this$Estimated$pars <- matrix(naPars,nrow=4,ncol=NROW(this$shape),dimnames=list(c("deltaN","speedN","locN1","locN2"),NULL))
+
+             # Return
+             this
+           }
+)
+
+
 #### ==================  Simulate Test Stat Distribution  ================== ###
 
 ## -- testStatDist ####
+#' @title
+#' Generates a test statistic distribution...
+#'
+#' @description
+#' `testStatDist` is a
+#'
+#' @usage testStatDist(refdata,tvObj,reftests,simcontrol)
+#'
+#' @param refdata A matrix
+#' @param tvObj Use Enum, garchtype$...
+#' @param reftests An integer
+#' @param simcontrol An integer
+#'
+#' @details
+#' This object
+#'
+#' ```
+#'  simcontrol$maxTestorder = 2
+#'  testResult = testStatDist(refdata,tvObj,reftests,simcontrol)
+#' ```
+#'
+#'
+#' @returns A list containing
+#'
+#' @note
+#' I am a note
+#'
+#'
 setGeneric(name="testStatDist",
            valueClass = "list",
            signature = c("refdata","tvObj","reftests","simcontrol"),
@@ -1436,6 +1680,26 @@ setGeneric(name=".loglik.tv.univar",
 ## --- Override Methods --- ####
 
 ## -- plot() ####
+#' @title
+#' plot.tv
+#'
+#' @description
+#' `plot.tv` is a
+#'
+#' @usage plot(tvObj,...)
+#'
+#' @param tvObj Use Enum, garchtype$...
+#' @param ... Other parameters that can be passed to the generic plot() function
+#'
+#' @details
+#' This
+#'
+#'
+#'
+#' @note
+#' I am a note
+#'
+#'
 setMethod("plot",signature = c(x="tv_class",y="missing"),
           function(x, y,...){
             plot.default(x=sqrt(x@g), type='l', ylab = "sqrt(g)", ...)
@@ -1443,6 +1707,26 @@ setMethod("plot",signature = c(x="tv_class",y="missing"),
 
 
 ## -- summary() ####
+#' @title
+#' summary.tv
+#'
+#' @description
+#' `summary.tv` is a
+#'
+#' @usage summary(tvObj,...)
+#'
+#' @param tvObj Use Enum, garchtype$...
+#' @param ... Other parameters that can be passed to the generic plot() function
+#'
+#' @details
+#' This
+#'
+#'
+#'
+#' @note
+#' I am a note
+#'
+#'
 setMethod("summary",signature="tv_class",
           function(object,...){
             this <- object
@@ -1511,7 +1795,7 @@ setMethod("summary",signature="tv_class",
 
 
 
-## --- Public TV-GARCH Methods --- ####
+# --- Public TV-GARCH Methods --- ####
 
 
 ## -- loglik.tvgarch.univar() ####
@@ -1526,8 +1810,33 @@ setGeneric(name="loglik.tvgarch.univar",
 )
 
 
-## -- estimateTVGARCH -- ####
-
+# -- estimateTVGARCH -- ####
+#' @title
+#' Estimates a tv model
+#'
+#' @description
+#' `estimateTVGARCH` is a
+#'
+#' @usage estimateTVGARCH(e,tvgarchObj,estimationControl)
+#'
+#' @param e An
+#' @param tvgarchObj Use
+#' @param estimationControl A list
+#'
+#' @details
+#' This object
+#'
+#' ```
+#'   myTvGarch = estimateTVGARCH(e,myTvGarch,estimationControl)
+#' ```
+#'
+#'
+#' @returns A tvgarch_class object.
+#'
+#' @note
+#' I am a note
+#'
+#'
 estimateTVGARCH <- function(e,tvgarchObj,estimationControl){0}
 .estimateTVGARCH <- function(e,tvgarchObj,estimationControl){
 
@@ -1792,7 +2101,30 @@ setGeneric(name=".test.misSpec.Robust",
 # ========================================== #
 # TODO:  Add unit tests!!!
 
-## -- test.misSpec1(e,tvgarch,testOrd) ####
+# -- test.misSpec1(e,tvgarch,testOrd) ####
+#' @title
+#' Tests for mis-specification of...
+#'
+#' @description
+#' `test.misSpec1` is a
+#'
+#' @usage test.misSpec1(e,tvgarch,testOrd)
+#'
+#' @param e A numeric vector
+#' @param tvgarch An estimated TvGarch model
+#' @param testOrd Use Enum, garchtype$...
+#'
+#' @details
+#' This object
+#'
+#'
+#'
+#' @returns A list...
+#'
+#' @note
+#' I am a note
+#'
+#'
 ## Tests for mis-specification of the tv component of the model, e.g. is there another transition?
 setGeneric(name="test.misSpec1",
            valueClass = "list",
@@ -1831,7 +2163,30 @@ setGeneric(name="test.misSpec1",
            }
 )
 
-## -- test.misSpec2(e,tvgarch,type) ####
+# -- test.misSpec2(e,tvgarch,type) ####
+#' @title
+#' Tests for mis-specification of...
+#'
+#' @description
+#' `test.misSpec2` is a
+#'
+#' @usage test.misSpec2(e,tvgarch,type)
+#'
+#' @param e A numeric vector
+#' @param tvgarch An estimated TvGarch model
+#' @param type Use Enum, garchtype$...
+#'
+#' @details
+#' This object
+#'
+#'
+#'
+#' @returns A list...
+#'
+#' @note
+#' I am a note
+#'
+#'
 ## Tests for mis-specification of the Garch-order of the model
 setGeneric(name="test.misSpec2",
            valueClass = "list",
@@ -1878,7 +2233,30 @@ setGeneric(name="test.misSpec2",
            }
 )
 
-## -- test.misSpec3(e,tvgarch,maxLag) ####
+# -- test.misSpec3(e,tvgarch,maxLag) ####
+#' @title
+#' Tests for mis-specification of...
+#'
+#' @description
+#' `test.misSpec3` is a
+#'
+#' @usage test.misSpec3(e,tvgarch,maxLag)
+#'
+#' @param e A numeric vector
+#' @param tvgarch An estimated TvGarch model
+#' @param maxLag Use Enum, garchtype$...
+#'
+#' @details
+#' This object
+#'
+#'
+#'
+#' @returns A list...
+#'
+#' @note
+#' I am a note
+#'
+#'
 ## Tests for mis-specification of the remaining-ARCH in the model
 setGeneric(name="test.misSpec3",
            valueClass = "list",
@@ -1916,7 +2294,30 @@ setGeneric(name="test.misSpec3",
            }
 )
 
-## -- test.misSpec4(e,tvgarch,exogVar) ####
+# -- test.misSpec4(e,tvgarch,exogVar) ####
+#' @title
+#' Tests for mis-specification of...
+#'
+#' @description
+#' `test.misSpec4` is a
+#'
+#' @usage test.misSpec4(e,tvgarch,exogVar)
+#'
+#' @param e A numeric vector
+#' @param tvgarch An estimated TvGarch model
+#' @param exogVar Use Enum, garchtype$...
+#'
+#' @details
+#' This object
+#'
+#'
+#'
+#' @returns A list...
+#'
+#' @note
+#' I am a note
+#'
+#'
 ## Tests for mis-specification of the additive exogenous variable(s) in the model
 setGeneric(name="test.misSpec4",
            valueClass = "list",
@@ -1953,10 +2354,6 @@ setGeneric(name="test.misSpec4",
              return(rtn)
            }
 )
-
-
-
-
 
 
 
