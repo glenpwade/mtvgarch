@@ -1,5 +1,34 @@
 
-## -- generateRefData -- ####
+# -- generateRefData -- ####
+#' @title
+#' Generates Reference Data
+#'
+#' @description
+#' `generateRefData` is a
+#'
+#' @usage generateRefData(nr.series,nr.obs,tvObj,garchObj,corrObj,noiseDist)
+#'
+#' @param nr.series Number of Series you want to generate
+#' @param nr.obs The number of observations (sample size) per series
+#' @param tvObj A tv object
+#' @param garchObj A garch object
+#' @param corrObj A correlation object
+#' @param noiseDist A correlation object
+#'
+#' @details
+#' This object
+#'
+#' ```
+#'   myRefData = generateRefData(100,2000,myTv,myGarch,myCCC,noiseDist)
+#' ```
+#'
+#'
+#' @returns A T x N matrix, where T is the number of Observations and N is the number of series
+#'
+#' @note
+#' I am a note
+#'
+#'
 ## generates Reference Data with TV, GARCH processes, optionally with Correlation
 setGeneric(name="generateRefData",
            valueClass = "matrix",

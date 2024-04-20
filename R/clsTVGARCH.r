@@ -1783,7 +1783,7 @@ setMethod("summary",signature="tv_class",
             }
 
             cat("\n\nTV OBJECT\n")
-            cat("\nTransition Shapes:", this$shape ,"\n")
+            cat("\nTransition Shapes: ", this$shape ,"\n")
             if(!is.null(this$Estimated)){
               cat("\nEstimation Results:\n")
               cat("\nDelta0 =",delta0Summary,"\n\n")
@@ -1792,7 +1792,6 @@ setMethod("summary",signature="tv_class",
             }
 
           })
-
 
 
 # --- Public TV-GARCH Methods --- ####

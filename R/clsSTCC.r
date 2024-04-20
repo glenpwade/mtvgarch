@@ -3,7 +3,7 @@
 ## -- Both classes only support single transitions at this time
 
 
-## --- stcc1_class Definition --- ####
+# --- stcc1_class Definition --- ####
 stcc1 <- setClass(Class = "stcc1_class",
                slots = c(ntvg="ntvgarch_class",nr.corPars="integer",z="matrix"),
                contains = c("namedList")
@@ -34,6 +34,30 @@ setMethod("initialize","stcc1_class",
           })
 
 ## -- Constructor:stcc1 -- ####
+#' @title
+#' Create a Smooth-Transition Conditional Correlation model
+#'
+#' @description
+#' `stcc1` is a ...  Supports only 1 transition, between rho1 & rho2
+#'
+#' @usage stcc1(ntvgarchObj)
+#'
+#' @param ntvgarchObj A ...
+#'
+#' @details
+#' This object
+#'
+#' ```
+#'   myStcc1 = stcc1(myNtvgarch)
+#' ```
+#'
+#'
+#' @returns A stcc1_class object
+#'
+#' @note
+#' I am a note
+#'
+#'
 setGeneric(name="stcc1",
            valueClass = "stcc1_class",
            signature = c("ntvgarchObj"),
@@ -86,7 +110,7 @@ setGeneric(name="stcc1",
 )
 
 
-## --- stcc2_class Definition --- ####
+# --- stcc2_class Definition --- ####
 stcc2 <- setClass(Class = "stcc2_class",
                   slots = c(ntvg="ntvgarch_class",nr.corPars="integer",nr.trPars="integer",fixedPar.idx="numeric",z="matrix"),
                   contains = c("namedList")
@@ -117,6 +141,30 @@ setMethod("initialize","stcc2_class",
           })
 
 ## -- Constructor:stcc2 -- ####
+#' @title
+#' Create a Smooth-Transition Conditional Correlation model
+#'
+#' @description
+#' `stcc2` is a ...  Supports 2 transitions, between rho1 -> rho2 -> rho3
+#'
+#' @usage stcc2(ntvgarchObj)
+#'
+#' @param ntvgarchObj A ...
+#'
+#' @details
+#' This object
+#'
+#' ```
+#'   myStcc2 = stcc2(myNtvgarch)
+#' ```
+#'
+#'
+#' @returns A stcc2_class object
+#'
+#' @note
+#' I am a note
+#'
+#'
 setGeneric(name="stcc2",
            valueClass = "stcc2_class",
            signature = c("ntvgarchObj"),
@@ -324,6 +372,31 @@ setGeneric(name=".loglik.stcc1",
 )
 
 ## --- estimateSTCC1 --- ####
+#' @title
+#' Estimates an STCC1 model
+#'
+#' @description
+#' `estimateSTCC1` is a
+#'
+#' @usage estimateSTCC1(stcc1Obj,estimationCtrl)
+#'
+#' @param stcc1Obj Use
+#' @param estimationCtrl A list
+#'
+#' @details
+#' This object
+#'
+#' ```
+#'   myStcc1 = estimateSTCC1(myStcc1,estimationCtrl)
+#' ```
+#'
+#'
+#' @returns A stcc1_class object.
+#'
+#' @note
+#' I am a note
+#'
+#'
 setGeneric(name="estimateSTCC1",
            valueClass = "stcc1_class",
            signature = c("stcc1Obj","estimationCtrl"),
@@ -512,6 +585,31 @@ setGeneric(name=".loglik.stcc2",
 
 
 ## --- estimateSTCC2 --- ####
+#' @title
+#' Estimates an STCC2 model
+#'
+#' @description
+#' `estimateSTCC2` is a
+#'
+#' @usage estimateSTCC2(stcc2Obj,estimationCtrl)
+#'
+#' @param stcc2Obj Use
+#' @param estimationCtrl A list
+#'
+#' @details
+#' This object
+#'
+#' ```
+#'   myStcc2 = estimateSTCC2(myStcc2,estimationCtrl)
+#' ```
+#'
+#'
+#' @returns A stcc2_class object.
+#'
+#' @note
+#' I am a note
+#'
+#'
 setGeneric(name="estimateSTCC2",
            valueClass = "stcc2_class",
            signature = c("stcc2Obj","estimationCtrl"),
