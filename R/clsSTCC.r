@@ -328,20 +328,20 @@ setGeneric(name=".loglik.stcc1",
              tmp.par <- optimpars
 
              vP1 <- tmp.par[1:this@nr.corPars]
-             mP <- unVecL(vP1)
-             eig <- eigen(mP,symmetric=TRUE,only.values=TRUE)
+             mP1 <- unVecL(vP1)
+             eig <- eigen(mP1,symmetric=TRUE,only.values=TRUE)
              # Check for SPD - positive-definite check:
              if (min(eig$values) <= 0) return(err_output)
-             this$Estimated$P1 <- mP
+             this$Estimated$P1 <- mP1
 
              #Remove the P1 corPars, then extract the P2 corPars
              tmp.par <- tail(tmp.par,-this@nr.corPars)
              vP2 <- tmp.par[1:this@nr.corPars]
-             mP <- unVecL(vP2)
-             eig <- eigen(mP,symmetric=TRUE,only.values=TRUE)
+             mP1 <- unVecL(vP2)
+             eig <- eigen(mP1,symmetric=TRUE,only.values=TRUE)
              # Check for SPD - positive-definite check:
              if (min(eig$values) <= 0) return(err_output)
-             this$Estimated$P2 <- mP
+             this$Estimated$P2 <- mP1
 
              #### ======== constraint checks ======== ####
 
@@ -437,14 +437,9 @@ setGeneric(name="estimateSTCC1",
                this$Estimated$error <- FALSE
                this$Estimated$value <- tmp$value
 
-               tmp.par <- tmp$par
-               this$Estimated$P1 <- unVecL(tmp.par[1:this@nr.corPars])
-               tmp.par <- tail(tmp.par,-this@nr.corPars)
-
-               this$Estimated$P2 <- unVecL(tmp.par[1:this@nr.corPars])
-               tmp.par <- tail(tmp.par,-this@nr.corPars)
-
-               this$Estimated$pars <- tmp.par
+               this$Estimated$P1 <- unVecL(tmp$par[1:this@nr.corPars])
+               this$Estimated$P2 <- unVecL(tmp$par[(this@nr.corPars+1):(2*this@nr.corPars)])
+               this$Estimated$pars <- tail(tmp$par,2)
                names(this$Estimated$pars) <- names(this$pars)
 
                this$Estimated$Pt <- .calc.Pt(this)
@@ -455,14 +450,9 @@ setGeneric(name="estimateSTCC1",
                  try(this$Estimated$hessian <- optimHess(tmp$par,.loglik.stcc1,z,this,gr=NULL,control=this$optimcontrol))
                  vecSE <- vector("numeric")
                  try(vecSE <- sqrt(-diag(invertHess(this$Estimated$hessian))))
-
                    this$Estimated$P1.se <- unVecL(vecSE[1:this@nr.corPars])
-                   vecSE <- tail(vecSE,-this@nr.corPars)
-                   #
-                   this$Estimated$P2.se <- unVecL(vecSE[1:this@nr.corPars])
-                   vecSE <- tail(vecSE,-this@nr.corPars)
-
-                   this$Estimated$pars.se <- vecSE
+                   this$Estimated$P2.se <- unVecL(vecSE[(this@nr.corPars+1):(2*this@nr.corPars)])
+                   this$Estimated$pars.se <- tail(vecSE,2)
                    names(this$Estimated$pars.se) <- names(this$pars)
                  }
 
@@ -515,39 +505,39 @@ setGeneric(name=".loglik.stcc2",
              this$Estimated$pars <- tail(tmp.par,4)
              names(this$Estimated$pars) <- c("speed1","loc1","speed2","loc2")
 
-             vecP <- tmp.par[1:this@nr.corPars]
-             mP <- unVecL(vecP)
-             eig <- eigen(mP,symmetric=TRUE,only.values=TRUE)
+             # P1
+             vecP1 <- tmp.par[1:this@nr.corPars]
+             mP1 <- unVecL(vecP1)
+             eig <- eigen(mP1,symmetric=TRUE,only.values=TRUE)
              # Check for SPD - positive-definite check:
              if (min(eig$values) <= 0) return(err_output)
-             this$Estimated$P1 <- mP
-             # Now drop these values from tmp.par
-             tmp.par <- tail(tmp.par,-this@nr.corPars)
-             #
-             vecP <- tmp.par[1:this@nr.corPars]
-             mP <- unVecL(vecP)
-             eig <- eigen(mP,symmetric=TRUE,only.values=TRUE)
+             this$Estimated$P1 <- mP1
+
+             # P2
+             vecP2 <- tmp.par[(this@nr.corPars+1):(this@nr.corPars*2)]
+             mP2 <- unVecL(vecP2)
+             eig <- eigen(mP2,symmetric=TRUE,only.values=TRUE)
              # Check for SPD - positive-definite check:
              if (min(eig$values) <= 0) return(err_output)
-             this$Estimated$P2 <- mP
-             # Now drop these values from tmp.par
-             tmp.par <- tail(tmp.par,-this@nr.corPars)
-             #
-             vecP <- tmp.par[1:this@nr.corPars]
-             mP <- unVecL(vecP)
-             eig <- eigen(mP,symmetric=TRUE,only.values=TRUE)
+             this$Estimated$P2 <- mP2
+
+             # P3
+             vecP3 <- tmp.par[(2*this@nr.corPars+1):(this@nr.corPars*3)]
+             mP3 <- unVecL(vecP3)
+             eig <- eigen(mP3,symmetric=TRUE,only.values=TRUE)
              # Check for SPD - positive-definite check:
              if (min(eig$values) <= 0) return(err_output)
-             this$Estimated$P3 <- mP
+             this$Estimated$P3 <- mP3
 
 
              #### ======== constraint checks ======== ####
 
              # Check 1: Check the boundary values for speed1 param:
-             speed <- this$Estimated$pars[1]
              maxSpeed <- switch(this$speedopt,1000,(1000/sd(this$st)),7.0,0.30)
-             if (speed > maxSpeed) return(err_output)
-             if (speed < 0) return(err_output)
+
+             speed1 <- this$Estimated$pars[1]
+             if (speed1 > maxSpeed) return(err_output)
+             if (speed1 < 0) return(err_output)
 
              # Check 2: Check the first location falls within min-max values of st
              loc1 <- this$Estimated$pars[2]
@@ -555,17 +545,16 @@ setGeneric(name=".loglik.stcc2",
              if (loc1 > max(this$st)) return(err_output)
 
              # Check 3: Check the boundary values for speed2 param:
-             speed <- this$Estimated$pars[3]
-             maxSpeed <- switch(this$speedopt,1000,(1000/sd(this$st)),7.0,0.30)
-             if (speed > maxSpeed) return(err_output)
-             if (speed < 0) return(err_output)
+             speed2 <- this$Estimated$pars[3]
+             if (speed2 > maxSpeed) return(err_output)
+             if (speed2 < 0) return(err_output)
 
              # Check 4: Check the second location falls within min-max values of st
              loc2 <- this$Estimated$pars[4]
              if (loc2 < min(this$st)) return(err_output)
              if (loc2 > max(this$st)) return(err_output)
 
-             # Check 5: Check that loc1 is before loc 2
+             # Check 5: Check that loc2 is after loc 1
              if (loc2 < loc1) return(err_output)
 
 
@@ -676,32 +665,25 @@ setGeneric(name="estimateSTCC2",
                tmp.par <- tmp$par
                if(length(this@fixedPar.idx) > 0 ){
                  # First reset the optimpars to the original length with NA's
-                 tmp.par <- vector.insert(optimpars,this@fixedPar.idx,rep(NA,length(this@fixedPar.idx)))
+                 tmp.par <- vector.insert(tmp$par,this@fixedPar.idx,rep(NA,length(this@fixedPar.idx)))
                  # Add the previous correlation param in place of the NA.  This will be put into the $Estimated$Pn matrices
                  tmp.par <- .fixCorPars(tmp.par,this@fixedPar.idx,this@nr.corPars)
                }
 
-               this$Estimated$pars <- tail(tmp$par,(4))
+               this$Estimated$pars <- tail(tmp$par,4)
 
-               vecP <- tmp.par[1:this@nr.corPars]
-               this$Estimated$P1 <- unVecL(vecP)
-               # Now drop these values from tmp.par
-               tmp.par <- tail(tmp.par,-this@nr.corPars)
+               vecP1 <- tmp.par[1:this@nr.corPars]
+               this$Estimated$P1 <- unVecL(vecP1)
                #
-               vecP <- tmp.par[1:this@nr.corPars]
-               this$Estimated$P2 <- unVecL(vecP)
-               # Now drop these values from tmp.par
-               tmp.par <- tail(tmp.par,-this@nr.corPars)
+               vecP2 <- tmp.par[(this@nr.corPars+1):(2*this@nr.corPars)]
+               this$Estimated$P2 <- unVecL(vecP2)
                #
-               vecP <- tmp.par[1:this@nr.corPars]
-               this$Estimated$P3 <- unVecL(vecP)
+               vecP3 <- tmp.par[(2*this@nr.corPars+1):(3*this@nr.corPars)]
+               this$Estimated$P3 <- unVecL(vecP3)
 
                # Now use these values to calc P(t)
                this$Estimated$Pt <- .calc.Pt2(this)
 
-               # Finally re-insert the NA's into the estimated pars:
-               this$Estimated$P2[which(is.na(this$P2))] <- NA
-               this$Estimated$P3[which(is.na(this$P3))] <- NA
 
                if (calcSE) {
                  cat("\nCalculating STCC standard errors...\n")
@@ -717,18 +699,15 @@ setGeneric(name="estimateSTCC2",
 
                    this$Estimated$pars.se <- tail(vecSE,4)
 
-                   vSE <- vecSE[1:this@nr.corPars]
-                   this$Estimated$P1.se <- unVecL(vSE)
-                   # Now drop these values from tmp.par
-                   vecSE <- tail(vecSE,-this@nr.corPars)
+
+                   vSE1 <- vecSE[1:this@nr.corPars]
+                   this$Estimated$P1.se <- unVecL(vSE1)
                    #
-                   vSE <- vecSE[1:this@nr.corPars]
-                   this$Estimated$P2.se <- unVecL(vSE)
-                   # Now drop these values from tmp.par
-                   vecSE <- tail(vecSE,-this@nr.corPars)
+                   vSE2 <- vecSE[(this@nr.corPars+1):(2*this@nr.corPars)]
+                   this$Estimated$P2.se <- unVecL(vSE2)
                    #
-                   vSE <- vecSE[1:this@nr.corPars]
-                   this$Estimated$P3.se <- unVecL(vSE)
+                   vSE3 <- vecSE[(2*this@nr.corPars+1):(3*this@nr.corPars)]
+                   this$Estimated$P3.se <- unVecL(vSE3)
                    # No need to drop anymore
                  }
                }
@@ -817,36 +796,68 @@ setGeneric(name="unCorrelateData",
 # )
 #
 #
-# ## -- summary() ####
-# setGeneric(name=".summary.stcc2",
-#            signature = c("stcc2Obj"),
-#            def =  function(stcc2Obj){
-#              this <- stcc2Obj
-#
-#              cat("\nSTCC2 OBJECT\n")
-#              if(!is.null(this$Estimated)){
-#                cat("\nEstimation Results:\n")
-#                print(this$Estimated$pars)
-#                cat("\nP1:\n", vecL(this$P1), " -> ", vecL(this$Estimated$P1))
-#                cat("\nP2:\n", vecL(this$P2), " -> ", vecL(this$Estimated$P2))
-#                cat("\nP3:\n", vecL(this$P3), " -> ", vecL(this$Estimated$P3))
-#                cat("\n\nLog-likelihood value(GARCH): ",this$Estimated$value)
-#              }
-#              return(TRUE)
-#            }
-# )
-#
-#
-# ## -- summary() ####
-# setMethod("summary",signature="stcc2_class",
-#           function(object,...){
-#
-#             return(.summary.stcc2(object))
-#
-#            }
-#
-#           )
-#
-#
+## -- summary(stcc1) ####
+setMethod("summary",signature="stcc1_class",
+          function(object,digits=3,...){
+            this <- object
+
+
+            cat("\nSTCC1 OBJECT\n")
+            if(!is.null(this$Estimated)){
+              cat("\nEstimation Results:\n")
+              cat("\nPars:    ")
+              cat(round(this$Estimated$pars,digits))
+              cat("\nPars.se: ")
+              cat(round(this$Estimated$pars.se,digits))
+              cat("\n\nP1:    ")
+              cat(round(vecL(this$Estimated$P1),digits))
+              cat("\nP1.se: ")
+              cat(round(vecL(this$Estimated$P1.se),digits))
+              cat("\n\nP2:    ")
+              cat(round(vecL(this$Estimated$P2),digits))
+              cat("\nP2.se: ")
+              cat(round(vecL(this$Estimated$P2.se),digits))
+              #
+              cat("\nLog-likelihood value: ")
+              cat(round(this$Estimated$value),digits)
+            }
+            # ToDo: Add not estimated summary...
+          }
+)
+
+
+## -- summary(stcc2) ####
+
+setMethod("summary",signature="stcc2_class",
+          function(object,digits=3,...){
+            this <- object
+
+            cat("\nSTCC2 OBJECT\n")
+            if(!is.null(this$Estimated)){
+              cat("\nEstimation Results:\n")
+              cat("\nPars:    ")
+              cat(round(this$Estimated$pars,digits))
+              cat("\nPars.se: ")
+              cat(round(this$Estimated$pars.se,digits))
+              cat("\n\nP1:    ")
+              cat(round(vecL(this$Estimated$P1),digits))
+              cat("\nP1.se: ")
+              cat(round(vecL(this$Estimated$P1.se),digits))
+              cat("\n\nP2:    ")
+              cat(round(vecL(this$Estimated$P2),digits))
+              cat("\nP2.se: ")
+              cat(round(vecL(this$Estimated$P2.se),digits))
+              cat("\n\nP3:    ")
+              cat(round(vecL(this$Estimated$P3),digits))
+              cat("\nP3.se: ")
+              cat(round(vecL(this$Estimated$P3.se),digits))
+              #
+              cat("\nLog-likelihood value: ")
+              cat(round(this$Estimated$value),digits)
+            }
+            # ToDo: Add not estimated summary...
+          }
+)
+
 
 
