@@ -1888,6 +1888,8 @@ estimateTVGARCH <- function(e,tvgarchObj,estimationControl){0}
                this$Estimated$garch <- GARCH$Estimated
                this$Estimated$garch$h <- GARCH@h
                this$Estimated$value <- loglik.tvgarch.univar(e,TV@g,GARCH@h)
+               this$Estimated$iteration <- 1
+               this$Estimated$converged < FALSE
 
                cat("\nTVGARCH Estimation Completed")
                cat("\n")
@@ -1943,8 +1945,13 @@ estimateTVGARCH <- function(e,tvgarchObj,estimationControl){0}
                  # Populate the convenience attributes:
                  this$Estimated$g <- TV@g
                  this$Estimated$h <- GARCH@h
+                 this$Estimated$iteration <- this$Estimated$iteration + 1
+                 this$Estimated$converged < FALSE
                  cat("\nTVGARCH Estimation Completed - Improved\n")
-               } else cat("\nTVGARCH Estimation Completed - could not be improved\n")
+               } else {
+                 this$Estimated$converged < FALSE
+                 cat("\nTVGARCH Estimation Completed - could not be improved\n")
+               }
 
              }else cat("\nTVGARCH Estimation Failed! estimateGARCH() caused the error.\n")
 
@@ -1952,6 +1959,8 @@ estimateTVGARCH <- function(e,tvgarchObj,estimationControl){0}
 
              #== End: Every other time being estimated ==#
            }
+
+
 
 setGeneric("estimateTVGARCH", valueClass = "tvgarch_class")
 
