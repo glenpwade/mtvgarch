@@ -1903,7 +1903,7 @@ estimateTVGARCH <- function(e,tvgarchObj,estimationControl,autoConverge){0}
                # Populate the convenience attributes:
                this$Estimated$g <- TV@g
                this$Estimated$h <- GARCH@h
-               return(this)
+               if(isFALSE(autoConverge)) return(this)
              }
              #==  END: First time being estimated ==#
 
