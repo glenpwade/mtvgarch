@@ -13,7 +13,7 @@
 #' @param tvObj A tv object
 #' @param garchObj A garch object
 #' @param corrObj A correlation object
-#' @param noiseDist A correlation object
+#' @param noiseDist A named list
 #'
 #' @details
 #' This object
