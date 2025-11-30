@@ -1964,7 +1964,6 @@ estimateTVGARCH <- function(e,tvgarchObj,estimationControl,autoConverge){0}
                  cat("\nTVGARCH Estimation Failed! estimateGARCH() caused the error.\n")
                }
 
-
              }
 
 
