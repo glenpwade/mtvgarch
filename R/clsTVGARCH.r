@@ -1816,7 +1816,7 @@ setGeneric(name="loglik.tvgarch.univar",
 #' @description
 #' `estimateTVGARCH` is a
 #'
-#' @usage estimateTVGARCH(e,tvgarchObj,estimationControl)
+#' @usage estimateTVGARCH(e,tvgarchObj,estimationControl,autoConverge)
 #'
 #' @param e An
 #' @param tvgarchObj Use
@@ -1826,7 +1826,7 @@ setGeneric(name="loglik.tvgarch.univar",
 #' This object
 #'
 #' ```
-#'   myTvGarch = estimateTVGARCH(e,myTvGarch,estimationControl)
+#'   myTvGarch = estimateTVGARCH(e,myTvGarch,estimationControl,autoConverge)
 #' ```
 #'
 #'
@@ -1836,8 +1836,8 @@ setGeneric(name="loglik.tvgarch.univar",
 #' I am a note
 #'
 #'
-estimateTVGARCH <- function(e,tvgarchObj,estimationControl){0}
-.estimateTVGARCH <- function(e,tvgarchObj,estimationControl){
+estimateTVGARCH <- function(e,tvgarchObj,estimationControl,autoConverge){0}
+.estimateTVGARCH <- function(e,tvgarchObj,estimationControl,autoConverge){
 
              this <- tvgarchObj
 
@@ -1910,50 +1910,63 @@ estimateTVGARCH <- function(e,tvgarchObj,estimationControl){0}
 
              #== Every other time being estimated ==#
 
-             TV <- estimateTV(e,TV,estimationControl,GARCH)
-             cat(".")
-             tvg.value <- loglik.tvgarch.univar(e,TV@g,GARCH@h)
+             keepEstimating <- TRUE
 
-             if(isFALSE(TV$Estimated$error)){
-               # Confirm LL has improved - to avoid divergence
-               if(tvg.value > this$Estimated$value) cat("\nTV Estimate Improved, now re-estimating Garch...\n")
+             while(isTRUE(keepEstimating)){
+               this$Estimated$iteration <- this$Estimated$iteration + 1
 
-             } else {
-               TV <- this@tvObj
-               cat("\nTV Estimate could not be Improved, now re-estimating Garch with original TV...\n")
-             }
+               TV <- estimateTV(e,TV,estimationControl,GARCH)
+               cat(".")
+               tvg.value <- loglik.tvgarch.univar(e,TV@g,GARCH@h)
 
-             GARCH <- estimateGARCH(e,GARCH,estimationControl,TV)
-             cat(".")
-             tvg.value <- loglik.tvgarch.univar(e,TV@g,GARCH@h)
+               if(isFALSE(TV$Estimated$error)){
+                 # Confirm LL has improved - to avoid divergence
+                 if(tvg.value > this$Estimated$value) cat("\nTV Estimate Improved, now re-estimating Garch...\n")
 
-
-             if(isFALSE(GARCH$Estimated$error)){
-               # Confirm LL has improved - to avoid divergence
-               if(tvg.value > this$Estimated$value) {
-
-                 # Put the final model into the Estimated list
-                 this$Estimated$tv <- TV$Estimated
-                 this$Estimated$tv$g <- TV@g
-                 this$Estimated$garch <- GARCH$Estimated
-                 this$Estimated$garch$h <- GARCH@h
-                 this$Estimated$value <- tvg.value
-                 # Update the internal objects with the Estimated objects:
-                 this@tvObj <- TV
-                 this@garchObj <- GARCH
-                 # Populate the convenience attributes:
-                 this$Estimated$g <- TV@g
-                 this$Estimated$h <- GARCH@h
-                 this$Estimated$iteration <- this$Estimated$iteration + 1
-                 this$Estimated$converged <- FALSE
-                 cat("\nTVGARCH Estimation Completed - Improved\n")
                } else {
-                 this$Estimated$iteration <- this$Estimated$iteration + 1
-                 this$Estimated$converged <- TRUE
-                 cat("\nTVGARCH Estimation Completed - could not be improved\n")
+                 TV <- this@tvObj
+                 cat("\nTV Estimate could not be Improved, now re-estimating Garch with original TV...\n")
                }
 
-             }else cat("\nTVGARCH Estimation Failed! estimateGARCH() caused the error.\n")
+               GARCH <- estimateGARCH(e,GARCH,estimationControl,TV)
+               cat(".")
+               tvg.value <- loglik.tvgarch.univar(e,TV@g,GARCH@h)
+
+
+               if(isFALSE(GARCH$Estimated$error)){
+                 # Confirm LL has improved - to avoid divergence
+                 if(tvg.value > this$Estimated$value) {
+
+                   # Put the final model into the Estimated list
+                   this$Estimated$tv <- TV$Estimated
+                   this$Estimated$tv$g <- TV@g
+                   this$Estimated$garch <- GARCH$Estimated
+                   this$Estimated$garch$h <- GARCH@h
+                   this$Estimated$value <- tvg.value
+                   # Update the internal objects with the Estimated objects:
+                   this@tvObj <- TV
+                   this@garchObj <- GARCH
+                   # Populate the convenience attributes:
+                   this$Estimated$g <- TV@g
+                   this$Estimated$h <- GARCH@h
+                   this$Estimated$converged <- FALSE
+                   cat("\nTVGARCH Estimation Completed - Improved\n")
+                   if(isFALSE(autoConverge)) break
+                 } else {
+                   keepEstimating <- FALSE
+                   this$Estimated$converged <- TRUE
+                   cat("\nTVGARCH Estimation Completed - could not be improved\n")
+                 }
+
+               }else {
+                 keepEstimating <- FALSE
+                 this$Estimated$converged <- FALSE
+                 cat("\nTVGARCH Estimation Failed! estimateGARCH() caused the error.\n")
+               }
+
+
+             }
+
 
              return(this)
 
@@ -1965,17 +1978,26 @@ estimateTVGARCH <- function(e,tvgarchObj,estimationControl){0}
 setGeneric("estimateTVGARCH", valueClass = "tvgarch_class")
 
 setMethod("estimateTVGARCH",
-          signature = c(e="numeric",tvgarchObj="tvgarch_class",estimationControl="list"),
-          function(e,tvgarchObj,estimationControl){
-            .estimateTVGARCH(e,tvgarchObj,estimationControl)
+          signature = c(e="numeric",tvgarchObj="tvgarch_class",estimationControl="list",autoConverge="logical"),
+          function(e,tvgarchObj,estimationControl,autoConverge){
+            .estimateTVGARCH(e,tvgarchObj,estimationControl,autoConverge)
           }
 )
 
 setMethod("estimateTVGARCH",
-          signature = c(e="numeric",tvgarchObj="tvgarch_class",estimationControl="missing"),
+          signature = c(e="numeric",tvgarchObj="tvgarch_class",estimationControl="list",autoConverge="missing"),
+          function(e,tvgarchObj,estimationControl){
+            autoConverge <- FALSE
+            .estimateTVGARCH(e,tvgarchObj,estimationControl,autoConverge)
+          }
+)
+
+setMethod("estimateTVGARCH",
+          signature = c(e="numeric",tvgarchObj="tvgarch_class",estimationControl="missing",autoConverge="missing"),
           function(e,tvgarchObj){
+            autoConverge <- FALSE
             estimationControl <- list(calcSE=TRUE,verbose=TRUE)
-            .estimateTVGARCH(e,tvgarchObj,estimationControl)
+            .estimateTVGARCH(e,tvgarchObj,estimationControl,autoConverge)
           }
 )
 
