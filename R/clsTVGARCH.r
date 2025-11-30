@@ -1890,7 +1890,6 @@ estimateTVGARCH <- function(e,tvgarchObj,estimationControl){0}
                this$Estimated$value <- loglik.tvgarch.univar(e,TV@g,GARCH@h)
                this$Estimated$iteration <- 1
                this$Estimated$converged <- FALSE
-
                cat("\nTVGARCH Estimation Completed")
                cat("\n")
                cat("\nPlease re-run this estimation to see if the model can be improved!!")
