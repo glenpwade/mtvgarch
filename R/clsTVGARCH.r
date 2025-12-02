@@ -157,8 +157,8 @@ setGeneric(name="garch",
              this@order <- order
              this <- .setInitPars(this)
              this$optimcontrol$ndeps <- rep(1e-5,this@nr.pars)
-             if(type == garchtype$general) this$optimcontrol$parscale <- c(3,3,5)
-             if(type == garchtype$gjr) this$optimcontrol$parscale <- c(3,1,7,1)
+             if(type == garchtype$general) this$optimcontrol$parscale <- c(1,1,7)
+             if(type == garchtype$gjr) this$optimcontrol$parscale <- c(1,1,5,1)
              return(this)
            }
 )
@@ -183,6 +183,9 @@ setMethod("initialize","tvgarch_class",
             .Object@tvObj <- new("tv_class")
             .Object@garchObj <- new("garch_class")
             .Object@e <- vector("numeric")
+            # Number of iterations required for estimation to converge
+            .Object@iterations <- as.integer(0)
+
             # Default TV properties
             .Object$shape <- tvshape$delta0only
             .Object$speedopt <- speedopt$none
@@ -194,7 +197,8 @@ setMethod("initialize","tvgarch_class",
             .Object$garchpars <- matrix(NA,4,1)
             .Object$garchOptimcontrol <- list(fnscale = -1, reltol = 1e-5)
             # Name of Data Series - for plotting & historical reference
-            .Object$e_desc <- NA
+            .Object$data_desc <- NA
+
 
             # Return:
             .Object
@@ -1854,6 +1858,8 @@ estimateTVGARCH <- function(e,tvgarchObj,estimationControl,autoConverge){0}
              #
              GARCH$pars <- this$garchpars
              GARCH$optimcontrol <- this$garchOptimcontrol
+             #
+             maxIterations <- 1000  # TODO: Expose this as an estimation control property
 
              cat("\nStarting TVGARCH Estimation...\n")
 
@@ -1873,7 +1879,10 @@ estimateTVGARCH <- function(e,tvgarchObj,estimationControl,autoConverge){0}
                # Now estimate the specified GARCH, using the estimated TV above
                GARCH <- estimateGARCH(e,GARCH,estimationControl,TV)
                cat(".")
-               cat("\nInitial round of estimation complete, \nBUT tv was estimated with h(t)=1, so\nnow we will filter out the Garch & re-estimate tv\n")
+               if(isTRUE(estimationControl$verbose)){
+                 cat("\nInitial round of estimation complete, \nBUT tv was estimated with h(t)=1, so\nnow we will filter out the Garch & re-estimate tv\n")
+               }
+
 
                # Re-estimate TV, using the estimated h(t)
                TV <- estimateTV(e,TV,estimationControl,GARCH)
@@ -1890,11 +1899,13 @@ estimateTVGARCH <- function(e,tvgarchObj,estimationControl,autoConverge){0}
                this$Estimated$value <- loglik.tvgarch.univar(e,TV@g,GARCH@h)
                this$Estimated$iteration <- 1
                this$Estimated$converged <- FALSE
-               cat("\nTVGARCH Estimation Completed")
-               cat("\n")
-               cat("\nPlease re-run this estimation to see if the model can be improved!!")
-               cat("\nThis estimator is designed to  be run iteratively, until fully converged.")
-               cat("\n")
+               if(isFALSE(autoConverge)) cat("\nTVGARCH Estimation Completed")
+               if(isTRUE(estimationControl$verbose)){
+                 cat("\n")
+                 cat("\nPlease re-run this estimation to see if the model can be improved!!")
+                 cat("\nThis estimator is designed to  be run iteratively, until fully converged.")
+                 cat("\n")
+               }
 
                # Update the internal objects with the Estimated objects:
                # These slots maintain the state between estimation runs
@@ -1904,6 +1915,9 @@ estimateTVGARCH <- function(e,tvgarchObj,estimationControl,autoConverge){0}
                this$Estimated$g <- TV@g
                this$Estimated$h <- GARCH@h
                if(isFALSE(autoConverge)) return(this)
+
+               # Update the iteration count:
+               this@iterations <- 2
              }
              #==  END: First time being estimated ==#
 
@@ -1913,7 +1927,13 @@ estimateTVGARCH <- function(e,tvgarchObj,estimationControl,autoConverge){0}
              keepEstimating <- TRUE
 
              while(isTRUE(keepEstimating)){
-               this$Estimated$iteration <- this$Estimated$iteration + 1
+
+               if(this@iterations >= maxIterations){
+                 this$Estimated$converged <- FALSE
+                 cat("\nTVGARCH Estimation Failed! Maximimum iterations exceeded. Failed to converge\n")
+               }
+
+               this@iterations <- this@iterations + 1
 
                TV <- estimateTV(e,TV,estimationControl,GARCH)
                cat(".")
@@ -1921,11 +1941,15 @@ estimateTVGARCH <- function(e,tvgarchObj,estimationControl,autoConverge){0}
 
                if(isFALSE(TV$Estimated$error)){
                  # Confirm LL has improved - to avoid divergence
-                 if(tvg.value > this$Estimated$value) cat("\nTV Estimate Improved, now re-estimating Garch...\n")
+                 if(isTRUE(estimationControl$verbose)){
+                  if(tvg.value > this$Estimated$value) cat("\nTV Estimate Improved, now re-estimating Garch...\n")
+                 }
 
                } else {
                  TV <- this@tvObj
-                 cat("\nTV Estimate could not be Improved, now re-estimating Garch with original TV...\n")
+                 if(isTRUE(estimationControl$verbose)){
+                   cat("\nTV Estimate could not be Improved, now re-estimating Garch with original TV...\n")
+                 }
                }
 
                GARCH <- estimateGARCH(e,GARCH,estimationControl,TV)
@@ -1950,7 +1974,9 @@ estimateTVGARCH <- function(e,tvgarchObj,estimationControl,autoConverge){0}
                    this$Estimated$g <- TV@g
                    this$Estimated$h <- GARCH@h
                    this$Estimated$converged <- FALSE
-                   cat("\nTVGARCH Estimation Completed - Improved\n")
+                   if(isTRUE(estimationControl$verbose)){
+                     cat("\nTVGARCH Estimation Completed - Improved\n")
+                   }
                    if(isFALSE(autoConverge)) break
                  } else {
                    keepEstimating <- FALSE
@@ -1965,7 +1991,6 @@ estimateTVGARCH <- function(e,tvgarchObj,estimationControl,autoConverge){0}
                }
 
              }
-
 
              return(this)
 
