@@ -173,7 +173,7 @@ setMethod("garch",signature = c("numeric","missing"),
 
 # --- tvgarch_CLASS Definition --- ####
 tvgarch <- setClass(Class = "tvgarch_class",
-                    slots = c(Tobs="integer",tvObj="tv_class",garchObj="garch_class",e="numeric"),
+                    slots = c(Tobs="integer",tvObj="tv_class",garchObj="garch_class",e="numeric",iterations="integer"),
                     contains = c("namedList")
 )
 
@@ -1859,7 +1859,7 @@ estimateTVGARCH <- function(e,tvgarchObj,estimationControl,autoConverge){0}
              GARCH$pars <- this$garchpars
              GARCH$optimcontrol <- this$garchOptimcontrol
              #
-             maxIterations <- 1000  # TODO: Expose this as an estimation control property
+             maxIterations <- as.integer(100)  # TODO: Expose this as an estimation control property
 
              cat("\nStarting TVGARCH Estimation...\n")
 
@@ -1917,7 +1917,7 @@ estimateTVGARCH <- function(e,tvgarchObj,estimationControl,autoConverge){0}
                if(isFALSE(autoConverge)) return(this)
 
                # Update the iteration count:
-               this@iterations <- 2
+               this@iterations <- as.integer(2)
              }
              #==  END: First time being estimated ==#
 
@@ -1933,7 +1933,7 @@ estimateTVGARCH <- function(e,tvgarchObj,estimationControl,autoConverge){0}
                  cat("\nTVGARCH Estimation Failed! Maximimum iterations exceeded. Failed to converge\n")
                }
 
-               this@iterations <- this@iterations + 1
+               this@iterations <- this@iterations + as.integer(1)
 
                TV <- estimateTV(e,TV,estimationControl,GARCH)
                cat(".")
