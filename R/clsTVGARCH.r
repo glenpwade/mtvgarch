@@ -1924,10 +1924,10 @@ estimateTVGARCH <- function(e,tvgarchObj,estimationControl,autoConverge){0}
 
 
              }
-             #==  END: First time being estimated ==#
+             #==  END: 2-Step Estimation  ==#
 
 
-             #== Every other time being estimated ==#
+             #== Continue if autoConverge is TRUE (Iterative Estimator) ==#
 
              keepEstimating <- TRUE
 
@@ -1965,8 +1965,8 @@ estimateTVGARCH <- function(e,tvgarchObj,estimationControl,autoConverge){0}
                if(isFALSE(GARCH$Estimated$error)){
                  this@iterations <- this@iterations + as.integer(1)  # Iterations increment for each successful estimation of TV & GARCH
 
-                 # Confirm LL has improved - to avoid divergence
-                 if(tvg.value > this$Estimated$value) {
+                 # Confirm LL has improved - to avoid divergence    # TODO: Decide: Do we use a)TV..reltol, b)GARCH..reltol, c)TVGARCH..reltol -> requires new code
+                 if(tvg.value - this$Estimated$value > TV$optimcontrol$reltol) {
 
                    # Put the final model into the Estimated list
                    this$Estimated$tv <- TV$Estimated
