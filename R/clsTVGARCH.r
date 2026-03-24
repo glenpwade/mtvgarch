@@ -83,11 +83,14 @@ setGeneric(name="tv",
                rownames(this$pars) <- c("deltaN","speedN","locN1","locN2")
                this@nr.pars <- as.integer(length(this$pars[!is.na(this$pars)]) + 1)  # +1 for delta0
                this$optimcontrol$ndeps <- rep(1e-3,this@nr.pars)
+
+
                #TODO: Improve the parScale to better manage different multiple location Options
-               parScale <- rep(c(1,4,3,0.5),this@nr.transitions)
-               # Tricky bit of 'maths' below to produce NA's in the NA locations  :P
-               parScale <- parScale + (as.vector(this$pars) - as.vector(this$pars))
-               this$optimcontrol$parscale <- c(3,parScale[!is.na(parScale)])
+               parScale_exDelta0 <- c(rep(c(4,3,0.5),this@nr.transitions) )
+               # Tricky bit of 'maths' below to produce NA's in the NA locations
+               # TODO!!! Bugs in code below - FIX for when loc2 is not NA
+               parScale_exDelta0 <- parScale_exDelta0 + (as.vector(head(this$pars,-1)) - as.vector(head(this$pars,-1)))
+               this$optimcontrol$parscale <- c(1,parScale_exDelta0[!is.na(parScale_exDelta0)])
 
              }
              return(this)
@@ -157,7 +160,7 @@ setGeneric(name="garch",
              this@order <- order
              this <- .setInitPars(this)
              this$optimcontrol$ndeps <- rep(1e-3,this@nr.pars)
-             if(type == garchtype$general) this$optimcontrol$parscale <- c(0.1,0.05,0.85)
+             if(type == garchtype$general) this$optimcontrol$parscale <- c(0.05,0.05,0.90)
              if(type == garchtype$gjr) this$optimcontrol$parscale <- c(0.005, 0.095, 0.8, 0.1) # Maximiser with default tolerance
              return(this)
            }
@@ -587,9 +590,9 @@ setGeneric(name=".setInitPars",
                pars <- matrix(nrow = this@nr.pars,ncol = maxLag)
                rownames(pars) <- GarchparsRownames[1:this@nr.pars]
                for(n in 1:maxLag){
-                 pars["omega",n] <- 0.10
+                 pars["omega",n] <- 0.05
                  pars["alpha",n] <- 0.05
-                 pars["beta",n] <- 0.85
+                 pars["beta",n] <- 0.90
                }
                this$pars <- pars
              }
@@ -1897,12 +1900,12 @@ estimateTVGARCH <- function(e,tvgarchObj,estimationControl,autoConverge){0}
                this$Estimated$garch <- GARCH$Estimated
                this$Estimated$garch$h <- GARCH@h
                this$Estimated$value <- loglik.tvgarch.univar(e,TV@g,GARCH@h)
-               this$Estimated$iteration <- 1
-               this$Estimated$converged <- FALSE
+               this@iterations <- as.integer(2)
+
                if(isFALSE(autoConverge)) cat("\nTVGARCH Estimation Completed")
                if(isTRUE(estimationControl$verbose)){
                  cat("\n")
-                 cat("\nPlease re-run this estimation to see if the model can be improved!!")
+                 cat("\nTwo-Step Estimation complete.  Re-run this estimation to see if the model can be improved!!")
                  cat("\nThis estimator is designed to  be run iteratively, until fully converged.")
                  cat("\n")
                }
@@ -1914,10 +1917,12 @@ estimateTVGARCH <- function(e,tvgarchObj,estimationControl,autoConverge){0}
                # Populate the convenience attributes:
                this$Estimated$g <- TV@g
                this$Estimated$h <- GARCH@h
-               if(isFALSE(autoConverge)) return(this)
+               if(isFALSE(autoConverge)) {
+                 this$Estimated$converged <- TRUE
+                 return(this)
+               }
 
-               # Update the iteration count:
-               this@iterations <- as.integer(2)
+
              }
              #==  END: First time being estimated ==#
 
@@ -1933,13 +1938,13 @@ estimateTVGARCH <- function(e,tvgarchObj,estimationControl,autoConverge){0}
                  cat("\nTVGARCH Estimation Failed! Maximimum iterations exceeded. Failed to converge\n")
                }
 
-               this@iterations <- this@iterations + as.integer(1)
-
                TV <- estimateTV(e,TV,estimationControl,GARCH)
                cat(".")
                tvg.value <- loglik.tvgarch.univar(e,TV@g,GARCH@h)
 
                if(isFALSE(TV$Estimated$error)){
+                 this@iterations <- this@iterations + as.integer(1)  # Iterations increment for each successful estimation of TV & GARCH
+
                  # Confirm LL has improved - to avoid divergence
                  if(isTRUE(estimationControl$verbose)){
                   if(tvg.value > this$Estimated$value) cat("\nTV Estimate Improved, now re-estimating Garch...\n")
@@ -1958,6 +1963,8 @@ estimateTVGARCH <- function(e,tvgarchObj,estimationControl,autoConverge){0}
 
 
                if(isFALSE(GARCH$Estimated$error)){
+                 this@iterations <- this@iterations + as.integer(1)  # Iterations increment for each successful estimation of TV & GARCH
+
                  # Confirm LL has improved - to avoid divergence
                  if(tvg.value > this$Estimated$value) {
 
