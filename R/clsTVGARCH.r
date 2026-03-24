@@ -22,7 +22,7 @@ setMethod("initialize","tv_class",
             .Object$speedopt <- speedopt$none
             .Object$delta0 <- 1.0
             .Object$pars <- matrix(NA,4,1)
-            .Object$optimcontrol <- list(fnscale = -1, reltol = 1e-5)
+            .Object$optimcontrol <- list(fnscale = -1, reltol = 1e-8)  # Maximiser with default tolerance
 
             # Return:
             .Object
@@ -73,7 +73,7 @@ setGeneric(name="tv",
 
              if(shape[1] == tvshape$delta0only){
                this@nr.transitions <- as.integer(0)
-               this$optimcontrol$ndeps <- c(1e-5)
+               this$optimcontrol$ndeps <- c(1e-3)
                this$optimcontrol$parscale <- c(1)
              }else {
                this$speedopt <- speedopt$eta
@@ -82,9 +82,9 @@ setGeneric(name="tv",
                this  <- .setInitialPars(this)
                rownames(this$pars) <- c("deltaN","speedN","locN1","locN2")
                this@nr.pars <- as.integer(length(this$pars[!is.na(this$pars)]) + 1)  # +1 for delta0
-               this$optimcontrol$ndeps <- rep(1e-5,this@nr.pars)
-               #TODO: Improve the parScale to better manage different Speed Options
-               parScale <- rep(c(3,3,1,1),this@nr.transitions)
+               this$optimcontrol$ndeps <- rep(1e-3,this@nr.pars)
+               #TODO: Improve the parScale to better manage different multiple location Options
+               parScale <- rep(c(1,4,3,0.5),this@nr.transitions)
                # Tricky bit of 'maths' below to produce NA's in the NA locations  :P
                parScale <- parScale + (as.vector(this$pars) - as.vector(this$pars))
                this$optimcontrol$parscale <- c(3,parScale[!is.na(parScale)])
@@ -108,7 +108,7 @@ setMethod("initialize","garch_class",
             .Object@order <- 0
             .Object$type <- garchtype$noGarch
             .Object$pars <- matrix(NA,4,1)
-            .Object$optimcontrol <- list(fnscale = -1, reltol = 1e-5)
+            .Object$optimcontrol <- list(fnscale = -1, reltol = 1e-8) # Maximiser with default tolerance
 
             # Return:
             .Object
@@ -156,9 +156,9 @@ setGeneric(name="garch",
 
              this@order <- order
              this <- .setInitPars(this)
-             this$optimcontrol$ndeps <- rep(1e-5,this@nr.pars)
-             if(type == garchtype$general) this$optimcontrol$parscale <- c(1,1,7)
-             if(type == garchtype$gjr) this$optimcontrol$parscale <- c(1,1,5,1)
+             this$optimcontrol$ndeps <- rep(1e-3,this@nr.pars)
+             if(type == garchtype$general) this$optimcontrol$parscale <- c(0.1,0.05,0.85)
+             if(type == garchtype$gjr) this$optimcontrol$parscale <- c(0.005, 0.095, 0.8, 0.1) # Maximiser with default tolerance
              return(this)
            }
 )
@@ -191,11 +191,11 @@ setMethod("initialize","tvgarch_class",
             .Object$speedopt <- speedopt$none
             .Object$delta0 <- 1.0
             .Object$tvpars <- matrix(NA,4,1)
-            .Object$tvOptimcontrol <- list(fnscale = -1, reltol = 1e-5)
+            .Object$tvOptimcontrol <- list(fnscale = -1, reltol = 1e-8)
             # Default GARCH properties
             .Object$garchtype <- garchtype$noGarch
             .Object$garchpars <- matrix(NA,4,1)
-            .Object$garchOptimcontrol <- list(fnscale = -1, reltol = 1e-5)
+            .Object$garchOptimcontrol <- list(fnscale = -1, reltol = 1e-8)
             # Name of Data Series - for plotting & historical reference
             .Object$data_desc <- NA
 
@@ -598,10 +598,10 @@ setGeneric(name=".setInitPars",
                pars <- matrix(nrow = this@nr.pars,ncol = maxLag)
                rownames(pars) <- GarchparsRownames[1:this@nr.pars]
                for(n in 1:maxLag){
-                 pars["omega",n] <- 0.1
-                 pars["alpha",n] <- 0.01
-                 pars["beta",n] <- 0.6
-                 pars["gamma",n] <- 0.03
+                 pars["omega",n] <- 0.005
+                 pars["alpha",n] <- 0.095
+                 pars["beta",n] <- 0.80
+                 pars["gamma",n] <- 0.10
                }
                this$pars <- pars
              }
