@@ -1877,7 +1877,16 @@ estimateTVGARCH <- function(e,tvgarchObj,estimationControl,autoConverge){0}
              GARCH$pars <- this$garchpars
              GARCH$optimcontrol <- this$garchOptimcontrol
              #
-             maxIterations <- as.integer(100)  # TODO: Expose this as an estimation control property
+             maxIterations <- if(!is.integer(this$maxIterations)){100}else{this$maxIterations}
+             #
+             # Configure variance targetting
+             if(isTRUE(this$varTarget)){
+               TV@delta0free <- TRUE
+               GARCH@omegafree <- FALSE
+             }else{
+               TV@delta0free <- FALSE
+               GARCH@omegafree <- TRUE
+             }
 
              cat("\nStarting TVGARCH Estimation...\n")
 
@@ -1886,7 +1895,6 @@ estimateTVGARCH <- function(e,tvgarchObj,estimationControl,autoConverge){0}
 
                # Cache the data, to identify future re-estimations:
                this@e <- e
-
                this$Estimated <- list()
 
                # Estimate TV, assuming h(t)=1
@@ -1900,7 +1908,6 @@ estimateTVGARCH <- function(e,tvgarchObj,estimationControl,autoConverge){0}
                if(isTRUE(estimationControl$verbose)){
                  cat("\nInitial round of estimation complete, \nBUT tv was estimated with h(t)=1, so\nnow we will filter out the Garch & re-estimate tv\n")
                }
-
 
                # Re-estimate TV, using the estimated h(t)
                TV <- estimateTV(e,TV,estimationControl,GARCH)
@@ -2013,7 +2020,7 @@ estimateTVGARCH <- function(e,tvgarchObj,estimationControl,autoConverge){0}
                  cat("\nTVGARCH Estimation Failed! estimateGARCH() caused the error.\n")
                }
 
-             }
+             }  # End:  while(isTRUE(keepEstimating))
 
              return(this)
 
