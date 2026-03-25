@@ -334,15 +334,18 @@ estimateGARCH <- function(e,garchObj,estimationControl,tvObj){0}
                cat("\nEstimating GARCH object...\n")
              } else this$optimcontrol$trace <- 0
 
+
              # Get Optimpars from garch$pars
              if(isTRUE(this@omegafree)){
                optimpars <- as.vector(this$pars)
                names(optimpars) <- rownames(this$pars)
              }else{
-               # VarTargetting, calculate omega, estimate delta0
+               # VarTargetting, calculate omega after estimation completes
                optimpars <- tail(as.vector(this$pars), -1)
                names(optimpars) <- rownames(this$pars[-1,])
-               this@nr.pars <- this@nr.pars - 1
+               this@nr.pars <- this@nr.pars - as.integer(1)
+               this$optimcontrol$ndeps <- tail(this$optimcontrol$ndeps,this@nr.pars)
+               this$optimcontrol$parscale <- tail(this$optimcontrol$parscale,this@nr.pars)
              }
 
              # Now call optim:
@@ -678,7 +681,11 @@ setGeneric("calculate_h",valueClass = "numeric")
 
   # TODO: Extend the below to handle more lags (higher order Garch)
   for(t in 2:Tobs) {
-    h[t] <- this$Estimated$pars["omega",1] + this$Estimated$pars["alpha",1]*(e[t-1])^2 + this$Estimated$pars["beta",1]*h[t-1]
+    if(this@omegafree){
+      h[t] <- this$Estimated$pars["omega",1] + this$Estimated$pars["alpha",1]*(e[t-1])^2 + this$Estimated$pars["beta",1]*h[t-1]
+    }else{
+      h[t] <- (1 - this$Estimated$pars["alpha",1] - this$Estimated$pars["alpha",1]) + this$Estimated$pars["alpha",1]*(e[t-1])^2 + this$Estimated$pars["beta",1]*h[t-1]
+    }
     if(this$type == garchtype$gjr) h[t] <- h[t] + this$Estimated$pars["gamma",1]*(min(e[t-1],0))^2
   }
 
