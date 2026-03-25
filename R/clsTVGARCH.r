@@ -335,8 +335,15 @@ estimateGARCH <- function(e,garchObj,estimationControl,tvObj){0}
              } else this$optimcontrol$trace <- 0
 
              # Get Optimpars from garch$pars
-             optimpars <- as.vector(this$pars)
-             names(optimpars) <- rownames(this$pars)
+             if(isTRUE(this@omegafree)){
+               optimpars <- as.vector(this$pars)
+               names(optimpars) <- rownames(this$pars)
+             }else{
+               # VarTargetting, calculate omega, estimate delta0
+               optimpars <- tail(as.vector(this$pars), -1)
+               names(optimpars) <- rownames(this$pars[-1,])
+               this@nr.pars <- this@nr.pars - 1
+             }
 
              # Now call optim:
              tmp <- NULL
@@ -360,7 +367,12 @@ estimateGARCH <- function(e,garchObj,estimationControl,tvObj){0}
              this$Estimated$value <- tmp$value
              this$Estimated$error <- FALSE
 
-             this$Estimated$pars <- .parsVecToMatrix(this,tmp$par)
+             if(isTRUE(this@omegafree)){
+               this$Estimated$pars <- .parsVecToMatrix(this,tmp$par)
+             }else{
+               omega <- 1 - tmp$par[1] - tmp$par[2]
+               this$Estimated$pars <- .parsVecToMatrix(this,c(omega,tmp$par))
+             }
 
              # Get conditional variance
              this@h <- .calculate_h(this,e/sqrt(tvObj@g))
@@ -648,8 +660,7 @@ setGeneric(name=".parsVecToMatrix",
              garchparsRownames <- c("omega","alpha","beta","gamma")
              # Return the formatted matrix
              matrix(pars,nrow = this@nr.pars ,ncol = maxLag,dimnames = list(garchparsRownames[1:this@nr.pars],"Est"))
-
-           }
+            }
 )
 
 ## -- calculate_h() ####
