@@ -77,7 +77,7 @@ setGeneric(name="tv",
                this$optimcontrol$parscale <- c(1)
              }else {
                this$speedopt <- speedopt$eta
-               this@nr.transitions <- length(shape)
+               this@nr.transitions <- as.integer(length(shape))
                # Create the starting Pars matrix
                this  <- .setInitialPars(this)
                rownames(this$pars) <- c("deltaN","speedN","locN1","locN2")
@@ -99,7 +99,7 @@ setGeneric(name="tv",
 
 # --- GARCH_CLASS Definition --- ####
 garch <- setClass(Class = "garch_class",
-                  slots = c(h="numeric",nr.pars="integer",order="numeric"),
+                  slots = c(h="numeric",nr.pars="integer",omegafree="logical",order="numeric"),
                   contains = c("namedList")
 )
 
@@ -110,6 +110,7 @@ setMethod("initialize","garch_class",
             .Object@nr.pars <- as.integer(0)
             .Object@order <- 0
             .Object$type <- garchtype$noGarch
+            .Object@omegafree <- TRUE
             .Object$pars <- matrix(NA,4,1)
             .Object$optimcontrol <- list(fnscale = -1, reltol = 1e-8) # Maximiser with default tolerance
 
@@ -174,7 +175,7 @@ setMethod("garch",signature = c("numeric","missing"),
           })
 
 
-# --- tvgarch_CLASS Definition --- ####
+# --- TVGARCH_CLASS Definition --- ####
 tvgarch <- setClass(Class = "tvgarch_class",
                     slots = c(Tobs="integer",tvObj="tv_class",garchObj="garch_class",e="numeric",iterations="integer"),
                     contains = c("namedList")
@@ -188,6 +189,9 @@ setMethod("initialize","tvgarch_class",
             .Object@e <- vector("numeric")
             # Number of iterations required for estimation to converge
             .Object@iterations <- as.integer(0)
+            #
+            .Object$maxIterations <- 100
+            .Object$varTarget <- TRUE
 
             # Default TV properties
             .Object$shape <- tvshape$delta0only
@@ -1935,6 +1939,7 @@ estimateTVGARCH <- function(e,tvgarchObj,estimationControl,autoConverge){0}
 
                if(this@iterations >= maxIterations){
                  this$Estimated$converged <- FALSE
+                 return(this)
                  cat("\nTVGARCH Estimation Failed! Maximimum iterations exceeded. Failed to converge\n")
                }
 
