@@ -1838,14 +1838,14 @@ setGeneric(name="loglik.tvgarch.univar",
 )
 
 
-# -- estimateTVGARCH -- ####
+# -- estimateTVGARCH_Iterate -- ####
 #' @title
 #' Estimates a tv model
 #'
 #' @description
-#' `estimateTVGARCH` is a
+#' `estimateTVGARCH_Iterate` is a
 #'
-#' @usage estimateTVGARCH(e,tvgarchObj,estimationControl,autoConverge)
+#' @usage estimateTVGARCH_Iterate(e,tvgarchObj,estimationControl,autoConverge)
 #'
 #' @param e An
 #' @param tvgarchObj Use
@@ -1855,7 +1855,7 @@ setGeneric(name="loglik.tvgarch.univar",
 #' This object
 #'
 #' ```
-#'   myTvGarch = estimateTVGARCH(e,myTvGarch,estimationControl,autoConverge)
+#'   myTvGarch = estimateTVGARCH_Iterate(e,myTvGarch,estimationControl,autoConverge)
 #' ```
 #'
 #'
@@ -1865,8 +1865,8 @@ setGeneric(name="loglik.tvgarch.univar",
 #' I am a note
 #'
 #'
-estimateTVGARCH <- function(e,tvgarchObj,estimationControl,autoConverge){0}
-.estimateTVGARCH <- function(e,tvgarchObj,estimationControl,autoConverge){
+estimateTVGARCH_Iterate <- function(e,tvgarchObj,estimationControl,autoConverge){0}
+.estimateTVGARCH_Iterate <- function(e,tvgarchObj,estimationControl,autoConverge){
 
              this <- tvgarchObj
 
@@ -2036,29 +2036,29 @@ estimateTVGARCH <- function(e,tvgarchObj,estimationControl,autoConverge){0}
 
 
 
-setGeneric("estimateTVGARCH", valueClass = "tvgarch_class")
+setGeneric("estimateTVGARCH_Iterate", valueClass = "tvgarch_class")
 
-setMethod("estimateTVGARCH",
+setMethod("estimateTVGARCH_Iterate",
           signature = c(e="numeric",tvgarchObj="tvgarch_class",estimationControl="list",autoConverge="logical"),
           function(e,tvgarchObj,estimationControl,autoConverge){
-            .estimateTVGARCH(e,tvgarchObj,estimationControl,autoConverge)
+            .estimateTVGARCH_Iterate(e,tvgarchObj,estimationControl,autoConverge)
           }
 )
 
-setMethod("estimateTVGARCH",
+setMethod("estimateTVGARCH_Iterate",
           signature = c(e="numeric",tvgarchObj="tvgarch_class",estimationControl="list",autoConverge="missing"),
           function(e,tvgarchObj,estimationControl){
             autoConverge <- FALSE
-            .estimateTVGARCH(e,tvgarchObj,estimationControl,autoConverge)
+            .estimateTVGARCH_Iterate(e,tvgarchObj,estimationControl,autoConverge)
           }
 )
 
-setMethod("estimateTVGARCH",
+setMethod("estimateTVGARCH_Iterate",
           signature = c(e="numeric",tvgarchObj="tvgarch_class",estimationControl="missing",autoConverge="missing"),
           function(e,tvgarchObj){
             autoConverge <- FALSE
             estimationControl <- list(calcSE=TRUE,verbose=TRUE)
-            .estimateTVGARCH(e,tvgarchObj,estimationControl,autoConverge)
+            .estimateTVGARCH_Iterate(e,tvgarchObj,estimationControl,autoConverge)
           }
 )
 
