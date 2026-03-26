@@ -1838,14 +1838,14 @@ setGeneric(name="loglik.tvgarch.univar",
 )
 
 
-# -- estimateTVGARCH_Iterate -- ####
+# -- estimateTVGARCH_2Step -- ####
 #' @title
 #' Estimates a tv model
 #'
 #' @description
-#' `estimateTVGARCH_Iterate` is a
+#' `estimateTVGARCH_2Step` is a
 #'
-#' @usage estimateTVGARCH_Iterate(e,tvgarchObj,estimationControl,autoConverge)
+#' @usage estimateTVGARCH_2Step(e,tvgarchObj,estimationControl)
 #'
 #' @param e An
 #' @param tvgarchObj Use
@@ -1855,7 +1855,7 @@ setGeneric(name="loglik.tvgarch.univar",
 #' This object
 #'
 #' ```
-#'   myTvGarch = estimateTVGARCH_Iterate(e,myTvGarch,estimationControl,autoConverge)
+#'   myTvGarch = estimateTVGARCH_2Step(e,myTvGarch,estimationControl)
 #' ```
 #'
 #'
@@ -1865,8 +1865,149 @@ setGeneric(name="loglik.tvgarch.univar",
 #' I am a note
 #'
 #'
-estimateTVGARCH_Iterate <- function(e,tvgarchObj,estimationControl,autoConverge){0}
-.estimateTVGARCH_Iterate <- function(e,tvgarchObj,estimationControl,autoConverge){
+estimateTVGARCH_2Step <- function(e,tvgarchObj,estimationControl){0}
+.estimateTVGARCH_2Step <- function(e,tvgarchObj,estimationControl){
+
+  this <- tvgarchObj
+
+  TV <- this@tvObj  # Note: 'this@tvObj' is the estimated TV object used in the constructor
+  GARCH <- this@garchObj
+  # Overwrite the starting values & optim-controls before estimating
+  # Note: The constructor will inherit the TV pars & optimcontrol from the passed-in TV object
+  #       But this allows the user to overwrite those values to fine-tune the estimation
+  TV$shape <- this$shape
+  TV$speedopt <- this$speedopt
+  TV$delta0 <- this$delta0
+  TV$pars <- this$tvpars
+  TV$optimcontrol <- this$tvOptimcontrol
+  #
+  GARCH$pars <- this$garchpars
+  GARCH$optimcontrol <- this$garchOptimcontrol
+  #
+  # Configure variance targetting
+  if(isTRUE(this$varTarget)){
+    TV@delta0free <- TRUE
+    GARCH@omegafree <- FALSE
+  }else{
+    TV@delta0free <- FALSE
+    GARCH@omegafree <- TRUE
+  }
+
+  cat("\nStarting 2-Step TVGARCH Estimation...\n")
+
+  #==  First time being estimated ==#
+  if(is.null(this$Estimated)){
+
+    # Cache the data, to identify future re-estimations:
+    this@e <- e
+    this$Estimated <- list()
+
+    # Estimate TV, assuming h(t)=1
+    garchObj <- garch(garchtype$noGarch)
+    TV <- estimateTV(e,TV,estimationControl,garchObj)
+    #TODO: Wrap estimator call in Try..Catch -> exit gracefully
+
+    if(isTRUE(estimationControl$verbose)){
+      cat("\nTV estimation complete, with assumption that h(t)=1\n")
+    }
+    cat(".")
+
+    # Now estimate the specified GARCH, using the estimated TV above
+    GARCH <- estimateGARCH(e,GARCH,estimationControl,TV)
+    #TODO: Wrap estimator call in Try..Catch -> exit gracefully
+
+    cat(".")
+    if(isTRUE(estimationControl$verbose)){
+      cat("\nGARCH estimation complete, using data filtered by g(t), which was estimated with h(t)=1\n")
+    }
+
+    # Put the final model into the Estimated list
+    this$Estimated$value <- loglik.tvgarch.univar(e,TV@g,GARCH@h)
+    this$Estimated$g <- TV@g                   # Populate the super-convenience attribute
+    this$Estimated$h <- GARCH@h                # Populate the super-convenience attribute
+    this$Estimated$tv <- TV$Estimated          # Cache the Estimated List into the object
+    this$Estimated$garch <- GARCH$Estimated    # Cache the Estimated List into the object
+    this@iterations <- as.integer(2)
+
+    cat("\nTVGARCH Estimation Completed\n")
+
+    # TODO:  Confirm how we do the continue-running...  Suggest: keep using starting pars {User has option to tweak these between runs!!}
+    # TODO:  Need to explain here: How to keep iterating manully.
+    if(isTRUE(estimationControl$verbose)){
+      cat("\n")
+      cat("\n2Step Estimation complete.  Re-run this estimation to see if the model can be improved!!")
+      cat("\nThis estimator is designed to be run iteratively, until fully converged.")
+      cat("\n")
+    }
+
+    # Update the internal objects with the Estimated objects.  These slots maintain the state between estimation runs
+    this@tvObj <- TV
+    this@garchObj <- GARCH
+
+    return(this)
+
+  }
+  #==  END: 2-Step Estimation  ==#
+
+
+
+}
+
+setGeneric("estimateTVGARCH_2Step", valueClass = "tvgarch_class")
+
+setMethod("estimateTVGARCH_2Step",
+          signature = c(e="numeric",tvgarchObj="tvgarch_class",estimationControl="list"),
+          function(e,tvgarchObj,estimationControl){
+            .estimateTVGARCH_2Step(e,tvgarchObj,estimationControl)
+          }
+)
+
+setMethod("estimateTVGARCH_2Step",
+          signature = c(e="numeric",tvgarchObj="tvgarch_class",estimationControl="list"),
+          function(e,tvgarchObj,estimationControl){
+            .estimateTVGARCH_2Step(e,tvgarchObj,estimationControl)
+          }
+)
+
+setMethod("estimateTVGARCH_2Step",
+          signature = c(e="numeric",tvgarchObj="tvgarch_class",estimationControl="missing"),
+          function(e,tvgarchObj){
+            estimationControl <- list(calcSE=TRUE,verbose=TRUE)
+            .estimateTVGARCH_2Step(e,tvgarchObj,estimationControl)
+          }
+)
+
+
+
+# -- estimateTVGARCH_Iterate -- ####
+#' @title
+#' Estimates a tv model
+#'
+#' @description
+#' `estimateTVGARCH_Iterate` is a
+#'
+#' @usage estimateTVGARCH_Iterate(e,tvgarchObj,estimationControl)
+#'
+#' @param e An
+#' @param tvgarchObj Use
+#' @param estimationControl A list
+#'
+#' @details
+#' This object
+#'
+#' ```
+#'   myTvGarch = estimateTVGARCH_Iterate(e,myTvGarch,estimationControl)
+#' ```
+#'
+#'
+#' @returns A tvgarch_class object.
+#'
+#' @note
+#' I am a note
+#'
+#'
+estimateTVGARCH_Iterate <- function(e,tvgarchObj,estimationControl){0}
+.estimateTVGARCH_Iterate <- function(e,tvgarchObj,estimationControl){
 
              this <- tvgarchObj
 
@@ -1874,7 +2015,7 @@ estimateTVGARCH_Iterate <- function(e,tvgarchObj,estimationControl,autoConverge)
              GARCH <- this@garchObj
              # Overwrite the starting values & optim-controls before estimating
              # Note: The constructor will inherit the TV pars & optimcontrol from the passed-in TV object
-             #       But this allows the user to overwrite those values to fine tune the estimation
+             #       But this allows the user to overwrite those values to fine-tune the estimation
              TV$shape <- this$shape
              TV$speedopt <- this$speedopt
              TV$delta0 <- this$delta0
@@ -1895,68 +2036,14 @@ estimateTVGARCH_Iterate <- function(e,tvgarchObj,estimationControl,autoConverge)
                GARCH@omegafree <- TRUE
              }
 
-             cat("\nStarting TVGARCH Estimation...\n")
+             cat("\nStarting Iterative TVGARCH Estimation...\n")
 
              #==  First time being estimated ==#
              if(is.null(this$Estimated)){
-
-               # Cache the data, to identify future re-estimations:
+               # Create the Estimated List & Cache the data, to identify future re-estimations:
                this@e <- e
                this$Estimated <- list()
-
-               # Estimate TV, assuming h(t)=1
-               garchObj <- garch(garchtype$noGarch)
-               TV <- estimateTV(e,TV,estimationControl,garchObj)
-               cat(".")
-
-               # Now estimate the specified GARCH, using the estimated TV above
-               GARCH <- estimateGARCH(e,GARCH,estimationControl,TV)
-               cat(".")
-               if(isTRUE(estimationControl$verbose)){
-                 cat("\nInitial round of estimation complete, \nBUT tv was estimated with h(t)=1, so\nnow we will filter out the Garch & re-estimate tv\n")
-               }
-
-               # Re-estimate TV, using the estimated h(t)
-               TV <- estimateTV(e,TV,estimationControl,GARCH)
-               cat(".")
-
-               # Finally re-estimate the Garch, filtering the TV
-               GARCH <- estimateGARCH(e,GARCH,estimationControl,TV)
-
-               # Put the final model into the Estimated list
-               this$Estimated$tv <- TV$Estimated
-               this$Estimated$tv$g <- TV@g
-               this$Estimated$garch <- GARCH$Estimated
-               this$Estimated$garch$h <- GARCH@h
-               this$Estimated$value <- loglik.tvgarch.univar(e,TV@g,GARCH@h)
-               this@iterations <- as.integer(2)
-
-               if(isFALSE(autoConverge)) cat("\nTVGARCH Estimation Completed")
-               if(isTRUE(estimationControl$verbose)){
-                 cat("\n")
-                 cat("\nTwo-Step Estimation complete.  Re-run this estimation to see if the model can be improved!!")
-                 cat("\nThis estimator is designed to  be run iteratively, until fully converged.")
-                 cat("\n")
-               }
-
-               # Update the internal objects with the Estimated objects:
-               # These slots maintain the state between estimation runs
-               this@tvObj <- TV
-               this@garchObj <- GARCH
-               # Populate the convenience attributes:
-               this$Estimated$g <- TV@g
-               this$Estimated$h <- GARCH@h
-               if(isFALSE(autoConverge)) {
-                 this$Estimated$converged <- TRUE
-                 return(this)
-               }
-
-
              }
-             #==  END: 2-Step Estimation  ==#
-
-
-             #== Continue if autoConverge is TRUE (Iterative Estimator) ==#
 
              keepEstimating <- TRUE
 
