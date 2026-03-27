@@ -340,11 +340,12 @@ estimateGARCH <- function(e,garchObj,estimationControl,tvObj){0}
              if(isTRUE(this@omegafree)){
                optimpars <- as.vector(this$pars)
                names(optimpars) <- rownames(this$pars)
+               this@nr.pars <- as.integer(length((optimpars)))
              }else{
                # VarTargetting, calculate omega after estimation completes
                optimpars <- tail(as.vector(this$pars), -1)
-               names(optimpars) <- rownames(this$pars[-1,])
-               this@nr.pars <- this@nr.pars - as.integer(1)
+               names(optimpars) <- tail(rownames(this$pars),-1)
+               this@nr.pars <- as.integer(length((optimpars)))
                this$optimcontrol$ndeps <- tail(this$optimcontrol$ndeps,this@nr.pars)
                this$optimcontrol$parscale <- tail(this$optimcontrol$parscale,this@nr.pars)
              }
@@ -373,9 +374,11 @@ estimateGARCH <- function(e,garchObj,estimationControl,tvObj){0}
 
              if(isTRUE(this@omegafree)){
                this$Estimated$pars <- .parsVecToMatrix(this,tmp$par)
+               this@nr.pars <- as.integer(3)
              }else{
                omega <- 1 - tmp$par[1] - tmp$par[2]
                this$Estimated$pars <- .parsVecToMatrix(this,c(omega,tmp$par))
+               this@nr.pars <- as.integer(2)
              }
 
              # Get conditional variance
@@ -385,18 +388,37 @@ estimateGARCH <- function(e,garchObj,estimationControl,tvObj){0}
              if (isTRUE(estimationControl$calcSE)) {
                cat("\nCalculating GARCH standard errors...\n")
                this$Estimated$hessian <- NULL
-               try(this$Estimated$hessian <- optimHess(tmp$par,.loglik.garch.univar,gr=NULL,e,this,tvObj,control=this$optimcontrol))
-               # Handle optimHess returns non-matrix
+               this$Estimated$se <- NULL
                StdErrors <- NULL
-               try(StdErrors <- sqrt(-diag(invertHess(this$Estimated$hessian))))
-               if(is.null(StdErrors)) {
-                 this$Estimated$se <- matrix(NA,nrow=this@nr.pars)
-               }else {
-                 this$Estimated$se <- matrix(StdErrors,nrow=this@nr.pars)
-               }
+
+               this$Estimated$se <- matrix(NA,nrow=3,ncol=1)
                rownames(this$Estimated$se) <- rownames(this$pars)
                colnames(this$Estimated$se) <- "se"
-             }
+
+               # Get the hessian from the optimiser:
+               try(this$Estimated$hessian <- optimHess(tmp$par,.loglik.garch.univar,gr=NULL,e,this,tvObj,control=this$optimcontrol))
+
+                 # Attempt to invert it
+                 try(StdErrors <- sqrt(-diag(invertHess(this$Estimated$hessian))))
+
+                 # Handle invertHess errors
+                 if(!is.null(StdErrors)) {
+                   parsVec <-  as.vector(this$pars)
+
+                   if(isTRUE(this@omegafree)){
+                     this$Estimated$se <- matrix(StdErrors,nrow=3,ncol=1)
+                   }else{
+                     # omega is calculated, so has no stderror
+                     this$Estimated$se[1,1] <- NA
+                     this$Estimated$se[2,1] <- StdErrors[1]
+                     this$Estimated$se[3,1] <- StdErrors[2]
+                   }
+
+                 } # Error occurred...
+
+
+             }  # End:  if (isTRUE(estimationControl$calcSE)) {
+             #
              if (isTRUE(estimationControl$verbose)) this$Estimated$optimoutput <- tmp
 
              return(this)
@@ -653,18 +675,26 @@ setGeneric(name=".parsVecToMatrix",
            function(garchObj,pars){
              this <- garchObj
 
+             # convert the passed-in 'pars' vector to the Garch$$=pars matrix:
+
              if(this$type == garchtype$noGarch) {
                message("Cannot create Garch Params for type: NoGarch")
                return(this)
              }
-
-             maxLag <- max(this@order)
+             #maxLag <- max(this@order)
+             maxLag <- 1
 
              # Set the row names:
-             garchparsRownames <- c("omega","alpha","beta","gamma")
+             # TODO: remove GJR capability from package
+             #garchparsRownames <- c("omega","alpha","beta","gamma")
+             garchparsRownames <- c("omega","alpha","beta")
+
+             # pars contains all Garch paramaters - the estimateGARCH() does this
              # Return the formatted matrix
-             matrix(pars,nrow = this@nr.pars ,ncol = maxLag,dimnames = list(garchparsRownames[1:this@nr.pars],"Est"))
-            }
+             #matrix(pars,nrow = this@nr.pars ,ncol = maxLag,dimnames = list(garchparsRownames[1:this@nr.pars],"Est"))
+             matrix(pars, nrow=3 ,ncol=1, dimnames = list(garchparsRownames,"Est"))
+
+          }
 )
 
 ## -- calculate_h() ####
@@ -680,14 +710,14 @@ setGeneric("calculate_h",valueClass = "numeric")
   h <- rep(0,Tobs)
   h[1] <- sum(e*e)/Tobs
 
-  # TODO: Extend the below to handle more lags (higher order Garch)
+  # TODO: Remove GJR Garch
   for(t in 2:Tobs) {
-    if(this@omegafree){
+    if(isTRUE(this@omegafree)){
       h[t] <- this$Estimated$pars["omega",1] + this$Estimated$pars["alpha",1]*(e[t-1])^2 + this$Estimated$pars["beta",1]*h[t-1]
     }else{
-      h[t] <- (1 - this$Estimated$pars["alpha",1] - this$Estimated$pars["alpha",1]) + this$Estimated$pars["alpha",1]*(e[t-1])^2 + this$Estimated$pars["beta",1]*h[t-1]
+      h[t] <- (1 - this$Estimated$pars["alpha",1] - this$Estimated$pars["beta",1]) + this$Estimated$pars["alpha",1]*(e[t-1])^2 + this$Estimated$pars["beta",1]*h[t-1]
     }
-    if(this$type == garchtype$gjr) h[t] <- h[t] + this$Estimated$pars["gamma",1]*(min(e[t-1],0))^2
+    #if(this$type == garchtype$gjr) h[t] <- h[t] + this$Estimated$pars["gamma",1]*(min(e[t-1],0))^2
   }
 
   return(h)
@@ -740,7 +770,20 @@ setGeneric(name=".loglik.garch.univar",
 
              ## ======== calculate loglikelihood ======== ##
 
-             this$Estimated$pars <- .parsVecToMatrix(this,optimpars)
+
+
+             if (this@omegafree){
+               # All pars are estimated
+               this$Estimated$pars <- .parsVecToMatrix(this,optimpars)
+               names(this$Estimated$pars) <- rownames(this$pars)
+             }else{
+               # omega must be calculated - and inserted back into the pars matrix.
+               omega <- (1 - optimpars[1] - optimpars[2])
+               this$Estimated$pars <- .parsVecToMatrix(this,c(omega,optimpars))
+               names(this$Estimated$pars) <- rownames(this$pars)
+             }
+
+             # Get the g(t) vector
              g <- tvObj@g
 
              h <- .calculate_h(this,e/sqrt(g))
@@ -919,7 +962,6 @@ estimateTV <- function(e,tvObj,estimationControl,garchObj){0}
   if(this@nr.transitions == 0){
     if(this@delta0free){
       this$Estimated$delta0 <- var(e)
-
       this@nr.pars <- as.integer(1)
     } else {
       this@nr.pars <- as.integer(0)
@@ -945,10 +987,15 @@ estimateTV <- function(e,tvObj,estimationControl,garchObj){0}
 
   if(isTRUE(this@delta0free)){
     # Estimating a single TV_class object
-    optimpars <- c(this$Estimated$delta0, parsVec)
+    optimpars <- c(this$delta0, parsVec)
+    this@nr.pars <- as.integer(length(optimpars))
+    # TODO: BUG here if user switches delta0free On, then OFF, then ON again the optimcontrol gets whacked!
+    if(length(this$optimcontrol$ndeps) < length(optimpars)) {this$optimcontrol$ndeps <- c(1.0,this$optimcontrol$ndeps)}
+    if(length(this$optimcontrol$parscale) < length(optimpars)) {this$optimcontrol$parscale <- c(1.0,this$optimcontrol$parscale)}
   }else{
     # Estimating a TVGARCH_class object - (delta0 is fixed to the passed-in estimated value)
     optimpars <- parsVec
+    this@nr.pars <- as.integer(length(optimpars))
     this$optimcontrol$ndeps <- tail(this$optimcontrol$ndeps,this@nr.pars)
     this$optimcontrol$parscale <- tail(this$optimcontrol$parscale,this@nr.pars)
   }
@@ -982,7 +1029,8 @@ estimateTV <- function(e,tvObj,estimationControl,garchObj){0}
     this$Estimated$delta0 <- as.numeric(tmp$par[1])
     this <- .estimatedParsToMatrix(this,tail(tmp$par,-1))
   } else{
-    if(is.null(this$Estimated$delta0)) this$Estimated$delta0 <- this$delta0
+    # delta0 is not an estimated param, use first round estimate.
+    if(is.null(this$Estimated$delta0)) this$Estimated$delta0 <- this$delta0    #Use the starting param if no estimated value exists
     this <- .estimatedParsToMatrix(this,tmp$par)
   }
   colnames(this$Estimated$pars) <- paste("st" ,1:this@nr.transitions,sep = "")
@@ -1007,7 +1055,10 @@ estimateTV <- function(e,tvObj,estimationControl,garchObj){0}
       if (isTRUE(this@delta0free)){
         this$Estimated$delta0_se <- stdErrors[1]
         stdErrors <- tail(stdErrors,-1)
-      } else this$Estimated$delta0_se <- NaN
+      } else {
+        this$Estimated$delta0_se <- NaN
+        stdErrors <- tail(stdErrors)
+      }
 
       seIndex <- 1
       for(n in seq_along(parsVec)){
@@ -2052,9 +2103,12 @@ estimateTVGARCH_Iterate <- function(e,tvgarchObj,estimationControl){0}
        if(isTRUE(this$varTarget)){
          TV@delta0free <- TRUE
          GARCH@omegafree <- FALSE
+         #
+
        }else{
          TV@delta0free <- FALSE
          GARCH@omegafree <- TRUE
+         #
        }
 
      }
