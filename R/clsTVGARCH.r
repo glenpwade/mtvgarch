@@ -918,80 +918,53 @@ setMethod("summary",signature="garch_class",
 
 ## --- Public TV Methods --- ####
 
+.estimateTV_noPars <- function(e,tvObj){
 
-
-
-
-## -- estimateTV(e,tv,ctrl,garch) ####
-#' @title
-#' Estimates a tv model
-#'
-#' @description
-#' `estimateTV` is a
-#'
-#' @usage estimateTV(e,tvObj,estimationControl)
-#'
-#' @param e An estimated TV model
-#' @param tvObj Use Enum, garchtype$...
-#' @param estimationControl A list
-#'
-#' @details
-#' This object
-#'
-#' ```
-#'   myTv = estimateTV(e,myTv,estimationControl)
-#' ```
-#'
-#'
-#' @returns A tv_class object.
-#'
-#' @note
-#' I am a note
-#'
-#'
-estimateTV <- function(e,tvObj,estimationControl,garchObj){0}
-.estimateTV <- function(e,tvObj,estimationControl,garchObj){
-  this <- tvObj
-
-  if(is.null(this$Estimated$delta0)){
-    this$Estimated <- list()
-    this$Estimated$delta0 <- this$delta0
-  }
-  # Set verbose tracing:
-  if (isTRUE(estimationControl$verbose)) {
-    this$optimcontrol$trace <- 10
-    cat("\nEstimating TV object...\n")
-  } else this$optimcontrol$trace <- 0
-
-  # Check for the simple case of just delta0 provided, no TV$pars
-  if(this@nr.transitions == 0){
     if(this@delta0free){
-      this$Estimated$delta0 <- var(e)
-      this@nr.pars <- as.integer(1)
-    } else { this@nr.pars <- as.integer(0)}
 
+      this@nr.pars <- as.integer(1)
+      this$Estimated$delta0 <- var(e)
+    } else {
+
+      # Estimate TV (no transitions AND delta0free = FALSE)
+      this@nr.pars <- as.integer(0)
+      # If there is no existing estimated this$Estimated$delta0, then use the starting param
+      if(is.null(this$Estimated$delta0)) {this$Estimated$delta0 < this$delta0}
+    }
+
+    # Now set g(t) based on the correct delta0
     this@g <- rep(this$Estimated$delta0,this@Tobs)
-    if(isTRUE(estimationControl$calcSE)) this$Estimated$delta0_se <- NaN
-    this$Estimated$pars <- c(NA,NA,NA,NA)
+
     this$Estimated$value <- sum(-0.5*log(2*pi) - 0.5*log(this@g) - (0.5*e^2)/this@g)
     this$Estimated$error <- FALSE
+
+    this$Estimated$pars <- c(NA,NA,NA,NA)
+    if(isTRUE(estimationControl$calcSE)) { this$Estimated$delta0_se <- NaN }
+
     # RETURN:
     return(this)
-  }
+}
 
-  # Set the Optimpars
+
+.setTVOptimpars <- function(tvObj){
+
+  this <- tvObj
+
   optimpars <- NULL
   parsVec <- as.vector(this$pars)
+  # Remove any loc2=NA pars:
   parsVec <- parsVec[!is.na(parsVec)]
 
   if(isTRUE(this@delta0free)){
-    # Estimating a single TV_class object
+    # Estimating a single tv_class object
     optimpars <- c(this$delta0, parsVec)
 
     this@nr.pars <- as.integer(length(optimpars))
+
     # TODO: BUG here if user switches delta0free On, then OFF, then ON again the optimcontrol gets whacked!
     if(length(this$optimcontrol$ndeps) < length(optimpars)) {this$optimcontrol$ndeps <- c(1.0,this$optimcontrol$ndeps)}
     if(length(this$optimcontrol$parscale) < length(optimpars)) {this$optimcontrol$parscale <- c(1.0,this$optimcontrol$parscale)}
+
   }else{
     # Estimating a TVGARCH_class object - (delta0 is fixed to the passed-in estimated value)
     optimpars <- parsVec
@@ -1000,12 +973,11 @@ estimateTV <- function(e,tvObj,estimationControl,garchObj){0}
     this$optimcontrol$ndeps <- tail(this$optimcontrol$ndeps,this@nr.pars)
     this$optimcontrol$parscale <- tail(this$optimcontrol$parscale,this@nr.pars)
   }
+}
 
-  # Now call optim:
-  tmp <- NULL
-  try(tmp <- optim(optimpars,.loglik.tv.univar,gr=NULL,e,this,garchObj,method="BFGS",control=this$optimcontrol))
+.copyEstimatedParsToTV(optimTmp){
 
-  ## --- Attach results of estimation to the object --- ##
+  tmp <- optimTmp
 
   # An unhandled error could result in a NULL being returned by optim()
   if (is.null(tmp)) {
@@ -1021,7 +993,7 @@ estimateTV <- function(e,tvObj,estimationControl,garchObj){0}
     warning("estimateTV() - failed to converge. Check the optim controls & starting params")
     return(this)
   }
-
+  # No optim issues, so set output
   this$Estimated$value <- tmp$value
   this$Estimated$error <- FALSE
 
@@ -1036,8 +1008,11 @@ estimateTV <- function(e,tvObj,estimationControl,garchObj){0}
   }
   colnames(this$Estimated$pars) <- paste("st" ,1:this@nr.transitions,sep = "")
 
-  # Get the conditional variances
-  this@g <- .calculate_g(this)
+  #RETURN:
+  return(this)
+}
+
+.setStdErrors_TV(this) <- function(this){
 
   # Calc the std errors
   if (isTRUE(estimationControl$calcSE)){
@@ -1072,6 +1047,75 @@ estimateTV <- function(e,tvObj,estimationControl,garchObj){0}
       colnames(this$Estimated$se) <- paste("se" ,1:this@nr.transitions,sep = "")
     }
   }
+
+}
+
+## -- estimateTV(e,tv,ctrl,garch) ####
+#' @title
+#' Estimates a tv model
+#'
+#' @description
+#' `estimateTV` is a
+#'
+#' @usage estimateTV(e,tvObj,estimationControl)
+#'
+#' @param e An estimated TV model
+#' @param tvObj Use Enum, garchtype$...
+#' @param estimationControl A list
+#'
+#' @details
+#' This object
+#'
+#' ```
+#'   myTv = estimateTV(e,myTv,estimationControl)
+#' ```
+#'
+#'
+#' @returns A tv_class object.
+#'
+#' @note
+#' I am a note
+#'
+#'
+estimateTV <- function(e,tvObj,estimationControl,garchObj){0}
+.estimateTV <- function(e,tvObj,estimationControl,garchObj){
+
+  this <- tvObj
+
+  # Set verbose tracing:
+  if (isTRUE(estimationControl$verbose)) {
+    this$optimcontrol$trace <- 10
+    cat("\nEstimating TV object...\n")
+  } else this$optimcontrol$trace <- 0
+
+  # Create the $Estimated list if needed
+  if(is.null(this$Estimated)){ this$Estimated <- list() }
+
+  # Check for the simple case of just delta0 provided, no TV$pars
+  if(this@nr.transitions == 0){
+    return( estimateTV_noPars(e,this) )
+  }
+
+
+  # Set the Optimpars
+  tvOptimpars <- setTV_Optimpars(this)
+  optimpars <- tvOptimpars$Optimpars
+  this <- tvOptimpars$tvObj
+
+  # Now call optim:
+  tmp <- NULL
+  try(tmp <- optim(optimpars,.loglik.tv.univar,gr=NULL,e,this,garchObj,method="BFGS",control=this$optimcontrol))
+
+  ## --- Attach results of estimation to the object --- ##
+
+  this <- .copyEstimatedParsToTV(tmp)
+
+  # Get the conditional variances
+  this@g <- .calculate_g(this)
+
+  this <- .setStdErrors_TV(this)
+
+
   if (isTRUE(estimationControl$verbose)) this$Estimated$optimoutput <- tmp
 
   return(this)
