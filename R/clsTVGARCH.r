@@ -668,7 +668,7 @@ setGeneric(name=".setInitPars",
            }
 )
 
-## -- .parsVecToMatrix() ####
+## -- .parsVecToMatrix(garchObj,pars) ####
 setGeneric(name=".parsVecToMatrix",
            valueClass = "matrix",
            signature = c("garchObj","pars"),
@@ -754,10 +754,10 @@ setGeneric(name="get_h",
 
 )
 
-## -- .loglik.garch.univar() ####
+## -- .loglik.garch.univar(optimpars,e,garchObj,tvObj) ####
 setGeneric(name=".loglik.garch.univar",
            valueClass = "numeric",
-           signature = c("optimpars","e","garchObj"),
+           signature = c("optimpars","e","garchObj","tvObj"),
            def =  function(optimpars,e,garchObj,tvObj){
 
              error <- -1e10
@@ -957,28 +957,27 @@ estimateTV <- function(e,tvObj,estimationControl,garchObj){0}
     this$Estimated <- list()
     this$Estimated$delta0 <- this$delta0
   }
+  # Set verbose tracing:
+  if (isTRUE(estimationControl$verbose)) {
+    this$optimcontrol$trace <- 10
+    cat("\nEstimating TV object...\n")
+  } else this$optimcontrol$trace <- 0
 
   # Check for the simple case of just delta0 provided, no TV$pars
   if(this@nr.transitions == 0){
     if(this@delta0free){
       this$Estimated$delta0 <- var(e)
       this@nr.pars <- as.integer(1)
-    } else {
-      this@nr.pars <- as.integer(0)
-    }
+    } else { this@nr.pars <- as.integer(0)}
+
     this@g <- rep(this$Estimated$delta0,this@Tobs)
     if(isTRUE(estimationControl$calcSE)) this$Estimated$delta0_se <- NaN
     this$Estimated$pars <- c(NA,NA,NA,NA)
     this$Estimated$value <- sum(-0.5*log(2*pi) - 0.5*log(this@g) - (0.5*e^2)/this@g)
     this$Estimated$error <- FALSE
+    # RETURN:
     return(this)
   }
-
-  # Set verbose tracing:
-  if (isTRUE(estimationControl$verbose)) {
-    this$optimcontrol$trace <- 10
-    cat("\nEstimating TV object...\n")
-  } else this$optimcontrol$trace <- 0
 
   # Set the Optimpars
   optimpars <- NULL
@@ -988,6 +987,7 @@ estimateTV <- function(e,tvObj,estimationControl,garchObj){0}
   if(isTRUE(this@delta0free)){
     # Estimating a single TV_class object
     optimpars <- c(this$delta0, parsVec)
+
     this@nr.pars <- as.integer(length(optimpars))
     # TODO: BUG here if user switches delta0free On, then OFF, then ON again the optimcontrol gets whacked!
     if(length(this$optimcontrol$ndeps) < length(optimpars)) {this$optimcontrol$ndeps <- c(1.0,this$optimcontrol$ndeps)}
@@ -995,6 +995,7 @@ estimateTV <- function(e,tvObj,estimationControl,garchObj){0}
   }else{
     # Estimating a TVGARCH_class object - (delta0 is fixed to the passed-in estimated value)
     optimpars <- parsVec
+
     this@nr.pars <- as.integer(length(optimpars))
     this$optimcontrol$ndeps <- tail(this$optimcontrol$ndeps,this@nr.pars)
     this$optimcontrol$parscale <- tail(this$optimcontrol$parscale,this@nr.pars)
@@ -1281,7 +1282,7 @@ setGeneric(name="getTestStats",
 
 ## --- PRIVATE TV METHODS --- ####
 
-## .Estimated Pars to Matrix ####
+## ..estimatedParsToMatrix(tvObj,optimpars)   ####
 setGeneric(name=".estimatedParsToMatrix",
            valueClass = "tv_class",
            signature = c("tvObj","optimpars"),
@@ -1683,7 +1684,7 @@ setGeneric(name="get_g",
 )
 
 
-## -- .loglik.tv.univar(e,tv,garch) ####
+## -- .loglik.tv.univar(optimpars,e,tv,garch) ####
 setGeneric(name=".loglik.tv.univar",
            valueClass = "numeric",
            signature = c("optimpars","e","tvObj","garchObj"),
@@ -1921,10 +1922,15 @@ estimateTVGARCH_2Step <- function(e,tvgarchObj,estimationControl){0}
 .estimateTVGARCH_2Step <- function(e,tvgarchObj,estimationControl){
 
   this <- tvgarchObj
-
-  TV <- this@tvObj  # Note: 'this@tvObj' is the estimated TV object used in the constructor
+  TV <- this@tvObj        # Note: 'this@tvObj' is the estimated TV object used in the constructor
   GARCH <- this@garchObj
-  # Overwrite the starting values & optim-controls before estimating
+
+  GARCH$type <- this$type
+  GARCH$pars <- this$garchpars
+  GARCH$optimcontrol <- this$garchOptimcontrol
+  #
+
+ # Overwrite the starting values & optim-controls before estimating
   # Note: The constructor will inherit the TV pars & optimcontrol from the passed-in TV object
   #       But this allows the user to overwrite those values to fine-tune the estimation
   TV$shape <- this$shape
@@ -1933,9 +1939,7 @@ estimateTVGARCH_2Step <- function(e,tvgarchObj,estimationControl){0}
   TV$pars <- this$tvpars
   TV$optimcontrol <- this$tvOptimcontrol
   #
-  GARCH$pars <- this$garchpars
-  GARCH$optimcontrol <- this$garchOptimcontrol
-  #
+
   # Configure variance targetting
   if(isTRUE(this$varTarget)){
     TV@delta0free <- TRUE
