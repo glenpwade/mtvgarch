@@ -1166,7 +1166,8 @@ estimateTV <- function(e,tvObj,estimationControl,garchObj){0}
 
   this <- tvObj
   # debug:
-  #this <- TVspec
+  #this <- TV
+  #garchObj <- GARCH
   #estimationControl <- estCtrl
 
   # If there is no existing this$Estimated$, then create one
@@ -2026,6 +2027,32 @@ setGeneric(name="loglik.tvgarch.univar",
 )
 
 
+.updateEstimatedDetails <- function(tvgarchObj,TV,GARCH){
+
+  this <- tvgarchObj
+
+  this@tvObj <- TV
+  this@garchObj <- GARCH
+  #Note: The above should only be done once - not every iteration
+
+  # Put this valid model into the Estimated list:
+  this$Estimated$tv <- TV$Estimated
+  this$Estimated$garch <- GARCH$Estimated
+  this$Estimated$tv$g <- TV@g
+  this$Estimated$garch$h <- GARCH@h
+
+  # Populate the convenience attributes:
+  this$Estimated$g <- TV@g
+  this$Estimated$h <- GARCH@h
+
+  return(this)
+
+}
+
+
+
+
+
 # -- estimateTVGARCH_2Step -- ####
 #' @title
 #' Estimates a tv model
@@ -2098,13 +2125,11 @@ estimateTVGARCH_2Step <- function(e,tvgarchObj,estimationControl){0}
     cat("\nGARCH estimation complete, using data filtered by g(t), which was estimated with h(t)=1\n")
   }
 
-  # Put the final model into the Estimated list
   this$Estimated$value <- loglik.tvgarch.univar(e,TV@g,GARCH@h)
-  this$Estimated$g <- TV@g                   # Populate the super-convenience attribute
-  this$Estimated$h <- GARCH@h                # Populate the super-convenience attribute
-  this$Estimated$tv <- TV$Estimated          # Cache the Estimated List into the object
-  this$Estimated$garch <- GARCH$Estimated    # Cache the Estimated List into the object
   this@iterations <- as.integer(2)
+
+  # Update the internal objects with the Estimated objects.  These slots maintain the state between estimation runs
+  this <- .updateEstimatedDetails(this,TV,GARCH)
 
   cat("\nTVGARCH Estimation Completed\n")
 
@@ -2115,16 +2140,11 @@ estimateTVGARCH_2Step <- function(e,tvgarchObj,estimationControl){0}
     cat("\n2Step Estimation complete.  Re-run this estimation to see if the model can be improved!!")
     cat("\nThis estimator is designed to be run iteratively, until fully converged.")
     cat("\nFor example, if you use the estimated model as the model specification, the estimator will continue to iterate:")
-    cat("\n    mod_2s <- estimateTVGARCH_2Step(e,mod_2S,estCtrl)")
+    cat("\n    :: mod_2s <- estimateTVGARCH_2Step(e,mod_2S,estCtrl) ::")
     cat("\n")
   }
 
-  # Update the internal objects with the Estimated objects.  These slots maintain the state between estimation runs
-  this@tvObj <- TV
-  this@garchObj <- GARCH
-
   return(this)
-
 
   #==  END: 2-Step Estimation  ==#
 
@@ -2187,9 +2207,15 @@ estimateTVGARCH_Iterate <- function(e,tvgarchObj,estimationControl){0}
 .estimateTVGARCH_Iterate <- function(e,tvgarchObj,estimationControl){
 
   this <- tvgarchObj
+  # debug:
+  #this <- mod
+  #estimationControl <- estCtrl
+
 
   TV <- this@tvObj        # Note: 'this@tvObj' is the estimated TV object used in the constructor
   GARCH <- this@garchObj
+  # We need to have an initial estimate for GARCH, so
+  GARCH <- estimateGARCH(e,GARCH,list(calcSE=FALSE, verbose=FALSE))
 
   # Configure variance targetting
   if(isTRUE(this$varTarget)){
@@ -2200,120 +2226,97 @@ estimateTVGARCH_Iterate <- function(e,tvgarchObj,estimationControl){0}
     GARCH@omegafree <- TRUE
   }
 
-  # First quietly estimate a 2-Step, then continue iterations.
-  estCtrl <- list(calcSE = FALSE, verbose = FALSE)
-  mod_2S <- tvgarch(TV,garchType = garchtype$general)
-  mod_2S <- .estimateTVGARCH_2Step(e,mod_2S,estCtrl)
-  #
-  # Extract the estimated TV & GARCH components:
-  TV <- mod_2S@tvObj
-  GARCH <- mod_2S@garchObj
-
-  if(isTRUE(estimationControl$verbose)){ cat("\nInital 2-Step estimation complete.\n\n") }
-
   # Set the iteration threshold:
   maxIterations <- if(!is.integer(this$maxIterations)){100}else{this$maxIterations}
 
-   # Start Iterative TVGARCH Estimation ####
-   cat("\nStarting Iterative TVGARCH Estimation...\n")
+  # Start Iterative TVGARCH Estimation ####
+  cat("\nStarting Iterative TVGARCH Estimation...\n")
 
-   keepEstimating <- TRUE
-   # While..Loop => Ensures we always run at least once.
-   # Update keepEstimating at end of the loop (checking for Convergence or MaxIterations)
-   # If an estimation FAILS inside the loop: Set the Result = 'Failed' and Exit immediately using return(this)
+  # Set starting value low to ensure we do at least 1 loop:
+  this$Estimated$value <- -Inf
 
-   # Baseline Value
-   this$Estimated$value <- mod_2S$Estimated$value
+  # While..Loop => Ensures we always run at least once.
+  # Update this@iterations after Estimates (checking for Convergence or MaxIterations)
+  # If an estimation FAILS inside the loop: Set the Result = 'Failed' and Exit immediately using return(this)
 
-   while(isTRUE(keepEstimating)){
+  while(isTRUE(this@iterations <= maxIterations)){
 
-     TV <- estimateTV(e,TV,estimationControl,GARCH)
-     if(isTRUE(estimationControl$verbose)){cat(".")}  # Single line comment
+    TV <- estimateTV(e,TV,estimationControl,GARCH)
+    # Increment the iteration counter
+    this@iterations <- this@iterations + as.integer(1)
 
-     if(isTRUE(TV$Estimated$error)){
-       # TV estimated FAIL:
-       this$Estimated$error <- TRUE
-       this$Estimated$converged <- FALSE
-       if(isTRUE(estimationControl$verbose)){ cat("\nTV Estimate generated an Error\n") }
-       # RETURN:
-       return(this)
-
-     } else{
-       # TV estimation SUCCESS:
-       # 1. Calculate Loglik:
-       tvg.value <- loglik.tvgarch.univar(e,TV@g,GARCH@h)
-
-       # 2. Check convergence threshold:
-       if( (tvg.value - this$Estimated$value) < this$iterationReltol ){
-         this$Estimated$converged <- TRUE
-         # No improvement, so Stop here and return the last good estimated Params
-         return(this)
-       }else{
-         # Improvement, so continue to estimate GARCH, but Save the estimated model, so we can refer to it later
-         TV <- this@tvObj
-         # TODO: could printout TV$Estimated$pars here
-       }
-
-     } # End of: # TV estimation SUCCESS
+    if(isTRUE(TV$Estimated$error)){
+     # TV estimated FAIL:
+     this$Estimated$error <- TRUE
+     if(isTRUE(estimationControl$verbose)){ cat("\nTV Estimate generated an Error\n") }
+     return(this)
+    }
 
 
-     # The following GARCH estimation is only done if the prior TV improved the Loglik value with no errors
-     GARCH <- estimateGARCH(e,GARCH,estimationControl,TV)
-     if(isTRUE(estimationControl$verbose)){cat(".")}  # Single line comment
+   # TV estimation SUCCESS:
+   # 1. Calculate Loglik:
+   tvg.value <- loglik.tvgarch.univar(e,TV@g,GARCH@h)
 
-     if(isTRUE(GARCH$Estimated$error)){
-       # GARCH estimated FAIL:
-       this$Estimated$error <- TRUE
-       this$Estimated$converged <- FALSE
-       if(isTRUE(estimationControl$verbose)){ cat("\nGARCH Estimate generated an Error\n") }
-       # RETURN:
-       return(this)
-     }else{
-       # GARCH estimation SUCCESS:
-       # 1. Calculate Loglik:
-       tvg.value <- loglik.tvgarch.univar(e,TV@g,GARCH@h)
+   # 2. Check convergence threshold:
+   if( (tvg.value - this$Estimated$value) < this$iterationReltol ){
+     # No improvement, so Stop here and return the last good estimated Params
+     this$Estimated$error <- FALSE
+     this$Estimated$converged <- TRUE
+     return(this)
+   }else{
+     # Improvement, so continue to estimate GARCH, but Save the estimated model, so we can refer to it later
+    ## this@tvObj <- TV
+     ##this$Estimated$converged <- FALSE
+     # TODO: could printout TV$Estimated$pars here
+   }
 
-       # 2. Check convergence threshold:
-       if( (tvg.value - this$Estimated$value) < this$iterationReltol ){
-         this$Estimated$converged <- TRUE
-         # No improvement, so Stop here and return the last good estimated Params
-         return(this)
-       }else{
-         # Improvement, so continue to estimate GARCH, but Save the estimated model, so we can refer to it later
-         GARCH <- this@garchObj
-         # TODO: could printout GARCH$Estimated$pars here
-       }
+   # End of: # TV estimation SUCCESS
+   #
+   if(isTRUE(estimationControl$verbose)){cat(".")}  # Single line comment
 
-      }  # End of: # GARCH estimation SUCCESS
+   # The following GARCH estimation is only done if the prior TV improved the Loglik value with no errors
+   GARCH <- estimateGARCH(e,GARCH,estimationControl,TV)
+   # Increment the iteration counter
+   this@iterations <- this@iterations + as.integer(1)
 
-     # At this point, we have completed a successful Iteration of TV/h(t) and GARCH/g(t), so:
+   if(isTRUE(GARCH$Estimated$error)){
+     # GARCH estimated FAIL:
+     this$Estimated$error <- TRUE
+     if(isTRUE(estimationControl$verbose)){ cat("\nGARCH Estimate generated an Error\n") }
+     return(this)
+   }
 
-     # Update the internal objects with the Estimated objects:
-     this@tvObj <- TV
-     this@garchObj <- GARCH
-     #Note: The above should only be done once - not every iteration
+   # GARCH estimation SUCCESS:
+   this$Estimated$error <- FALSE
+   # 1. Calculate Loglik:
+   tvg.value <- loglik.tvgarch.univar(e,TV@g,GARCH@h)
 
-     # Put this valid model into the Estimated list:
-     this$Estimated$value <- tvg.value
-     this$Estimated$tv <- TV$Estimated
-     this$Estimated$tv$g <- TV@g
-     this$Estimated$garch <- GARCH$Estimated
-     this$Estimated$garch$h <- GARCH@h
+   # 2. Check convergence threshold:
+   if( (tvg.value - this$Estimated$value) < this$iterationReltol ){
+     # No improvement, so Stop here and return the last good estimated Params
+     this$Estimated$error <- FALSE
+     this$Estimated$converged <- TRUE
+     return(this)
+   }else{
+     # Improvement, so continue to estimate GARCH, but Save the estimated model, so we can refer to it later
+     ##this@garchObj <- GARCH
+     ##this$Estimated$converged <- FALSE
+     # TODO: could printout GARCH$Estimated$pars here
+   }
+   # End of: # GARCH estimation SUCCESS
+   #
+   if(isTRUE(estimationControl$verbose)){cat(".")}  # Single line comment
 
-     # Populate the convenience attributes:
-     this$Estimated$g <- TV@g
-     this$Estimated$h <- GARCH@h
-     this$Estimated$converged <- FALSE
+   # At this point, we have completed a successful Iteration of TV/h(t) and GARCH/g(t), so:
+   this$Estimated$value <- tvg.value
 
-     # Increment the iteration counter
-     this@iterations <- this@iterations + as.integer(1)
+   # Update the internal objects with the Estimated objects:
+   this <- .updateEstimatedDetails(this,TV,GARCH)
 
-  }  # End: While(keepEstimating)
+  }  # End: While(this@iterations <= maxIterations)
 
    return(this)
 }
-
-
 
 setGeneric("estimateTVGARCH_Iterate", valueClass = "tvgarch_class")
 

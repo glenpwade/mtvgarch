@@ -55,20 +55,32 @@
 #
 # #GARCH@omegafree <- FALSE  # TODO:  Causes estimateGARCH() - optim failed unexpectedly and returned NULL.
 #
-# # e,garchObj,estimationControl,tvObj
-#
-# garchObj <- GARCH
-# estimationControl <- estCtrl
-# tvObj <- TV
-# # --
-# # Use if debugging deep into .loglik()
-# pars = optimpars
-# # --
+# GARCH <- MTVGARCH::garch(garchtype$noGarch)
 # GARCH <- MTVGARCH::estimateGARCH(e,GARCH,estCtrl)
 # summary(GARCH)
 #
 # # estimateGARCH() - optim failed unexpectedly and returned NULL. Check the optim controls & starting params
 #
 #
+# # TVGARCH Estimation:  ####
 #
-# this$optimcontrol
+# # 2. Specify a multiplicitive TV GARCH model specification using the TV & GARCH specification above
+# mod <- MTVGARCH::tvgarch(TV,garchType = garchtype$general)
+# # 2.1 We need to set the Garch starting pars, before estimating the model:
+# mod$garchpars["omega",1] = 0.05
+# mod$garchpars["alpha",1] = 0.05
+# mod$garchpars["beta",1] = 0.90
+# mod$garchOptimcontrol$parscale <- c(0.05,0.05,0.90)
+#
+# # 3. Since we are only doing one - let's see what's going on & calc parameter se's.
+# estCtrl <- list(calcSE = TRUE, verbose = TRUE)
+#
+# # 4. Run the 2-Step estimation
+# mod_2s <- MTVGARCH::estimateTVGARCH_2Step(e,mod,estCtrl)
+#
+# # 5. Run the iterative estimation
+# # 5.1 But We don't need to calculate statistics for each iteration
+# estCtrl <- list(calcSE = FALSE, verbose = TRUE)
+# mod_iter <- MTVGARCH::estimateTVGARCH_Iterate(e,mod,estCtrl)
+#
+#
