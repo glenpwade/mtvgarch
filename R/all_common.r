@@ -12,6 +12,17 @@ garchtype <- list(noGarch=0,general=1,gjr=2)
 corrshape <- list(single=1,double1loc=2)
 corrspeedopt <- list(gamma=1,gamma_std=2,eta=3)
 
+# For reference:  The estimationControl list used by all estimators:
+# For TV & GARCH:
+# estCtrl <- list(calcSE = FALSE, verbose = FALSE)
+# For TVGARCH:
+# estCtrl <- list(calcSE = FALSE, verbose = FALSE, fixStartPars = FALSE, startParAdjust = 5)
+# Used when estimator iterates, and needs to decide where to get starting pars:
+# fixStartPars = TRUE:Always use the initial set of start pars, FALSE: (Default) Use the last good estimated pars as Start pars
+#                Note: the optim() function has a numerical issue when Start Pars == Last Estimated, so..
+# startParAdjust = The number of ndeps to add to the Last Estimated pars, to keep optim() happy.  (Range= 1-10, Default = 5)
+
+
 ## -- vecl -- ####
 setGeneric(name="vecL",
            valueClass = "numeric",
