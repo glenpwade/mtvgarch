@@ -194,12 +194,14 @@ setMethod("initialize","tvgarch_class",
             #
             .Object$varTarget <- TRUE
 
+            # TODO:  Should we drop all these copies & use the tvObj,garchObj instead?  Or keep these as the Estimated values??
             # Default TV properties
             .Object$shape <- tvshape$delta0only
             .Object$speedopt <- speedopt$none
             .Object$delta0 <- 1.0
             .Object$tvpars <- matrix(NA,4,1)
             .Object$tvOptimcontrol <- list(fnscale = -1, reltol = 1e-8)
+
             # Default GARCH properties
             .Object$garchtype <- garchtype$noGarch
             .Object$garchpars <- matrix(NA,4,1)
@@ -252,8 +254,8 @@ setGeneric(name="tvgarch",
                return(this)
              }
 
-             this@Tobs <- tvObj@Tobs
              this@tvObj <- tvObj
+             this@Tobs <- tvObj@Tobs
 
              this$shape <- tvObj$shape
              this$speedopt <- tvObj$speedopt
@@ -271,7 +273,13 @@ setGeneric(name="tvgarch",
                  this@tvObj@nr.pars <- tvObj@nr.pars - as.integer(1)
                  this@tvObj@delta0free <- FALSE
                }
-             } else this@tvObj@delta0free <- TRUE
+             } else {
+               this@tvObj@nr.pars <- tvObj@nr.pars + as.integer(1)
+               this@tvObj$optimcontrol$ndeps <- c(1e-3,tvObj$optimcontrol$ndeps)
+               this@tvObj$optimcontrol$parscale <- c(1,tvObj$optimcontrol$parscale)
+
+               this@tvObj@delta0free <- TRUE
+             }
 
              this$tvOptimcontrol <- this@tvObj$optimcontrol
 
@@ -290,37 +298,51 @@ setGeneric(name="tvgarch",
 
 
 
-.getOptimpars_fromGARCH <- function(garchObj){
+.getOptimpars_fromGARCH <- function(garchObj,estimationControl){
 
   # Derive the optimpars vector, allowing for NA's and omega0free:
   # Return both the optimpars vector and the garchObj, with corrected internals, e.g. nr.pars, optimControl list.
-  #
+
+
   this <- garchObj
-  optimpars <- NULL
-  this$Estimated$method <- "MLE"
+  estCtrl <- estimationControl
 
-  if(isTRUE(this@omegafree)){
-    optimpars <- as.vector(this$pars)
-    names(optimpars) <- rownames(this$pars)
-    this@nr.pars <- as.integer(length((optimpars)))
-    #
-    if(length(this$optimcontrol$ndeps) < length(optimpars)) { this$optimcontrol$ndeps <- tail(this$optimcontrol$ndeps,this@nr.pars) }
-    if(length(this$optimcontrol$ndeps) < length(optimpars)) { this$optimcontrol$parscale <- tail(this$optimcontrol$parscale,this@nr.pars) }
+  # Check for iterative-estimator controls, Set defaults if not exists:
+  if(!("fixStartPars" %in% estCtrl)){ estCtrl$fixStartPars <- FALSE }
+  if(!("startParAdjust" %in% estCtrl)){ estCtrl$startParAdjust <- 5 }
+
+  # Get the starting pars (parsVec):
+  if(isTRUE(estCtrl$fixStartPars)  || (!("pars" %in% this$Estimated)) ){
+    # Do nothing
+    parsVec <- as.vector(this$pars)
   }else{
+    # Get last Estimates:
+    parsVec <- as.vector(this$Estimated$pars)  #TODO: Confirm this is correct for TVGARCH estimator
+    # "shake": Move a few steps away:
+    parsVec <- parsVec + (estCtrl$startParAdjust * this$optimcontrol$ndeps)
+  }
 
+  # When omega is NOT a free parameter, remove it from parsVec and the optimcontrol's
+  if(isTRUE(this@omegafree)){
+    # parsVec is correct
+    names(parsVec) <- rownames(this$pars)
+    this@nr.pars <- as.integer(length((parsVec)))
+    # TODO: BUG here if user switches omegafree ON, then OFF, then ON again the optimcontrol gets whacked!
+    if(length(this$optimcontrol$ndeps) < length(parsVec)) { this$optimcontrol$ndeps <- c(1e-3,this$optimcontrol$ndeps) }
+    if(length(this$optimcontrol$ndeps) < length(parsVec)) { this$optimcontrol$parscale <- c(0.05,this$optimcontrol$parscale) }
+  }else{
     # VarTargetting, calculate omega, estimate alpha & beta:
-
-    optimpars <- tail(as.vector(this$pars), -1)
-    names(optimpars) <- tail(rownames(this$pars),-1)
-    this@nr.pars <- as.integer(length((optimpars)))
-
+    parsVec <- tail(as.vector(this$pars), -1)
+    names(parsVec) <- tail(rownames(this$pars),-1)
+    this@nr.pars <- as.integer(length((parsVec)))
+    # Drop omega from the OptimControl's
     this$optimcontrol$ndeps <- tail(this$optimcontrol$ndeps,this@nr.pars)
     this$optimcontrol$parscale <- tail(this$optimcontrol$parscale,this@nr.pars)
   }
 
   #RETURN:
   rtnList <- list()
-  rtnList$Optimpars <- optimpars
+  rtnList$Optimpars <- parsVec
   rtnList$garchObj <- this
   return(rtnList)
 
@@ -505,7 +527,6 @@ setMethod("estimateGARCH",
           signature = c(e="numeric",garchObj="garch_class",estimationControl="list",tvObj="missing"),
           function(e,garchObj,estimationControl){
             tvObj <- tv(1,tvshape$delta0only)
-            tvObj@g <- 1
             .estimateGARCH(e,garchObj,estimationControl,tvObj)
           }
 )
@@ -513,7 +534,6 @@ setMethod("estimateGARCH",
           signature = c(e="numeric",garchObj="garch_class",estimationControl="missing",tvObj="missing"),
           function(e,garchObj,estimationControl){
             tvObj <- tv(1,tvshape$delta0only)
-            tvObj@g <- 1
             estimationControl <- list(calcSE=TRUE,verbose=TRUE)
             .estimateGARCH(e,garchObj,estimationControl,tvObj)
           }
@@ -1017,40 +1037,52 @@ setMethod("summary",signature="garch_class",
   return(this)
 }
 
-.getOptimpars_FromTV <- function(tvObj){
+.getOptimpars_FromTV <- function(tvObj,estimationControl){
 
   # Derive the optimpars vector, allowing for NA's and delta0free:
   # Return both the optimpars vector and the tvObj, with corrected internals, nr.pars, optimControl list.
 
+  estCtrl <- list(calcSE = TRUE, verbose = TRUE)
+
   this <- tvObj
+  estCtrl <- estimationControl
 
-  optimpars <- NULL
-  parsVec <- as.vector(this$pars)
-  # Remove any loc2=NA pars:
-  parsVec <- parsVec[!is.na(parsVec)]
+  # Check for iterative-estimator controls, Set defaults if not exists:
+  if(!("fixStartPars" %in% estCtrl)){ estCtrl$fixStartPars <- FALSE }
+  if(!("startParAdjust" %in% estCtrl)){ estCtrl$startParAdjust <- 50 }
 
+  # Get the starting pars (parsVec):
+  if(isTRUE(estCtrl$fixStartPars) || (!("pars" %in% this$Estimated)) ){
+    # Get starting pars from model spec if it hasn't been estimated yet, OR fixStartPars is TRUE
+    parsVec <- c(this$delta0, as.vector(this$pars))
+  }else{
+    # Get last Estimates:
+    parsVec <- c(this$Estimated$delta0, as.vector(this$Estimated$pars))  #TODO: Confirm this is correct for TVGARCH estimator
+    # "shake": Move a few steps away:
+    parsVec <- parsVec + (estCtrl$startParAdjust * this$optimcontrol$ndeps)
+  }
+
+
+  # When delta0 is NOT a free param, remove it from the parsVec and optimcontrol's
   if(isTRUE(this@delta0free)){
-    # Estimating a single tv_class object
-    optimpars <- c(this$delta0, parsVec)
-
-    this@nr.pars <- as.integer(length(optimpars))
-
-    # TODO: BUG here if user switches delta0free On, then OFF, then ON again the optimcontrol gets whacked!
-  if(length(this$optimcontrol$ndeps) < length(optimpars)) {this$optimcontrol$ndeps <- c(1.0,this$optimcontrol$ndeps)}
-  if(length(this$optimcontrol$parscale) < length(optimpars)) {this$optimcontrol$parscale <- c(1.0,this$optimcontrol$parscale)}
+    this@nr.pars <- as.integer(length(parsVec))
+    # TODO: BUG here if user switches delta0free ON, then OFF, then ON again the optimcontrol gets whacked!
+    if(length(this$optimcontrol$ndeps) < length(parsVec)) {this$optimcontrol$ndeps <- c(1e-3,this$optimcontrol$ndeps)}
+    if(length(this$optimcontrol$parscale) < length(parsVec)) {this$optimcontrol$parscale <- c(0.05,this$optimcontrol$parscale)}
 
   }else{
-    # Estimating a TVGARCH_class object - (delta0 is fixed to the passed-in estimated value)
-    optimpars <- parsVec
+    # Drop delta0 from the parsVec:
+    parsVec <- tail(parsVec,-1)
+    this@nr.pars <- as.integer(length(parsVec))
+    # TODO: BUG here if user switches delta0free On, then OFF, then ON again the optimcontrol gets whacked!
+    if(length(this$optimcontrol$ndeps) < length(parsVec)) {this$optimcontrol$ndeps <- tail(this$optimcontrol$ndeps,-1)}
+    if(length(this$optimcontrol$parscale) < length(parsVec)) {this$optimcontrol$parscale <- tail(1.0,this$optimcontrol$parscale,-1)}
 
-    this@nr.pars <- as.integer(length(optimpars))
-    this$optimcontrol$ndeps <- tail(this$optimcontrol$ndeps,this@nr.pars)
-    this$optimcontrol$parscale <- tail(this$optimcontrol$parscale,this@nr.pars)
   }
 
   #RETURN:
   rtnList <- list()
-  rtnList$Optimpars <- optimpars
+  rtnList$Optimpars <- parsVec
   rtnList$tvObj <- this
   return(rtnList)
 
@@ -1188,10 +1220,11 @@ estimateTV <- function(e,tvObj,estimationControl,garchObj){0}
   if(this@nr.transitions == 0){ return( .estimateTV_noPars(e,this) ) }
 
   # Get the Optimpars from the tvObj (and update the tvObj as needed)
-  tvOptimpars <- .getOptimpars_FromTV(this)
+  tvOptimpars <- .getOptimpars_FromTV(this,estimationControl)
   optimpars <- tvOptimpars$Optimpars
   this <- tvOptimpars$tvObj
 
+  # TODO: Really want to handle noGarch -> Need to set h(t) on a noGarch model
   # Check we have a garchObj, if not create one (so optim() doesn't complain):
   if(is.null(garchObj)){ garchObj <- garch(garchtype$general)}
   # Check we have a valid h(t) vector (default = 1), if not create one (so optim() doesn't complain):
