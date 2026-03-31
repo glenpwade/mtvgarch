@@ -160,7 +160,7 @@ setGeneric(name="estimateCEC",
   N <- NCOL(z)
 
   #Initialise return value to the Error:
-  ll <- err_output <- -1e10
+  ll <- err_output <- -Inf
 
   # - - - CEC - - -
   rho <- pars
