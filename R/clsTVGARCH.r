@@ -800,6 +800,9 @@ setMethod("estimateGARCH_RollingWindow",
 
   if(this$type == garchtype$noGarch) return(this@h)
 
+  # First Run = No this$Estimated$pars exists:
+  if(!("pars" %in% this$Estimated)){ this$Estimated$pars <- this$pars }
+
   Tobs <- NROW(e)
   h <- rep(0,Tobs)
   h[1] <- sum(e*e)/Tobs
@@ -837,7 +840,7 @@ get_h = function(garchObj,e){
   return(h)
 }
 
-
+## .loglik.garch.univar(..)  ####
 .loglik.garch.univar =  function(optimpars,e,garchObj,tvObj){
 
   error <- -Inf
@@ -1738,7 +1741,8 @@ return(Results)
 ## -- .calculate_g(tv) ####
 .calculate_g = function(tvObj){
   this <- tvObj
-  # 1. Initialise g to a constant variance = delta0
+
+  # 1. Initialise g(t) to a constant variance = delta0
   if(!("delta0" %in% this$Estimated)){
    # Set defaults if the TV object has not been estimated yet
    g <- rep(this$delta0,this@Tobs)
