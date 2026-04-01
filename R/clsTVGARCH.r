@@ -208,7 +208,7 @@ setMethod("initialize","tv_class",
 
 # ---  ESTIMATE TV --- SECTION  ####
 
-{##  Help doco: estimateTV(e,tv,ctrl,garch) ####
+{##  Help doco: estimateTV(e,tv,garch,ctrl) ####
   #' @title
   #' Estimates a tv model
   #'
@@ -237,9 +237,9 @@ setMethod("initialize","tv_class",
   #'
 }
 
-{##  estimateTV(e,tv,ctrl,garch) ----
-  estimateTV <- function(e,tvObj,estimationControl,garchObj){0}
-  .estimateTV <- function(e,tvObj,estimationControl,garchObj){
+{##  estimateTV(e,tv,garch,ctrl) ----
+  estimateTV <- function(e,tvObj,garchObj,estimationControl){0}
+  .estimateTV <- function(e,tvObj,garchObj,estimationControl){
 
     this <- tvObj
     # debug:
@@ -366,26 +366,26 @@ setMethod("initialize","tv_class",
   setGeneric("estimateTV",valueClass = "tv_class")
 
   setMethod("estimateTV",
-            signature = c(e="numeric", tvObj="tv_class",estimationControl="list",garchObj="garch_class"),
-            function(e,tvObj,estimationControl,garchObj){
-              .estimateTV(e,tvObj,estimationControl,garchObj)
+            signature = c(e="numeric", tvObj="tv_class",garchObj="garch_class",estimationControl="list"),
+            function(e,tvObj,garchObj,estimationControl){
+              .estimateTV(e,tvObj,garchObj,estimationControl)
             }
   )
 
   setMethod("estimateTV",
-            signature = c(e="numeric", tvObj="tv_class",estimationControl="list",garchObj="missing"),
+            signature = c(e="numeric", tvObj="tv_class",garchObj="missing",estimationControl="list"),
             function(e,tvObj,estimationControl){
-              garchObj <- garch(garchtype$general)
-              .estimateTV(e,tvObj,estimationControl,garchObj)
+              garchObj <- garch(garchtype$general)  #TODO: Use noGarch - After fixing noGarch issues, @h etc.
+              .estimateTV(e,tvObj,garchObj,estimationControl)
             }
   )
 
   setMethod("estimateTV",
-            signature = c(e="numeric", tvObj="tv_class",estimationControl="missing",garchObj="missing"),
+            signature = c(e="numeric", tvObj="tv_class",garchObj="missing",estimationControl="missing"),
             function(e,tvObj){
               garchObj <- garch(garchtype$general)
-              estimationControl <- list(calcSE=TRUE,verbose=TRUE)
-              .estimateTV(e,tvObj,estimationControl,garchObj)
+              estimationControl <- list(calcSE=FALSE,verbose=TRUE)
+              .estimateTV(e,tvObj,garchObj,estimationControl)
             }
   )
 }
@@ -905,9 +905,9 @@ setMethod("summary",signature="garch_class",
 }
 
 
-{## -- estimateGARCH(e,Garch,estCtrl,Tv) ----
-  estimateGARCH <- function(e,garchObj,estimationControl,tvObj){0}
-  .estimateGARCH <- function(e,garchObj,estimationControl,tvObj){
+{## -- estimateGARCH(e,TV,Garch,estCtrl) ----
+  estimateGARCH <- function(e,tvObj,garchObj,estimationControl){0}
+  .estimateGARCH <- function(e,tvObj,garchObj,estimationControl){
 
     this <- garchObj
 
@@ -1006,15 +1006,15 @@ setMethod("summary",signature="garch_class",
 
   setMethod("estimateGARCH",
             signature = c(e="numeric",garchObj="garch_class",estimationControl="list",tvObj="tv_class"),
-            function(e,garchObj,estimationControl,tvObj){
-              .estimateGARCH(e,garchObj,estimationControl,tvObj)
+            function(e,tvObj,garchObj,estimationControl){
+              .estimateGARCH(e,tvObj,garchObj,estimationControl)
             }
   )
   setMethod("estimateGARCH",
             signature = c(e="numeric",garchObj="garch_class",estimationControl="list",tvObj="missing"),
             function(e,garchObj,estimationControl){
               tvObj <- tv(1,tvshape$delta0only)
-              .estimateGARCH(e,garchObj,estimationControl,tvObj)
+              .estimateGARCH(e,tvObj,garchObj,estimationControl)
             }
   )
   setMethod("estimateGARCH",
@@ -1022,7 +1022,7 @@ setMethod("summary",signature="garch_class",
             function(e,garchObj,estimationControl){
               tvObj <- tv(1,tvshape$delta0only)
               estimationControl <- list(calcSE=TRUE,verbose=TRUE)
-              .estimateGARCH(e,garchObj,estimationControl,tvObj)
+              .estimateGARCH(e,tvObj,garchObj,estimationControl)
             }
   )
 }
@@ -1792,7 +1792,7 @@ get_h = function(garchObj,e){
 
       # The following GARCH estimation is done even if the prior TV did not improve the Loglik value
       GARCH <- tryCatch({
-        GARCH <- estimateGARCH(e,GARCH,estimationControl,TV)
+        GARCH <- estimateGARCH(e,TV,GARCH,estimationControl)
       }, warning = function(w){
         message("Caught a warning: ", w$message)
         return(TV)
