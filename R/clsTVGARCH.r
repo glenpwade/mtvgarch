@@ -366,14 +366,14 @@ setMethod("initialize","tv_class",
   setGeneric("estimateTV",valueClass = "tv_class")
 
   setMethod("estimateTV",
-            signature = c(e="numeric", tvObj="tv_class",garchObj="garch_class",estimationControl="list"),
+            signature = c(e="numeric",tvObj="tv_class",garchObj="garch_class",estimationControl="list"),
             function(e,tvObj,garchObj,estimationControl){
               .estimateTV(e,tvObj,garchObj,estimationControl)
             }
   )
 
   setMethod("estimateTV",
-            signature = c(e="numeric", tvObj="tv_class",garchObj="missing",estimationControl="list"),
+            signature = c(e="numeric",tvObj="tv_class",garchObj="missing",estimationControl="list"),
             function(e,tvObj,estimationControl){
               garchObj <- garch(garchtype$general)  #TODO: Use noGarch - After fixing noGarch issues, @h etc.
               .estimateTV(e,tvObj,garchObj,estimationControl)
@@ -381,7 +381,7 @@ setMethod("initialize","tv_class",
   )
 
   setMethod("estimateTV",
-            signature = c(e="numeric", tvObj="tv_class",garchObj="missing",estimationControl="missing"),
+            signature = c(e="numeric",tvObj="tv_class",garchObj="missing",estimationControl="missing"),
             function(e,tvObj){
               garchObj <- garch(garchtype$general)
               estimationControl <- list(calcSE=FALSE,verbose=TRUE)
@@ -1005,20 +1005,20 @@ setMethod("summary",signature="garch_class",
   setGeneric("estimateGARCH",valueClass = "garch_class")
 
   setMethod("estimateGARCH",
-            signature = c(e="numeric",garchObj="garch_class",estimationControl="list",tvObj="tv_class"),
+            signature = c(e="numeric",tvObj="tv_class",garchObj="garch_class",estimationControl="list"),
             function(e,tvObj,garchObj,estimationControl){
               .estimateGARCH(e,tvObj,garchObj,estimationControl)
             }
   )
   setMethod("estimateGARCH",
-            signature = c(e="numeric",garchObj="garch_class",estimationControl="list",tvObj="missing"),
+            signature = c(e="numeric",tvObj="missing",garchObj="garch_class",estimationControl="list"),
             function(e,garchObj,estimationControl){
               tvObj <- tv(1,tvshape$delta0only)
               .estimateGARCH(e,tvObj,garchObj,estimationControl)
             }
   )
   setMethod("estimateGARCH",
-            signature = c(e="numeric",garchObj="garch_class",estimationControl="missing",tvObj="missing"),
+            signature = c(e="numeric",tvObj="missing",garchObj="garch_class",estimationControl="missing"),
             function(e,garchObj,estimationControl){
               tvObj <- tv(1,tvshape$delta0only)
               estimationControl <- list(calcSE=TRUE,verbose=TRUE)
@@ -2172,7 +2172,7 @@ testStatDist = function(refdata,tvObj,reftests,simcontrol){
   }
 
   # 1. Setup the default params
-  library(doParallel)
+  
 
   if(!is.null(simcontrol$numLoops)) numLoops <- simcontrol$numLoops else numLoops <- 1100
   if(!is.null(simcontrol$numCores)) numCores <- simcontrol$numCores else numCores <- detectCores() - 1

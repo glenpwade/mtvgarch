@@ -10,6 +10,6 @@ License: file LICENSE
 Encoding: UTF-8
 LazyData: True
 Depends: methods,Matrix,doParallel,foreach
-Imports: stats,doParallel,Matrix,foreach
+Imports: stats
 RoxygenNote: 7.3.1
 Roxygen: list(markdown = TRUE)

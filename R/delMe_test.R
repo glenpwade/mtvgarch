@@ -1,9 +1,4 @@
 # # Initialisation: ####
-# #
-# setwd("C:\\Repos\\mtvgarch\\R")
-# source("all_common.r")
-# source("clsTVGARCH.r")
-# #
 #
 # # Set constants
 # Reps <- 20
@@ -11,13 +6,15 @@
 # GARCHparScale <- c(0.05,0.05,0.90)
 # iterRelTol <- 1e-5  #Convergence tolerance for Iterative estimator
 # estCtrl <- list(calcSE = TRUE, verbose = TRUE)
-# estCtrl <- list(calcSE = FALSE, verbose = FALSE)
+# #estCtrl <- list(calcSE = FALSE, verbose = FALSE)
 #
 # # Check one Series ####
 #
 # # Set a working directory
 # fileName = ".\\SimSourceData\\T2000_Med_VarShift.RDS"
 # setwd("C:\\Repos\\LSS_LackOfIdentification")
+#
+# setwd("C:\\Source\\Repos\\LSS_LackOfIdentification")
 #
 # simData <- readRDS(fileName)
 #
