@@ -5,7 +5,8 @@
 # ---  TV --- SECTION  ####
 
 {## Help doco: tv() ####
-  #' @title
+  #' @noRd
+#' @title
   #' A time-varying
   #'
   #' @description
@@ -209,7 +210,8 @@ setMethod("initialize","tv_class",
 # ---  ESTIMATE TV --- SECTION  ####
 
 {##  Help doco: estimateTV(e,tv,garch,ctrl) ####
-  #' @title
+  #' @noRd
+#' @title
   #' Estimates a tv model
   #'
   #' @description
@@ -725,7 +727,8 @@ get_g = function(Obj){
 # ---  GARCH --- SECTION  ####
 
 {## Help doco: garch() ####
-  #' @title
+  #' @noRd
+#' @title
   #' A garch object
   #'
   #' @description
@@ -876,6 +879,7 @@ setMethod("summary",signature="garch_class",
 
 
 {## Help doco: estimateGARCH() ####
+#' @noRd
 #' @title
 #' Estimates a garch model
 #'
@@ -1300,7 +1304,8 @@ get_h = function(garchObj,e){
 
 
 {##  Help doco: estimateGARCH_RollingWindow  ####
-  #' @title
+  #' @noRd
+#' @title
   #' Approximately estimates a garch model
   #'
   #' @description
@@ -1521,7 +1526,8 @@ get_h = function(garchObj,e){
 # ---  TVGARCH --- SECTION  ####
 
 {## Help doco: tvgarch()  ####
-  #' @title
+  #' @noRd
+#' @title
   #' A multiplicative tvgarch object
   #'
   #' @description
@@ -1676,6 +1682,7 @@ get_h = function(garchObj,e){
 # ---  ESTIMATE TVGARCH --- SECTION  ####
 
 {## Help doco:  estimateTVGARCH_Iterate ####
+#' @noRd
 #' @title
 #' Estimates a tv model
 #'
@@ -1904,7 +1911,8 @@ loglik.tvgarch.univar = function(e,g,h){
 # ---  TESTS --- SECTION  ####
 
 {# Help doco: test.LM.TR2(e,tv,ord) ####
-  #' @title
+  #' @noRd
+#' @title
   #' LM TR-Squared Test
   #'
   #' @description
@@ -1979,7 +1987,8 @@ test.LM.TR2=function(e,tvObj,testOrder){
 
 
 {# Help doco: test.LM.Robust(e,tv,ord) ####
-  #' @title
+  #' @noRd
+#' @title
   #' LM TR-Squared Test - Robust Version
   #'
   #' @description
@@ -2119,7 +2128,8 @@ getTestStats = function(e,tvObj,testOrder){
 
 
 {# Help Doco: testStatDist() ####
-  #' @title
+  #' @noRd
+#' @title
   #' Generates a test statistic distribution...
   #'
   #' @description
@@ -2430,6 +2440,7 @@ testStatDist = function(refdata,tvObj,reftests,simcontrol){
 
 
 # -- test.misSpec1(e,tvgarch,testOrd) ####
+#' @noRd
 #' @title
 #' Tests for mis-specification of...
 #'
@@ -2489,6 +2500,7 @@ test.misSpec1 =  function(e,tvgarchObj,testOrder){
 
 
 # -- test.misSpec2(e,tvgarch,type) ####
+#' @noRd
 #' @title
 #' Tests for mis-specification of...
 #'
@@ -2551,6 +2563,7 @@ test.misSpec2 =  function(e,tvgarchObj,type){
 
 
 # -- test.misSpec3(e,tvgarch,maxLag) ####
+#' @noRd
 #' @title
 #' Tests for mis-specification of...
 #'
@@ -2611,6 +2624,7 @@ test.misSpec3 =  function(e,tvgarchObj,maxLag){
 
 
 # -- test.misSpec4(e,tvgarch,exogVar) ####
+#' @noRd
 #' @title
 #' Tests for mis-specification of...
 #'
