@@ -996,25 +996,15 @@ setMethod("summary",signature="garch_class",
 {##  loglik.garch.univar ----
   .loglik.garch.univar =  function(optimpars,e,garchObj,tvObj){
 
-<<<<<<< HEAD
+
     error <- -1e6
-=======
-    error <- -1e10
->>>>>>> 40c560fabc263d0b44ecf749c7fe6e9749509dae
+
     this <- garchObj
 
     ## ======== constraint checks ======== ##
     # Check if any parameter is negative:
     if(min(optimpars,na.rm = TRUE) <= 0) return(error)
-<<<<<<< HEAD
-=======
-    if(isTRUE(this$omegafree)){
-      # alpha & beta in [2,3]
-      if (optimpars[2] + optimpars[3] >= 1) return(error)
-    }else{
-      if (optimpars[1] + optimpars[2] >= 1) return(error)
-    }
->>>>>>> 40c560fabc263d0b44ecf749c7fe6e9749509dae
+
 
     ## ======== calculate loglikelihood ======== ##
 
