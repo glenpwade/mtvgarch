@@ -240,7 +240,7 @@ setMethod("initialize","tv_class",
 }
 
 {##  estimateTV(e,tv,garch,ctrl) ----
-  estimateTV <- function(e,tvObj,garchObj,estimationControl){0}
+#  estimateTV <- function(e,tvObj,garchObj,estimationControl){0}
   .estimateTV <- function(e,tvObj,garchObj,estimationControl){
 
     this <- tvObj
@@ -364,24 +364,28 @@ setMethod("initialize","tv_class",
   }
 }
 
-{## estimateTV( - overloads - ) ----
-  setGeneric("estimateTV",valueClass = "tv_class")
+#setGeneric("estimateTV",valueClass = "tv_class")
 
+{## estimateTV( - overloads - ) ----
+
+  #TODO: Use noGarch instead of general - After fixing noGarch issues, @h, etc.
+
+  setGeneric("estimateTV", valueClass = "tv_class",
+             function(e, tvObj, garchObj, estimationControl) { #note: All lower case
+               standardGeneric("estimateTV")
+             }
+  )
+
+  # TV <- estimateTV(e,tvSpec,garchSpec,estCtrl)
   setMethod("estimateTV",
-            signature = c(e="numeric",tvObj="tv_class",garchObj="garch_class",estimationControl="list"),
+            signature = c(e="numeric",tvObj="tv_class",garchObj="garch_class",estimationControl="list"), #note: All lower case
             function(e,tvObj,garchObj,estimationControl){
               .estimateTV(e,tvObj,garchObj,estimationControl)
             }
   )
 
-  setMethod("estimateTV",
-            signature = c(e="numeric",tvObj="tv_class",garchObj="missing",estimationControl="list"),
-            function(e,tvObj,estimationControl){
-              garchObj <- garch(garchtype$general)  #TODO: Use noGarch - After fixing noGarch issues, @h etc.
-              .estimateTV(e,tvObj,garchObj,estimationControl)
-            }
-  )
 
+  # TV <- estimateTV(e,tvSpec)
   setMethod("estimateTV",
             signature = c(e="numeric",tvObj="tv_class",garchObj="missing",estimationControl="missing"),
             function(e,tvObj){
@@ -390,6 +394,28 @@ setMethod("initialize","tv_class",
               .estimateTV(e,tvObj,garchObj,estimationControl)
             }
   )
+
+  # TV <- estimateTV(e,tvSpec,estCtrl):  Note: estCtrl can be passed-in by position, utilising the garchObj par
+  setMethod("estimateTV",
+            signature = c(e="numeric",tvObj="tv_class",garchObj="list",estimationControl="missing"),  #note: We need to switch the garchObj to accept the estCtrl list()
+            function(e,tvObj,garchObj){
+              estimationControl <- garchObj
+              garchMissing <- garch(garchtype$general)  # Was not provided by user, they put estControl in this position
+              estimationControl <- list(calcSE=FALSE,verbose=TRUE)
+              .estimateTV(e,tvObj,garchMissing,estimationControl)
+            }
+  )
+
+  # TV <- estimateTV(e,tvSpec,garchSpec):
+  setMethod("estimateTV",
+            signature = c(e="numeric",tvObj="tv_class",garchObj="garch_class",estimationControl="missing"),  #note: We need to switch the garchObj to accept the estCtrl list()
+            function(e,tvObj,garchObj){
+              estimationControl <- list(calcSE=FALSE,verbose=TRUE)
+              .estimateTV(e,tvObj,garchObj,estimationControl)
+            }
+  )
+
+
 }
 
 {## estimateTV() - helpers ----
@@ -910,7 +936,7 @@ setMethod("summary",signature="garch_class",
 
 
 {## -- estimateGARCH(e,TV,Garch,estCtrl) ----
-  estimateGARCH <- function(e,tvObj,garchObj,estimationControl){0}
+#  estimateGARCH <- function(e,tvObj,garchObj,estimationControl){0}
   .estimateGARCH <- function(e,tvObj,garchObj,estimationControl){
 
     this <- garchObj
@@ -1006,27 +1032,49 @@ setMethod("summary",signature="garch_class",
 }
 
 {## estimateGARCH( - overloads -)  ----
-  setGeneric("estimateGARCH",valueClass = "garch_class")
+  #setGeneric("estimateGARCH",valueClass = "garch_class")
 
+  setGeneric("estimateGARCH",
+             valueClass = "garch_class",
+             function(e, tvObj, garchObj, estimationControl) {
+               standardGeneric("estimateGARCH")
+             }
+  )
+
+  # GARCH <- estimateGARCH(e,TV,GARCH,estCtrl)
   setMethod("estimateGARCH",
             signature = c(e="numeric",tvObj="tv_class",garchObj="garch_class",estimationControl="list"),
             function(e,tvObj,garchObj,estimationControl){
               .estimateGARCH(e,tvObj,garchObj,estimationControl)
             }
   )
+  # GARCH <- estimateGARCH(e,TV,GARCH)
   setMethod("estimateGARCH",
-            signature = c(e="numeric",tvObj="missing",garchObj="garch_class",estimationControl="list"),
-            function(e,garchObj,estimationControl){
-              tvObj <- tv(1,tvshape$delta0only)
+            signature = c(e="numeric",tvObj="tv_class",garchObj="garch_class",estimationControl="missing"),
+            function(e,tvObj,garchObj){
+              estimationControl <- list(calcSE=FALSE,verbose=TRUE)
               .estimateGARCH(e,tvObj,garchObj,estimationControl)
             }
   )
+
+  # GARCH <- estimateGARCH(e,GARCH,estCtrl)
   setMethod("estimateGARCH",
-            signature = c(e="numeric",tvObj="missing",garchObj="garch_class",estimationControl="missing"),
-            function(e,garchObj,estimationControl){
-              tvObj <- tv(1,tvshape$delta0only)
-              estimationControl <- list(calcSE=TRUE,verbose=TRUE)
-              .estimateGARCH(e,tvObj,garchObj,estimationControl)
+            signature = c(e="numeric",tvObj="garch_class",garchObj="list",estimationControl="missing"),
+            function(e,tvObj,garchObj){
+              tvMissing <- tv(1,tvshape$delta0only)
+              garchObj <- tvObj
+              estimationControl <- garchObj
+              .estimateGARCH(e,tvMissing,garchObj,estimationControl)
+            }
+  )
+  # GARCH <- estimateGARCH(e,GARCH)
+  setMethod("estimateGARCH",
+            signature = c(e="numeric",tvObj="garch_class",garchObj="missing",estimationControl="missing"),
+            function(e,tvObj){
+              tvMissing <- tv(1,tvshape$delta0only)
+              garchObj <- tvObj
+              estimationControl <- list(calcSE=FALSE,verbose=TRUE)
+              .estimateGARCH(e,tvMissing,garchObj,estimationControl)
             }
   )
 }
@@ -1713,7 +1761,7 @@ get_h = function(garchObj,e){
 
 
 {# estimateTVGARCH ----
-  estimateTVGARCH <- function(e,tvgarchObj,estimationControl){0}
+#  estimateTVGARCH <- function(e,tvgarchObj,estimationControl){0}
   .estimateTVGARCH <- function(e,tvgarchObj,estimationControl){
 
     this <- tvgarchObj
@@ -1850,7 +1898,14 @@ get_h = function(garchObj,e){
 
 
 {# estimateTVGARCH() overrides ----
-  setGeneric("estimateTVGARCH", valueClass = "tvgarch_class")
+  #setGeneric("estimateTVGARCH", valueClass = "tvgarch_class")
+
+  setGeneric("estimateTVGARCH",
+             valueClass = "tvgarch_class",
+             function(e,tvgarchObj,estimationControl) {
+               standardGeneric("estimateTVGARCH")
+             }
+  )
 
   setMethod("estimateTVGARCH",
             signature = c(e="numeric",tvgarchObj="tvgarch_class",estimationControl="list"),
@@ -2182,7 +2237,7 @@ testStatDist = function(refdata,tvObj,reftests,simcontrol){
   }
 
   # 1. Setup the default params
-  
+
 
   if(!is.null(simcontrol$numLoops)) numLoops <- simcontrol$numLoops else numLoops <- 1100
   if(!is.null(simcontrol$numCores)) numCores <- simcontrol$numCores else numCores <- detectCores() - 1
