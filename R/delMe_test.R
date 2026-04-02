@@ -1,17 +1,14 @@
 # # Initialisation: ####
 # #
-# setwd("C:\\Repos\\mtvgarch\\R")
-# source("all_common.r")
-# source("clsTVGARCH.r")
 # #
 #
 # # Set constants
 # Reps <- 20
 # Tobs <- 2000
 # GARCHparScale <- c(0.05,0.05,0.90)
-# iterRelTol <- 1e-5  #Convergence tolerance for Iterative estimator
-# estCtrl <- list(calcSE = TRUE, verbose = TRUE)
-# estCtrl <- list(calcSE = FALSE, verbose = FALSE)
+# #iterRelTol <- 1e-5  #Convergence tolerance for Iterative estimator
+# #estCtrl <- list(calcSE = TRUE, verbose = TRUE)
+# #estCtrl <- list(calcSE = FALSE, verbose = FALSE)
 #
 # # Check one Series ####
 #
@@ -20,9 +17,10 @@
 # setwd("C:\\Repos\\LSS_LackOfIdentification")
 #
 # simData <- readRDS(fileName)
+# e <- simData[,22]
 #
 # # Check a few plots:
-# plot(simData[,20],type='l')
+# plot(simData[,22],type='l')
 #
 #
 # # Create the TV Specification - to be estimated later:
@@ -40,46 +38,43 @@
 # TVspec$optimcontrol$ndeps <- c(1e-3,1e-5,1e-5,1e-3)
 # #TV@delta0free <- FALSE
 #
-# # 1. Do initial Estimation of g(t) assuming h(t) = 1
 #
-# e <- simData[,20]
-# TV <- estimateTV(e,TVspec,estCtrl)
+# GARCHspec <- garch(garchtype$general)
+# GARCHspec$pars["omega",1] = runif(1,0.04,0.06)           # 0.50
+# GARCHspec$pars["alpha",1] = runif(1,0.04,0.06)           # 0.50
+# GARCHspec$pars["beta",1]  = runif(1,0.80,0.99)           # 0.90
+# GARCHspec$optimcontrol$parscale <- c(0.05,0.05,0.9)
+# GARCHspec$optimcontrol$ndeps <- c(1e-5,1e-5,1e-5)
+#
+# # Check the individual estimators
+#
+# estCtrl <- list(calcSE=FALSE, verbose=TRUE, maxIter=2, fixStartPars=FALSE, startParAdjust=50)
+# #
+# TV <- estimateTV(e,TVspec)
 # summary(TV)
-# plot(TV)
 #
-#
-# GARCH <- garch(garchtype$general)
-# GARCH$pars["omega",1] = 0.05
-# GARCH$pars["alpha",1] = 0.05
-# GARCH$pars["beta",1] = 0.90
-# GARCH$optimcontrol$parscale <- c(0.05,0.05,0.9)
-#
-# #GARCH@omegafree <- FALSE  # TODO:  Causes estimateGARCH() - optim failed unexpectedly and returned NULL.
-#
-# #GARCH <- garch(garchtype$noGarch)
-# GARCH <- estimateGARCH(e,GARCH,estCtrl)
+# GARCH <- estimateGARCH(e,GARCHspec)
 # summary(GARCH)
-#
-# # estimateGARCH() - optim failed unexpectedly and returned NULL. Check the optim controls & starting params
-#
 #
 # # TVGARCH Estimation:  ####
 #
 # # 2. Specify a multiplicitive TV GARCH model specification using the TV & GARCH specification above
-# mod <- tvgarch(TV,garchType = garchtype$general)
-# # 2.1 We need to set the Garch starting pars, before estimating the model:
-# mod$garchpars["omega",1] = 0.05
-# mod$garchpars["alpha",1] = 0.05
-# mod$garchpars["beta",1] = 0.90
-# mod$garchOptimcontrol$parscale <- c(0.05,0.05,0.90)
-# mod$iterationReltol = 1e-08
-# mod$varTarget <- TRUE
+# mod <- tvgarch(TVspec,GARCHspec)
 #
 # # 3. Since we are only doing one - let's see what's going on & calc parameter se's.
-# estCtrl <- list(calcSE = TRUE, verbose = TRUE)
+# estCtrl <- list(calcSE=FALSE, verbose=TRUE, maxIter=2, fixStartPars=FALSE, startParAdjust=50)
 #
 # # 4. Run the 2-Step estimation
-# mod_2s <- estimateTVGARCH_2Step(e,mod,estCtrl)
+# mod_2s <- estimateTVGARCH(e,mod,estCtrl)
+#
+# mod$iterationReltol <- 1e-12  #Convergence tolerance for Iterative estimator
+# estCtrl <- list(calcSE=FALSE, verbose=TRUE, maxIter=100, fixStartPars=FALSE, startParAdjust=100)
+#
+# mod_iter <- estimateTVGARCH(e,mod,estCtrl)
+#
+# e <- simData[,20]
+#
+#
 #
 # # 4. Extract the estimated parameters:
 # tvObj <- mod_2s$Estimated$tv
