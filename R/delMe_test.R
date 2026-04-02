@@ -40,6 +40,11 @@
 # # 1. Do initial Estimation of g(t) assuming h(t) = 1
 #
 # e <- simData[,20]
+# # Create the TV Specification - to be estimated later:
+# st = (1:Tobs)/Tobs
+# shape = tvshape$single
+# # Create the TV Specification and set starting params to match the loaded Dataset
+# TVspec <- tv(st,shape)
 # TV <- estimateTV(e,TVspec,estCtrl)
 # summary(TV)
 # plot(TV)
