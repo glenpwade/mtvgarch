@@ -17,6 +17,7 @@ setMethod("initialize","ntvgarch_class",
           })
 
 ## === Constructor: ntvgarch  ===####
+#' @noRd
 #' @title
 #' A list of estimated mtvgarch models
 #'

@@ -1,7 +1,7 @@
 exportPattern("^[[:alpha:]]+")
 importFrom("graphics", "plot.default")
 importFrom("methods", ".valueClassTest", "callNextMethod", "new")
-importFrom("stats", "na.omit", "optim", "optimHess", "pnorm", "sd","var","rnorm","rt")
+importFrom("stats", "na.omit", "optim", "optimHess", "pnorm", "sd","var","runif","rnorm","rt","pchisq")
 importFrom("utils", "head", "tail", "timestamp")
 importFrom("doParallel","registerDoParallel","stopImplicitCluster")
 importFrom("parallel","makeCluster","stopCluster")

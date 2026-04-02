@@ -1,4 +1,5 @@
 # # Initialisation: ####
+
 # #
 # #
 #
@@ -6,8 +7,10 @@
 # Reps <- 20
 # Tobs <- 2000
 # GARCHparScale <- c(0.05,0.05,0.90)
+
 # #iterRelTol <- 1e-5  #Convergence tolerance for Iterative estimator
 # #estCtrl <- list(calcSE = TRUE, verbose = TRUE)
+
 # #estCtrl <- list(calcSE = FALSE, verbose = FALSE)
 #
 # # Check one Series ####
@@ -15,6 +18,8 @@
 # # Set a working directory
 # fileName = ".\\SimSourceData\\T2000_Med_VarShift.RDS"
 # setwd("C:\\Repos\\LSS_LackOfIdentification")
+#
+# setwd("C:\\Source\\Repos\\LSS_LackOfIdentification")
 #
 # simData <- readRDS(fileName)
 # e <- simData[,22]

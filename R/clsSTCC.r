@@ -34,6 +34,7 @@ setMethod("initialize","stcc1_class",
           })
 
 ## -- Constructor:stcc1 -- ####
+#' @noRd
 #' @title
 #' Create a Smooth-Transition Conditional Correlation model
 #'
@@ -141,6 +142,7 @@ setMethod("initialize","stcc2_class",
           })
 
 ## -- Constructor:stcc2 -- ####
+#' @noRd
 #' @title
 #' Create a Smooth-Transition Conditional Correlation model
 #'
@@ -372,6 +374,7 @@ setGeneric(name=".loglik.stcc1",
 )
 
 ## --- estimateSTCC1 --- ####
+#' @noRd
 #' @title
 #' Estimates an STCC1 model
 #'
@@ -574,6 +577,7 @@ setGeneric(name=".loglik.stcc2",
 
 
 ## --- estimateSTCC2 --- ####
+#' @noRd
 #' @title
 #' Estimates an STCC2 model
 #'

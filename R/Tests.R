@@ -28,7 +28,7 @@
 # library(MTVGARCH)
 # library(knitr)
 # library(foreach)
-# library(doParallel)
+# 
 #
 # # Set a working directory
 # setwd("C:\\Repos\\LSS_LackOfIdentification")

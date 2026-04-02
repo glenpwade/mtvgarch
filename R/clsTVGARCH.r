@@ -5,7 +5,8 @@
 # ---  TV --- SECTION  ####
 
 {## Help doco: tv() ####
-  #' @title
+  #' @noRd
+#' @title
   #' A time-varying
   #'
   #' @description
@@ -208,8 +209,9 @@ setMethod("initialize","tv_class",
 
 # ---  ESTIMATE TV --- SECTION  ####
 
-{##  Help doco: estimateTV(e,tv,ctrl,garch) ####
-  #' @title
+{##  Help doco: estimateTV(e,tv,garch,ctrl) ####
+  #' @noRd
+#' @title
   #' Estimates a tv model
   #'
   #' @description
@@ -237,9 +239,9 @@ setMethod("initialize","tv_class",
   #'
 }
 
-{##  estimateTV(e,tv,ctrl,garch) ----
-  estimateTV <- function(e,tvObj,estimationControl,garchObj){0}
-  .estimateTV <- function(e,tvObj,estimationControl,garchObj){
+{##  estimateTV(e,tv,garch,ctrl) ----
+#  estimateTV <- function(e,tvObj,garchObj,estimationControl){0}
+  .estimateTV <- function(e,tvObj,garchObj,estimationControl){
 
     this <- tvObj
     # debug:
@@ -295,7 +297,8 @@ setMethod("initialize","tv_class",
 {## loglik.tv.univar() ----
   .loglik.tv.univar = function(optimpars,e,tvObj,garchObj){
     this <- tvObj
-    error <- -Inf
+
+    error <- -1e6
 
     # Copy the optimpars into a local tv_object
     if (isTRUE(this@delta0free)) {
@@ -362,32 +365,58 @@ setMethod("initialize","tv_class",
   }
 }
 
+#setGeneric("estimateTV",valueClass = "tv_class")
+
 {## estimateTV( - overloads - ) ----
-  setGeneric("estimateTV",valueClass = "tv_class")
 
+  #TODO: Use noGarch instead of general - After fixing noGarch issues, @h, etc.
+
+  setGeneric("estimateTV", valueClass = "tv_class",
+             function(e, tvObj, garchObj, estimationControl) { #note: All lower case
+               standardGeneric("estimateTV")
+             }
+  )
+
+  # TV <- estimateTV(e,tvSpec,garchSpec,estCtrl)
   setMethod("estimateTV",
-            signature = c(e="numeric", tvObj="tv_class",estimationControl="list",garchObj="garch_class"),
-            function(e,tvObj,estimationControl,garchObj){
-              .estimateTV(e,tvObj,estimationControl,garchObj)
+            signature = c(e="numeric",tvObj="tv_class",garchObj="garch_class",estimationControl="list"), #note: All lower case
+            function(e,tvObj,garchObj,estimationControl){
+              .estimateTV(e,tvObj,garchObj,estimationControl)
             }
   )
 
-  setMethod("estimateTV",
-            signature = c(e="numeric", tvObj="tv_class",estimationControl="list",garchObj="missing"),
-            function(e,tvObj,estimationControl){
-              garchObj <- garch(garchtype$general)
-              .estimateTV(e,tvObj,estimationControl,garchObj)
-            }
-  )
 
+  # TV <- estimateTV(e,tvSpec)
   setMethod("estimateTV",
-            signature = c(e="numeric", tvObj="tv_class",estimationControl="missing",garchObj="missing"),
+            signature = c(e="numeric",tvObj="tv_class",garchObj="missing",estimationControl="missing"),
             function(e,tvObj){
               garchObj <- garch(garchtype$general)
-              estimationControl <- list(calcSE=TRUE,verbose=TRUE)
-              .estimateTV(e,tvObj,estimationControl,garchObj)
+              estimationControl <- list(calcSE=FALSE,verbose=TRUE)
+              .estimateTV(e,tvObj,garchObj,estimationControl)
             }
   )
+
+  # TV <- estimateTV(e,tvSpec,estCtrl):  Note: estCtrl can be passed-in by position, utilising the garchObj par
+  setMethod("estimateTV",
+            signature = c(e="numeric",tvObj="tv_class",garchObj="list",estimationControl="missing"),  #note: We need to switch the garchObj to accept the estCtrl list()
+            function(e,tvObj,garchObj){
+              estimationControl <- garchObj
+              garchMissing <- garch(garchtype$general)  # Was not provided by user, they put estControl in this position
+              estimationControl <- list(calcSE=FALSE,verbose=TRUE)
+              .estimateTV(e,tvObj,garchMissing,estimationControl)
+            }
+  )
+
+  # TV <- estimateTV(e,tvSpec,garchSpec):
+  setMethod("estimateTV",
+            signature = c(e="numeric",tvObj="tv_class",garchObj="garch_class",estimationControl="missing"),  #note: We need to switch the garchObj to accept the estCtrl list()
+            function(e,tvObj,garchObj){
+              estimationControl <- list(calcSE=FALSE,verbose=TRUE)
+              .estimateTV(e,tvObj,garchObj,estimationControl)
+            }
+  )
+
+
 }
 
 {## estimateTV() - helpers ----
@@ -725,7 +754,8 @@ get_g = function(Obj){
 # ---  GARCH --- SECTION  ####
 
 {## Help doco: garch() ####
-  #' @title
+  #' @noRd
+#' @title
   #' A garch object
   #'
   #' @description
@@ -876,6 +906,7 @@ setMethod("summary",signature="garch_class",
 
 
 {## Help doco: estimateGARCH() ####
+#' @noRd
 #' @title
 #' Estimates a garch model
 #'
@@ -905,9 +936,9 @@ setMethod("summary",signature="garch_class",
 }
 
 
-{## -- estimateGARCH(e,Garch,estCtrl,Tv) ----
-  estimateGARCH <- function(e,garchObj,estimationControl,tvObj){0}
-  .estimateGARCH <- function(e,garchObj,estimationControl,tvObj){
+{## -- estimateGARCH(e,TV,Garch,estCtrl) ----
+#  estimateGARCH <- function(e,tvObj,garchObj,estimationControl){0}
+  .estimateGARCH <- function(e,tvObj,garchObj,estimationControl){
 
     this <- garchObj
 
@@ -965,23 +996,26 @@ setMethod("summary",signature="garch_class",
 {##  loglik.garch.univar ----
   .loglik.garch.univar =  function(optimpars,e,garchObj,tvObj){
 
-    error <- -Inf
+
+    error <- -1e6
+
     this <- garchObj
 
     ## ======== constraint checks ======== ##
     # Check if any parameter is negative:
     if(min(optimpars,na.rm = TRUE) <= 0) return(error)
-    if(this@omegafree){
-      if (optimpars[2] + optimpars[3] >= 1) return(error)
-    }
+
+
     ## ======== calculate loglikelihood ======== ##
 
 
-    if (this@omegafree){
+    if (isTRUE(this$omegafree)){
       # All pars are estimated
+      if (optimpars[2] + optimpars[3] >= 0.9999) return(error)    #  constraint check: alpha & beta in [2,3]
       this$Estimated$pars <- .parsVecToMatrix(this,optimpars)
       names(this$Estimated$pars) <- rownames(this$pars)
     }else{
+      if (optimpars[1] + optimpars[2] >= 0.9999) return(error)    #  constraint check: alpha & beta in [1,2]
       # omega must be calculated - and inserted back into the pars matrix.
       omega <- (1 - optimpars[1] - optimpars[2])
       this$Estimated$pars <- .parsVecToMatrix(this,c(omega,optimpars))
@@ -991,7 +1025,7 @@ setMethod("summary",signature="garch_class",
     # Get the g(t) vector
     g <- tvObj@g
 
-    h <- .calculate_h(this,e/sqrt(g))
+    h <- .calculate_h(this,(e/sqrt(g) ) )
     if (min(h,na.rm = TRUE) <= 0) return(error)
 
     #Return the LogLiklihood value:
@@ -1002,27 +1036,49 @@ setMethod("summary",signature="garch_class",
 }
 
 {## estimateGARCH( - overloads -)  ----
-  setGeneric("estimateGARCH",valueClass = "garch_class")
+  #setGeneric("estimateGARCH",valueClass = "garch_class")
 
+  setGeneric("estimateGARCH",
+             valueClass = "garch_class",
+             function(e, tvObj, garchObj, estimationControl) {
+               standardGeneric("estimateGARCH")
+             }
+  )
+
+  # GARCH <- estimateGARCH(e,TV,GARCH,estCtrl)
   setMethod("estimateGARCH",
-            signature = c(e="numeric",garchObj="garch_class",estimationControl="list",tvObj="tv_class"),
-            function(e,garchObj,estimationControl,tvObj){
-              .estimateGARCH(e,garchObj,estimationControl,tvObj)
+            signature = c(e="numeric",tvObj="tv_class",garchObj="garch_class",estimationControl="list"),
+            function(e,tvObj,garchObj,estimationControl){
+              .estimateGARCH(e,tvObj,garchObj,estimationControl)
             }
   )
+  # GARCH <- estimateGARCH(e,TV,GARCH)
   setMethod("estimateGARCH",
-            signature = c(e="numeric",garchObj="garch_class",estimationControl="list",tvObj="missing"),
-            function(e,garchObj,estimationControl){
-              tvObj <- tv(1,tvshape$delta0only)
-              .estimateGARCH(e,garchObj,estimationControl,tvObj)
+            signature = c(e="numeric",tvObj="tv_class",garchObj="garch_class",estimationControl="missing"),
+            function(e,tvObj,garchObj){
+              estimationControl <- list(calcSE=FALSE,verbose=TRUE)
+              .estimateGARCH(e,tvObj,garchObj,estimationControl)
             }
   )
+
+  # GARCH <- estimateGARCH(e,GARCH,estCtrl)
   setMethod("estimateGARCH",
-            signature = c(e="numeric",garchObj="garch_class",estimationControl="missing",tvObj="missing"),
-            function(e,garchObj,estimationControl){
-              tvObj <- tv(1,tvshape$delta0only)
-              estimationControl <- list(calcSE=TRUE,verbose=TRUE)
-              .estimateGARCH(e,garchObj,estimationControl,tvObj)
+            signature = c(e="numeric",tvObj="garch_class",garchObj="list",estimationControl="missing"),
+            function(e,tvObj,garchObj){
+              tvMissing <- tv(1,tvshape$delta0only)
+              garchObj <- tvObj
+              estimationControl <- garchObj
+              .estimateGARCH(e,tvMissing,garchObj,estimationControl)
+            }
+  )
+  # GARCH <- estimateGARCH(e,GARCH)
+  setMethod("estimateGARCH",
+            signature = c(e="numeric",tvObj="garch_class",garchObj="missing",estimationControl="missing"),
+            function(e,tvObj){
+              tvMissing <- tv(1,tvshape$delta0only)
+              garchObj <- tvObj
+              estimationControl <- list(calcSE=FALSE,verbose=TRUE)
+              .estimateGARCH(e,tvMissing,garchObj,estimationControl)
             }
   )
 }
@@ -1300,7 +1356,8 @@ get_h = function(garchObj,e){
 
 
 {##  Help doco: estimateGARCH_RollingWindow  ####
-  #' @title
+  #' @noRd
+#' @title
   #' Approximately estimates a garch model
   #'
   #' @description
@@ -1521,7 +1578,8 @@ get_h = function(garchObj,e){
 # ---  TVGARCH --- SECTION  ####
 
 {## Help doco: tvgarch()  ####
-  #' @title
+  #' @noRd
+#' @title
   #' A multiplicative tvgarch object
   #'
   #' @description
@@ -1676,6 +1734,7 @@ get_h = function(garchObj,e){
 # ---  ESTIMATE TVGARCH --- SECTION  ####
 
 {## Help doco:  estimateTVGARCH_Iterate ####
+#' @noRd
 #' @title
 #' Estimates a tv model
 #'
@@ -1706,7 +1765,7 @@ get_h = function(garchObj,e){
 
 
 {# estimateTVGARCH ----
-  estimateTVGARCH <- function(e,tvgarchObj,estimationControl){0}
+#  estimateTVGARCH <- function(e,tvgarchObj,estimationControl){0}
   .estimateTVGARCH <- function(e,tvgarchObj,estimationControl){
 
     this <- tvgarchObj
@@ -1752,7 +1811,7 @@ get_h = function(garchObj,e){
     # If an estimation FAILS inside the loop: Set the Result = 'Failed' and Exit immediately using return(this)
 
     # Set starting values to ensure we do at least 1 loop:
-    last.tvg.loglik <- -Inf
+    last.tvg.loglik <- -1e6
     tvg.loglik <- 1
 
 
@@ -1766,13 +1825,16 @@ get_h = function(garchObj,e){
 
       # 3. Run estimations and calculate a new tvg.loglik
       TV <- tryCatch({
-        TV <- estimateTV(e,TV,estimationControl,GARCH)
+        TV <- estimateTV(e,TV,GARCH,estimationControl)
       }, warning = function(w){
         message("Caught a warning: ", w$message)
         return(TV)
       },error = function(err){
-        message("Caught an error: ", err$message)
-        return(NA) # Return a safe value like NA or NULL
+        message("estimateTVGARCH() error: ", err$message)
+        this$Estimated$error <- TRUE
+        this$Estimated$value <- tvg.loglik
+
+        return(this)
       },finally = {
         # Any cleanup reqd.?
       })
@@ -1784,36 +1846,31 @@ get_h = function(garchObj,e){
         break
       }
       # TV estimation SUCCESS:
-      # 1. We could check if we have converged, but need to estimate Garch anyway, so why bother..
-      # 2.
+      # We could check if we have converged, but need to estimate Garch anyway, so why bother..
+      #
       # End of: # TV estimation SUCCESS
 
       if(isTRUE(estimationControl$verbose)){cat(".")}  # Single line comment, TV done
 
       # The following GARCH estimation is done even if the prior TV did not improve the Loglik value
       GARCH <- tryCatch({
-        GARCH <- estimateGARCH(e,GARCH,estimationControl,TV)
+        GARCH <- estimateGARCH(e,TV,GARCH,estimationControl)
       }, warning = function(w){
-        message("Caught a warning: ", w$message)
+        message("estimateTVGARCH() warning: ", w$message)
         return(TV)
       },error = function(err){
-        message("Caught an error: ", err$message)
-        return(NA) # Return a safe value like NA or NULL
+        message("estimateTVGARCH() error: ", err$message)
+        this$Estimated$error <- TRUE
+        this$Estimated$value <- tvg.loglik
+
+        return(this)
       },finally = {
         # Any cleanup reqd.?
       })
       # debug: summary(GARCH)
 
-      if(isTRUE(GARCH$Estimated$error)){
-        # GARCH estimated FAIL:
-        if(isTRUE(estimationControl$verbose)){ cat("\nLast GARCH Estimate generated an Error\nStopping iterator now\n") }
-        break
-      }
-
-      # GARCH estimation SUCCESS:
-      # 4. Calculate Loglik:
-      tvg.loglik <- loglik.tvgarch.univar(e,TV@g,GARCH@h)
-
+      # 4. Calc the loglik value
+      tvg.loglik <- loglik.tvgarch.univar(e,g=TV@g,h=GARCH@h)
       #
       if(isTRUE(estimationControl$verbose)){cat(".")}  # Single line comment, Garch done
 
@@ -1824,8 +1881,8 @@ get_h = function(garchObj,e){
     # The exception to this rule is: User wants to do a 2-Step Estimation (allow user to specify 1-Step or 2-Step)
     if((this@iterations >= maxIterations) && (maxIterations > 2)){
       # Model diverged - return estimation failure
-      this$Estimated$value <- NA
-      this$Estimated$error <- TRUE
+      this$Estimated$value <- tvg.loglik  # May be slow convergence, the value may still be good
+      this$Estimated$error <- FALSE
       this$Estimated$converged <- FALSE
     }else{
       # Model Converged - return estimation Success
@@ -1843,26 +1900,26 @@ get_h = function(garchObj,e){
 
 
 {# estimateTVGARCH() overrides ----
-  setGeneric("estimateTVGARCH", valueClass = "tvgarch_class")
+  #setGeneric("estimateTVGARCH", valueClass = "tvgarch_class")
 
+  setGeneric("estimateTVGARCH",
+             valueClass = "tvgarch_class",
+             function(e,tvgarchObj,estimationControl) {
+               standardGeneric("estimateTVGARCH")
+             }
+  )
+  # TVG <- estimateTVGARCH(e,TVG,estCtrl)
   setMethod("estimateTVGARCH",
             signature = c(e="numeric",tvgarchObj="tvgarch_class",estimationControl="list"),
             function(e,tvgarchObj,estimationControl){
               .estimateTVGARCH(e,tvgarchObj,estimationControl)
             }
   )
-
-  setMethod("estimateTVGARCH",
-            signature = c(e="numeric",tvgarchObj="tvgarch_class",estimationControl="list"),
-            function(e,tvgarchObj,estimationControl){
-              .estimateTVGARCH(e,tvgarchObj,estimationControl)
-            }
-  )
-
+  # TVG <- estimateTVGARCH(e,TVG,estCtrl)
   setMethod("estimateTVGARCH",
             signature = c(e="numeric",tvgarchObj="tvgarch_class",estimationControl="missing"),
             function(e,tvgarchObj){
-              estimationControl <- list(calcSE=TRUE,verbose=TRUE)
+              estimationControl <- list(calcSE=FALSE, verbose=FALSE, maxIter=100, fixStartPars=FALSE, startparAdjust=10)
               .estimateTVGARCH(e,tvgarchObj,estimationControl)
             }
   )
@@ -1904,7 +1961,8 @@ loglik.tvgarch.univar = function(e,g,h){
 # ---  TESTS --- SECTION  ####
 
 {# Help doco: test.LM.TR2(e,tv,ord) ####
-  #' @title
+  #' @noRd
+#' @title
   #' LM TR-Squared Test
   #'
   #' @description
@@ -1979,7 +2037,8 @@ test.LM.TR2=function(e,tvObj,testOrder){
 
 
 {# Help doco: test.LM.Robust(e,tv,ord) ####
-  #' @title
+  #' @noRd
+#' @title
   #' LM TR-Squared Test - Robust Version
   #'
   #' @description
@@ -2119,7 +2178,8 @@ getTestStats = function(e,tvObj,testOrder){
 
 
 {# Help Doco: testStatDist() ####
-  #' @title
+  #' @noRd
+#' @title
   #' Generates a test statistic distribution...
   #'
   #' @description
@@ -2172,7 +2232,7 @@ testStatDist = function(refdata,tvObj,reftests,simcontrol){
   }
 
   # 1. Setup the default params
-  library(doParallel)
+
 
   if(!is.null(simcontrol$numLoops)) numLoops <- simcontrol$numLoops else numLoops <- 1100
   if(!is.null(simcontrol$numCores)) numCores <- simcontrol$numCores else numCores <- detectCores() - 1
@@ -2430,6 +2490,7 @@ testStatDist = function(refdata,tvObj,reftests,simcontrol){
 
 
 # -- test.misSpec1(e,tvgarch,testOrd) ####
+#' @noRd
 #' @title
 #' Tests for mis-specification of...
 #'
@@ -2489,6 +2550,7 @@ test.misSpec1 =  function(e,tvgarchObj,testOrder){
 
 
 # -- test.misSpec2(e,tvgarch,type) ####
+#' @noRd
 #' @title
 #' Tests for mis-specification of...
 #'
@@ -2551,6 +2613,7 @@ test.misSpec2 =  function(e,tvgarchObj,type){
 
 
 # -- test.misSpec3(e,tvgarch,maxLag) ####
+#' @noRd
 #' @title
 #' Tests for mis-specification of...
 #'
@@ -2611,6 +2674,7 @@ test.misSpec3 =  function(e,tvgarchObj,maxLag){
 
 
 # -- test.misSpec4(e,tvgarch,exogVar) ####
+#' @noRd
 #' @title
 #' Tests for mis-specification of...
 #'
