@@ -285,7 +285,7 @@ setMethod("initialize","tv_class",
     this <- .setEstimatedPars_TV(this,tmp)
 
     # Get the conditional variances
-    this@g <- .calculate_g(this)
+    this@g <- calculate_g(this)
 
     # Calculate the parameter standard errors, if requested
     if (isTRUE(estimationControl$calcSE)) { this <- .setStdErrors_TV(this,tmp,garchObj) }
@@ -353,7 +353,7 @@ setMethod("initialize","tv_class",
 
     }# End: paramater boundary checks:
 
-    g <- .calculate_g(this)
+    g <- calculate_g(this)
     if (min(g,na.rm = TRUE) <= 0) return(error)
 
     h <- garchObj@h
@@ -626,7 +626,7 @@ setMethod("initialize","tv_class",
 
 }
 
-.calculate_g = function(tvObj){
+calculate_g = function(tvObj){
   this <- tvObj
 
   # 1. Initialise g(t) to a constant variance = delta0
@@ -663,7 +663,7 @@ get_g = function(Obj){
 
   objType <- class(Obj)
   if(objType[1] == "tv_class"){
-    rtn <- .calculate_g(Obj)
+    rtn <- calculate_g(Obj)
     return(rtn)
   }
   #
@@ -738,7 +738,7 @@ get_g = function(Obj){
 
   }# End: paramater boundary checks:
 
-  g <- .calculate_g(this)
+  g <- calculate_g(this)
   if (min(g,na.rm = TRUE) <= 0) return(error)
 
   h <- garchObj@h
@@ -982,7 +982,7 @@ setMethod("summary",signature="garch_class",
     this <- .setEstimatedPars_GARCH(this,tmp)
 
     # Get the conditional garch
-    this@h <- .calculate_h(this,e/sqrt(tvObj@g))
+    this@h <- calculate_h(e/sqrt(tvObj@g),this)
 
 
     # Calculate the parameter standard errors, if requested
@@ -1025,7 +1025,7 @@ setMethod("summary",signature="garch_class",
     # Get the g(t) vector
     g <- tvObj@g
 
-    h <- .calculate_h(this,(e/sqrt(g) ) )
+    h <- calculate_h(e/sqrt(g),this)
     if (min(h,na.rm = TRUE) <= 0) return(error)
 
     #Return the LogLiklihood value:
@@ -1309,7 +1309,7 @@ setMethod("summary",signature="garch_class",
 
 }
 
-.calculate_h <- function(garchObj,e){
+calculate_h <- function(e,garchObj){
   this <- garchObj
 
   if(this$type == garchtype$noGarch) return(this@h)
@@ -2007,7 +2007,7 @@ test.LM.TR2=function(e,tvObj,testOrder){
   # 2. Calc derivatives of taylor pars (linearised component) under the null
   dgdt2 <- .dg_dt2(this@st,testOrder)
 
-  g <- .calculate_g(this)
+  g <- calculate_g(this)
   X <- cbind(dgdt,dgdt2)/g
 
   # 3. Invert crossprod(X) to calculate SSR1
@@ -2081,7 +2081,7 @@ test.LM.Robust = function(e,tvObj,testOrder){
   # 2. Calc derivatives of taylor pars (linearised component) under the null
   dgdt2 <- .dg_dt2(this@st,testOrder)
 
-  g <- .calculate_g(this)
+  g <- calculate_g(this)
   X <- dgdt/g
 
   # 3. Invert crossprod(X) to calculate SSR1
