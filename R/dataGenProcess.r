@@ -1,5 +1,6 @@
 
 # -- generateRefData -- ####
+#' @noRd
 #' @title
 #' Generates Reference Data
 #'

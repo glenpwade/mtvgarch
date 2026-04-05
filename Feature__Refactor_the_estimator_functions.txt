@@ -1,9 +1,0 @@
-Feature:
-Refactor the estimator functions to simplify the code.
-There is too much if..then..else logic here.
-Create sub_functions to handle:
-	swapping optimpars in/out of tvObj & garchObj
-	varTarget settings for optimpars, obj.ctrl.[ndeps,parscale], nr.pars
-	TV.loc2 can be NA
-	TV can be delta0 only (no transitions)
-	

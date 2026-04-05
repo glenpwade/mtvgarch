@@ -26,6 +26,7 @@ setMethod("initialize","ccc_class",
           })
 
 ## -- Constructor:ccc -- ####
+#' @noRd
 #' @title
 #' Create a Conditional Constant Correlation object
 #'
@@ -135,6 +136,7 @@ setGeneric(name=".loglik.ccc",
 )
 
 ## --- estimateCCC --- ####
+#' @noRd
 #' @title
 #' Estimate a Conditional Constant Correlation object
 #'
@@ -194,6 +196,7 @@ setGeneric(name="estimateCCC",
 ##============================##
 ##===   test.CCCParsim   ===####
 ##============================##
+#' @noRd
 #' @title
 #' Parsimonious Test for Constancy in a CCC model
 #'
@@ -425,6 +428,7 @@ setGeneric(name=".im_cor_parsim",
 ##============================##
 ##===   test.CCCvSTCC1   ===####
 ##============================##
+#' @noRd
 #' @title
 #' LM Test for Constancy in a CCC model
 #'
