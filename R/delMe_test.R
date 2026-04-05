@@ -1,4 +1,6 @@
 # # Initialisation: ####
+# library(MTVGARCH)
+# library(knitr)
 #
 # # Set constants
 # Reps <- 20
@@ -12,7 +14,7 @@
 #
 # # Set a working directory
 # fileName = ".\\SimSourceData\\T2000_Med_VarShift.RDS"
-# setwd("C:\\Repos\\LSS_LackOfIdentification")
+# #setwd("C:\\Repos\\LSS_LackOfIdentification")
 #
 # setwd("C:\\Source\\Repos\\LSS_LackOfIdentification")
 #
@@ -37,6 +39,10 @@
 # TVspec$optimcontrol$ndeps <- c(1e-3,1e-5,1e-5,1e-3)
 # #TV@delta0free <- FALSE
 #
+#
+# myG <- calculate_g(TVspec)
+# plot(myG,type='l')
+#
 # # 1. Do initial Estimation of g(t) assuming h(t) = 1
 #
 # e <- simData[,20]
@@ -50,11 +56,14 @@
 # plot(TV)
 #
 #
-# GARCH <- garch(garchtype$general)
-# GARCH$pars["omega",1] = 0.05
-# GARCH$pars["alpha",1] = 0.05
-# GARCH$pars["beta",1] = 0.90
-# GARCH$optimcontrol$parscale <- c(0.05,0.05,0.9)
+# GARCHspec <- garch(garchtype$general)
+# GARCHspec$pars["omega",1] = 0.05
+# GARCHspec$pars["alpha",1] = 0.05
+# GARCHspec$pars["beta",1] = 0.90
+# GARCHspec$optimcontrol$parscale <- c(0.05,0.05,0.9)
+#
+# myH <- calculate_h(e,GARCHspec)
+# plot(myH,type='l')
 #
 # #GARCH@omegafree <- FALSE  # TODO:  Causes estimateGARCH() - optim failed unexpectedly and returned NULL.
 #
@@ -62,7 +71,9 @@
 # GARCH <- estimateGARCH(e,GARCH,estCtrl)
 # summary(GARCH)
 #
-# # estimateGARCH() - optim failed unexpectedly and returned NULL. Check the optim controls & starting params
+# # Now calculate the loglik.value:
+#
+# simLoglik <- loglik.tvgarch.univar(e,myG,myH)
 #
 #
 # # TVGARCH Estimation:  ####
@@ -117,4 +128,8 @@
 # ##
 #
 # fileName = ".\\SimResults\\result_T2000_LSS_paper.RDS"
+#
+#  # calculate g:
+# startG <- .calculate_g(TVspec)
+# plot(startG,type='l')
 #
