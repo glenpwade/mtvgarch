@@ -123,7 +123,7 @@ setGeneric(name=".loglik.dcc",
            signature = c("optimpars","z","dccObj"),
            def = function(optimpars,z,dccObj){
 
-             err_output <- -1e10
+             err_output <- -Inf
              this <- dccObj
 
              # optim pars for DCC are:
@@ -233,7 +233,7 @@ setGeneric(name="estimateDCC",
              ### ---  Interpret the response from optim --- ###
              # An unhandled error could result in a NULL being returned by optim()
              if (is.null(tmp)) {
-               this$Estimated$value <- -1e10
+               this$Estimated$value <- -Inf
                this$Estimated$error <- TRUE
                return(this)
              }
@@ -274,7 +274,7 @@ setGeneric(name="estimateDCC",
              } else {
                #Failed to converge
                this$Estimated$error <- TRUE
-               this$Estimated$value <- -1e10
+               this$Estimated$value <- -Inf
                this$Estimated$optimoutput <- tmp
              }
 

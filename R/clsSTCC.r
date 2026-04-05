@@ -321,7 +321,7 @@ setGeneric(name=".loglik.stcc1",
            signature = c("optimpars","z","stcc1Obj"),
            def = function(optimpars,z,stcc1Obj){
 
-             err_output <- -1e10
+             err_output <- -Inf
              this <- stcc1Obj
 
              this$Estimated$pars <- tail(optimpars,2)
@@ -427,7 +427,7 @@ setGeneric(name="estimateSTCC1",
              ### ---  Interpret the response from optim --- ###
              # An unhandled error could result in a NULL being returned by optim()
              if (is.null(tmp)) {
-               this$Estimated$value <- -1e10
+               this$Estimated$value <- -Inf
                this$Estimated$error <- TRUE
                return(this)
              }
@@ -459,7 +459,7 @@ setGeneric(name="estimateSTCC1",
              } else {
                #Failed to converge
                this$Estimated$error <- TRUE
-               this$Estimated$value <- -1e10
+               this$Estimated$value <- -Inf
                this$Estimated$optimoutput <- tmp
              }
 
@@ -490,7 +490,7 @@ setGeneric(name=".loglik.stcc2",
            signature = c("optimpars","z","stcc2Obj"),
            def = function(optimpars,z,stcc2Obj){
 
-             err_output <- -1e10
+             err_output <- -Inf
              this <- stcc2Obj
 
              # Rebuild 'this' with the values from optimpars
@@ -651,7 +651,7 @@ setGeneric(name="estimateSTCC2",
              ### ---  Interpret the response from optim --- ###
              # An unhandled error could result in a NULL being returned by optim()
              if (is.null(tmp)) {
-               this$Estimated$value <- -1e10
+               this$Estimated$value <- -Inf
                this$Estimated$error <- TRUE
                return(this)
              }
@@ -714,7 +714,7 @@ setGeneric(name="estimateSTCC2",
              } else {
                #Failed to converge
                this$Estimated$error <- TRUE
-               this$Estimated$value <- -1e10
+               this$Estimated$value <- -Inf
                this$Estimated$optimoutput <- tmp
              }
 

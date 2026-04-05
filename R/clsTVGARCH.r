@@ -12,7 +12,7 @@ setMethod("initialize","tv_class",
             .Object <- callNextMethod(.Object,...)
             # Slots
             .Object@st <- c(NaN)
-            .Object@g <- c(NaN)
+            .Object@g <- 1
             .Object@delta0free <- TRUE
             .Object@nr.pars <- as.integer(1)
             .Object@nr.transitions <- as.integer(0)
@@ -190,7 +190,7 @@ setMethod("initialize","tvgarch_class",
             # Number of iterations required for estimation to converge
             .Object@iterations <- as.integer(0)    # internal counter for iterative estimator
             .Object$maxIterations <- 100           # user sets iteration-count threshold
-            .Object$iterationReltol <- 1e-5        # user sets iteration-convergence threshold (loglik value)
+            .Object$iterationReltol <- 1e-8        # user sets iteration-convergence threshold (loglik value)
             #
             .Object$varTarget <- TRUE
 
@@ -246,8 +246,8 @@ setGeneric(name="tvgarch",
 
              this <- new("tvgarch_class")
 
-             # Validate: Spit dummy if TV is not estimated (We need the delta0 estimate)
-             if(is.null(tvObj$Estimated) ) {
+             # Validate: Spit dummy if TV is not estimated (We need the delta0 estimate)  TODO: change this behaviour to allow mod_spec's
+             if(!("Estimated" %in% names(tvObj))) {
                message("tvgarch-class objects require the tv component to be estimated before initialising.")
                return(this)
              }
@@ -260,6 +260,8 @@ setGeneric(name="tvgarch",
              this$delta0 <- tvObj$Estimated$delta0
              # Note: Starting params set to tv-starting-pars
              this$tvpars <- tvObj$pars
+             #
+             this$Estimated$tv <- tvObj
 
              # Reconfigure the tv object, based on Garch type
              if(garchType != garchtype$noGarch){
@@ -287,6 +289,125 @@ setGeneric(name="tvgarch",
 )
 
 
+
+.getOptimpars_fromGARCH <- function(garchObj){
+
+  # Derive the optimpars vector, allowing for NA's and omega0free:
+  # Return both the optimpars vector and the garchObj, with corrected internals, e.g. nr.pars, optimControl list.
+  #
+  this <- garchObj
+  optimpars <- NULL
+  this$Estimated$method <- "MLE"
+
+  if(isTRUE(this@omegafree)){
+    optimpars <- as.vector(this$pars)
+    names(optimpars) <- rownames(this$pars)
+    this@nr.pars <- as.integer(length((optimpars)))
+    #
+    if(length(this$optimcontrol$ndeps) < length(optimpars)) { this$optimcontrol$ndeps <- tail(this$optimcontrol$ndeps,this@nr.pars) }
+    if(length(this$optimcontrol$ndeps) < length(optimpars)) { this$optimcontrol$parscale <- tail(this$optimcontrol$parscale,this@nr.pars) }
+  }else{
+
+    # VarTargetting, calculate omega, estimate alpha & beta:
+
+    optimpars <- tail(as.vector(this$pars), -1)
+    names(optimpars) <- tail(rownames(this$pars),-1)
+    this@nr.pars <- as.integer(length((optimpars)))
+
+    this$optimcontrol$ndeps <- tail(this$optimcontrol$ndeps,this@nr.pars)
+    this$optimcontrol$parscale <- tail(this$optimcontrol$parscale,this@nr.pars)
+  }
+
+  #RETURN:
+  rtnList <- list()
+  rtnList$Optimpars <- optimpars
+  rtnList$garchObj <- this
+  return(rtnList)
+
+}
+
+
+.setEstimatedPars_GARCH <- function(garchObj,optimTmp){
+
+  this <- garchObj
+  tmp <- optimTmp
+
+  # An unhandled error could result in a NULL being returned by optim()
+  if (is.null(tmp)) {
+    this$Estimated$value <- NA
+    this$Estimated$error <- TRUE
+    warning("estimateGARCH() - optim failed unexpectedly and returned NULL. Check the optim controls & starting params")
+    return(this)
+  }
+  if (tmp$convergence!=0) {
+    this$Estimated$value <- NA
+    this$Estimated$error <- TRUE
+    this$Estimated$optimoutput <- tmp
+    warning("estimateGARCH() - failed to converge. Check the optim controls & starting params")
+    return(this)
+  }
+
+  # No optim issues, so set output
+  this$Estimated$value <- tmp$value
+  this$Estimated$error <- FALSE
+
+
+  #Update the GARCH object parameters using optimised pars:
+  if (isTRUE(this@omegafree)){
+    this$Estimated$pars <- .parsVecToMatrix(this,tmp$par)
+    this@nr.pars <- as.integer(3)
+
+  } else{
+    omega <- 1 - tmp$par[1] - tmp$par[2]
+    this$Estimated$pars <- .parsVecToMatrix(this,c(omega,tmp$par))
+    this@nr.pars <- as.integer(2)
+  }
+  colnames(this$Estimated$pars) <- paste("Est")
+
+  #RETURN:
+  return(this)
+
+}
+
+.setStdErrors_GARCH <- function(garchObj,optimTmp,tvObj){
+
+  this <- garchObj
+  tmp <- optimTmp
+
+  cat("\nCalculating GARCH standard errors...\n")
+  this$Estimated$hessian <- NULL
+  this$Estimated$se <- NULL
+  StdErrors <- NULL
+
+  # this$Estimated$se <- matrix(NA,nrow=3,ncol=1)
+  # rownames(this$Estimated$se) <- rownames(this$pars)
+  # colnames(this$Estimated$se) <- "se"
+
+  # Get the hessian from the optimiser:
+  try(this$Estimated$hessian <- optimHess(tmp$par,.loglik.garch.univar,gr=NULL,e,this,tvObj,control=this$optimcontrol))
+
+  # Attempt to invert it
+  try(StdErrors <- sqrt(-diag(invertHess(this$Estimated$hessian))))
+
+  # Handle invertHess errors
+  if(!is.null(StdErrors)) {
+    parsVec <-  as.vector(this$pars)
+
+    if(isTRUE(this@omegafree)){
+      this$Estimated$se <- matrix(StdErrors,nrow=3,ncol=1)
+    }else{
+      # omega is calculated, so has no stderror
+      this$Estimated$se <- matrix(c(NA,StdErrors),nrow=3,ncol=1)
+
+      #this$Estimated$se[1,1] <- NA
+      #this$Estimated$se[2,1] <- StdErrors[1]
+      #this$Estimated$se[3,1] <- StdErrors[2]
+    }
+    colnames(this$Estimated$se) <- "se"
+  }
+  #RETURN:
+  return(this)
+}
 
 ## --- Public GARCH Methods --- ####
 
@@ -319,110 +440,58 @@ setGeneric(name="tvgarch",
 #'
 estimateGARCH <- function(e,garchObj,estimationControl,tvObj){0}
 .estimateGARCH <- function(e,garchObj,estimationControl,tvObj){
-             this <- garchObj
 
-             if(this$type == garchtype$noGarch) {
-               message("Cannot estimateGARCH for type: NoGarch")
-               return(this)
-             }
+  this <- garchObj
 
-             # Attach results of estimation to the object
-             this$Estimated <- list()
-             this$Estimated$method <- "MLE"
+  # debug:
+  #this <- GARCHspec
+  #estimationControl <- estCtrl
 
-             if (isTRUE(estimationControl$verbose)) {
-               this$optimcontrol$trace <- 10
-               cat("\nEstimating GARCH object...\n")
-             } else this$optimcontrol$trace <- 0
+  # If there is no existing this$Estimated$, then create one
+  if(!("Estimated" %in% names(this))) { this$Estimated <- list() }
 
+  # Set verbose tracing:
+  if (isTRUE(estimationControl$verbose)) {
+    this$optimcontrol$trace <- 10
+    cat("\nEstimating GARCH object...\n")
+  } else this$optimcontrol$trace <- 0
 
-             # Get Optimpars from garch$pars
-             if(isTRUE(this@omegafree)){
-               optimpars <- as.vector(this$pars)
-               names(optimpars) <- rownames(this$pars)
-               this@nr.pars <- as.integer(length((optimpars)))
-             }else{
-               # VarTargetting, calculate omega after estimation completes
-               optimpars <- tail(as.vector(this$pars), -1)
-               names(optimpars) <- tail(rownames(this$pars),-1)
-               this@nr.pars <- as.integer(length((optimpars)))
-               this$optimcontrol$ndeps <- tail(this$optimcontrol$ndeps,this@nr.pars)
-               this$optimcontrol$parscale <- tail(this$optimcontrol$parscale,this@nr.pars)
-             }
+  if(this$type == garchtype$noGarch) {
+   message("Cannot estimateGARCH for type: NoGarch")
+   return(this)
+  }
 
-             # Now call optim:
-             tmp <- NULL
-             try(tmp <- optim(optimpars,.loglik.garch.univar,gr=NULL,e,this,tvObj, method="BFGS",control=this$optimcontrol))
+  # Get the Optimpars from the garchObj (and update the tvObj as needed)
+  garchOptimpars <- .getOptimpars_fromGARCH(this)
+  optimpars <- garchOptimpars$Optimpars
+  this <- garchOptimpars$garchObj
 
-             # An unhandled error could result in a NULL being returned by optim()
-             if (is.null(tmp)) {
-               this$Estimated$value <- -Inf
-               this$Estimated$error <- TRUE
-               warning("estimateGARCH() - optim failed unexpectedly and returned NULL. Check the optim controls & starting params")
-               return(this)
-             }
-             if (tmp$convergence!=0) {
-               this$Estimated$value <- -Inf
-               this$Estimated$error <- TRUE
-               this$Estimated$optimoutput <- tmp
-               warning("estimateGARCH() - failed to converge. Check the optim controls & starting params")
-               return(this)
-             }
+  # Check we have a g(t) vector, if not create one (so optim() doesn't complain):
+  if(tvObj@g == 1){ tvObj@g <- rep(1,NROW(e)) }
 
-             this$Estimated$value <- tmp$value
-             this$Estimated$error <- FALSE
+  ## --- Now call optim(.loglik.garch.univar) --- ##
+  tmp <- NULL
+  try(tmp <- optim(optimpars,.loglik.garch.univar,gr=NULL,e,this,tvObj, method="BFGS",control=this$optimcontrol))
 
-             if(isTRUE(this@omegafree)){
-               this$Estimated$pars <- .parsVecToMatrix(this,tmp$par)
-               this@nr.pars <- as.integer(3)
-             }else{
-               omega <- 1 - tmp$par[1] - tmp$par[2]
-               this$Estimated$pars <- .parsVecToMatrix(this,c(omega,tmp$par))
-               this@nr.pars <- as.integer(2)
-             }
+  ## --- Attach results of estimation to the object --- ##
 
-             # Get conditional variance
-             this@h <- .calculate_h(this,e/sqrt(tvObj@g))
+  # Add the optim output to the estimated model
+  this$Estimated$optimoutput <- tmp
 
-             # Calc Std Errors
-             if (isTRUE(estimationControl$calcSE)) {
-               cat("\nCalculating GARCH standard errors...\n")
-               this$Estimated$hessian <- NULL
-               this$Estimated$se <- NULL
-               StdErrors <- NULL
+  # Add the final results from optim() back into the estimated model
+  this <- .setEstimatedPars_GARCH(this,tmp)
 
-               this$Estimated$se <- matrix(NA,nrow=3,ncol=1)
-               rownames(this$Estimated$se) <- rownames(this$pars)
-               colnames(this$Estimated$se) <- "se"
-
-               # Get the hessian from the optimiser:
-               try(this$Estimated$hessian <- optimHess(tmp$par,.loglik.garch.univar,gr=NULL,e,this,tvObj,control=this$optimcontrol))
-
-                 # Attempt to invert it
-                 try(StdErrors <- sqrt(-diag(invertHess(this$Estimated$hessian))))
-
-                 # Handle invertHess errors
-                 if(!is.null(StdErrors)) {
-                   parsVec <-  as.vector(this$pars)
-
-                   if(isTRUE(this@omegafree)){
-                     this$Estimated$se <- matrix(StdErrors,nrow=3,ncol=1)
-                   }else{
-                     # omega is calculated, so has no stderror
-                     this$Estimated$se[1,1] <- NA
-                     this$Estimated$se[2,1] <- StdErrors[1]
-                     this$Estimated$se[3,1] <- StdErrors[2]
-                   }
-
-                 } # Error occurred...
+  # Get the conditional garch
+  this@h <- .calculate_h(this,e/sqrt(tvObj@g))
 
 
-             }  # End:  if (isTRUE(estimationControl$calcSE)) {
-             #
-             if (isTRUE(estimationControl$verbose)) this$Estimated$optimoutput <- tmp
+  # Calculate the parameter standard errors, if requested
+  if (isTRUE(estimationControl$calcSE)) { this <- .setStdErrors_GARCH(this,tmp,tvObj) }
 
-             return(this)
-           }
+  return(this)
+
+}
+
 
 setGeneric("estimateGARCH",valueClass = "garch_class")
 
@@ -771,7 +840,6 @@ setGeneric(name=".loglik.garch.univar",
              ## ======== calculate loglikelihood ======== ##
 
 
-
              if (this@omegafree){
                # All pars are estimated
                this$Estimated$pars <- .parsVecToMatrix(this,optimpars)
@@ -918,9 +986,157 @@ setMethod("summary",signature="garch_class",
 
 ## --- Public TV Methods --- ####
 
+.estimateTV_noPars <- function(e,tvObj){
 
+  this <- tvObj
 
+  if(this@delta0free){
 
+    this@nr.pars <- as.integer(1)
+    this$Estimated$delta0 <- var(e)
+  } else {
+
+    # Estimate TV (no transitions AND delta0free = FALSE)
+    this@nr.pars <- as.integer(0)
+    # If there is no existing estimated this$Estimated$delta0, then use the starting param
+    if(!("Estimated" %in% names(this))) {
+      this$Estimated <- list()
+      this$Estimated$delta0 < this$delta0}
+  }
+
+  # Now set g(t) based on the correct delta0
+  this@g <- rep(this$Estimated$delta0,this@Tobs)
+
+  this$Estimated$value <- sum(-0.5*log(2*pi) - 0.5*log(this@g) - (0.5*e^2)/this@g)
+  this$Estimated$error <- FALSE
+
+  this$Estimated$pars <- c(NA,NA,NA,NA)
+  if(isTRUE(estimationControl$calcSE)) { this$Estimated$delta0_se <- NaN }
+
+  # RETURN:
+  return(this)
+}
+
+.getOptimpars_FromTV <- function(tvObj){
+
+  # Derive the optimpars vector, allowing for NA's and delta0free:
+  # Return both the optimpars vector and the tvObj, with corrected internals, nr.pars, optimControl list.
+
+  this <- tvObj
+
+  optimpars <- NULL
+  parsVec <- as.vector(this$pars)
+  # Remove any loc2=NA pars:
+  parsVec <- parsVec[!is.na(parsVec)]
+
+  if(isTRUE(this@delta0free)){
+    # Estimating a single tv_class object
+    optimpars <- c(this$delta0, parsVec)
+
+    this@nr.pars <- as.integer(length(optimpars))
+
+    # TODO: BUG here if user switches delta0free On, then OFF, then ON again the optimcontrol gets whacked!
+  if(length(this$optimcontrol$ndeps) < length(optimpars)) {this$optimcontrol$ndeps <- c(1.0,this$optimcontrol$ndeps)}
+  if(length(this$optimcontrol$parscale) < length(optimpars)) {this$optimcontrol$parscale <- c(1.0,this$optimcontrol$parscale)}
+
+  }else{
+    # Estimating a TVGARCH_class object - (delta0 is fixed to the passed-in estimated value)
+    optimpars <- parsVec
+
+    this@nr.pars <- as.integer(length(optimpars))
+    this$optimcontrol$ndeps <- tail(this$optimcontrol$ndeps,this@nr.pars)
+    this$optimcontrol$parscale <- tail(this$optimcontrol$parscale,this@nr.pars)
+  }
+
+  #RETURN:
+  rtnList <- list()
+  rtnList$Optimpars <- optimpars
+  rtnList$tvObj <- this
+  return(rtnList)
+
+}
+
+.setEstimatedPars_TV <- function(tvObj,optimTmp){
+
+  this <- tvObj
+  tmp <- optimTmp
+
+  # An unhandled error could result in a NULL being returned by optim()
+  if (is.null(tmp)) {
+    this$Estimated$value <- NA
+    this$Estimated$error <- TRUE
+    warning("estimateTV() - optim failed and returned NULL. Check the optim controls & starting params")
+    return(this)
+  }
+  if (tmp$convergence != 0) {
+    this$Estimated$value <- NA
+    this$Estimated$error <- TRUE
+    this$Estimated$optimoutput <- tmp
+    warning("estimateTV() - failed to converge. Check the optim controls & starting params")
+    return(this)
+  }
+
+  # No optim issues, so set output
+  this$Estimated$value <- tmp$value
+  this$Estimated$error <- FALSE
+
+  #Update the TV object parameters using optimised pars:
+  if (isTRUE(this@delta0free)){
+    # delta0 is the first optimised param
+    this$Estimated$delta0 <- as.numeric(tmp$par[1])
+    # All other params are in a matrix, with a column per transition
+    this$Estimated$pars <- .estimatedParsToMatrix(this,tail(tmp$par,-1))
+  } else{
+    # delta0 is not an estimated param, use first round estimate.
+    if(!("delta0" %in% this$Estimated)) this$Estimated$delta0 <- this$delta0    #Use the starting param if no estimated value exists
+    this$Estimated$pars <- .estimatedParsToMatrix(this,tmp$par)
+  }
+  colnames(this$Estimated$pars) <- paste("st" ,1:this@nr.transitions,sep = "")
+
+  #RETURN:
+  return(this)
+}
+
+.setStdErrors_TV <- function(tvObj,optimTmp,garchObj){
+
+  this <- tvObj
+  tmp <- optimTmp
+
+  cat("\nCalculating TV standard errors...\n")
+  this$Estimated$hessian <- NULL
+  this$Estimated$se <- NULL
+  stdErrors <- NULL
+
+  # Get the hessian from the optimiser:
+  try(this$Estimated$hessian <- optimHess(tmp$par,.loglik.tv.univar,gr=NULL,e,this,garchObj,control=this$optimcontrol))
+
+  # Handle optimHess errors
+  try(stdErrors <- sqrt(-diag(invertHess(this$Estimated$hessian))))
+  if(!is.null(stdErrors)){
+    parsVec <-  as.vector(this$pars)
+
+    if (isTRUE(this@delta0free)){
+      this$Estimated$delta0_se <- stdErrors[1]
+      stdErrors <- tail(stdErrors,-1)
+    } else {
+      this$Estimated$delta0_se <- NaN
+      stdErrors <- tail(stdErrors)
+    }
+
+    seIndex <- 1
+    for(n in seq_along(parsVec)){
+      if(!is.na(parsVec[n])) {
+        this$Estimated$se[n] <- stdErrors[seIndex]
+        seIndex <- seIndex + 1
+      } else this$Estimated$se[n] <- NaN
+    }
+    this$Estimated$se <- matrix(this$Estimated$se,nrow = 4)
+    colnames(this$Estimated$se) <- paste("se" ,1:this@nr.transitions,sep = "")
+  }
+
+  return(this)
+
+}
 
 ## -- estimateTV(e,tv,ctrl,garch) ####
 #' @title
@@ -951,12 +1167,17 @@ setMethod("summary",signature="garch_class",
 #'
 estimateTV <- function(e,tvObj,estimationControl,garchObj){0}
 .estimateTV <- function(e,tvObj,estimationControl,garchObj){
-  this <- tvObj
 
-  if(is.null(this$Estimated$delta0)){
-    this$Estimated <- list()
-    this$Estimated$delta0 <- this$delta0
-  }
+  this <- tvObj
+  # debug:
+  #this <- TVspec
+  #garchObj <-  garch(garchtype$general)
+  #garchObj <- GARCH
+  #estimationControl <- estCtrl
+
+  # If there is no existing this$Estimated$, then create one
+  if(!("Estimated" %in% names(this))) { this$Estimated <- list() }
+
   # Set verbose tracing:
   if (isTRUE(estimationControl$verbose)) {
     this$optimcontrol$trace <- 10
@@ -964,115 +1185,35 @@ estimateTV <- function(e,tvObj,estimationControl,garchObj){0}
   } else this$optimcontrol$trace <- 0
 
   # Check for the simple case of just delta0 provided, no TV$pars
-  if(this@nr.transitions == 0){
-    if(this@delta0free){
-      this$Estimated$delta0 <- var(e)
-      this@nr.pars <- as.integer(1)
-    } else { this@nr.pars <- as.integer(0)}
+  if(this@nr.transitions == 0){ return( .estimateTV_noPars(e,this) ) }
 
-    this@g <- rep(this$Estimated$delta0,this@Tobs)
-    if(isTRUE(estimationControl$calcSE)) this$Estimated$delta0_se <- NaN
-    this$Estimated$pars <- c(NA,NA,NA,NA)
-    this$Estimated$value <- sum(-0.5*log(2*pi) - 0.5*log(this@g) - (0.5*e^2)/this@g)
-    this$Estimated$error <- FALSE
-    # RETURN:
-    return(this)
-  }
+  # Get the Optimpars from the tvObj (and update the tvObj as needed)
+  tvOptimpars <- .getOptimpars_FromTV(this)
+  optimpars <- tvOptimpars$Optimpars
+  this <- tvOptimpars$tvObj
 
-  # Set the Optimpars
-  optimpars <- NULL
-  parsVec <- as.vector(this$pars)
-  parsVec <- parsVec[!is.na(parsVec)]
+  # Check we have a garchObj, if not create one (so optim() doesn't complain):
+  if(is.null(garchObj)){ garchObj <- garch(garchtype$general)}
+  # Check we have a valid h(t) vector (default = 1), if not create one (so optim() doesn't complain):
+  if (garchObj@h == 1) { garchObj@h <- rep(1,NROW(e)) }
 
-  if(isTRUE(this@delta0free)){
-    # Estimating a single TV_class object
-    optimpars <- c(this$delta0, parsVec)
-
-    this@nr.pars <- as.integer(length(optimpars))
-    # TODO: BUG here if user switches delta0free On, then OFF, then ON again the optimcontrol gets whacked!
-    if(length(this$optimcontrol$ndeps) < length(optimpars)) {this$optimcontrol$ndeps <- c(1.0,this$optimcontrol$ndeps)}
-    if(length(this$optimcontrol$parscale) < length(optimpars)) {this$optimcontrol$parscale <- c(1.0,this$optimcontrol$parscale)}
-  }else{
-    # Estimating a TVGARCH_class object - (delta0 is fixed to the passed-in estimated value)
-    optimpars <- parsVec
-
-    this@nr.pars <- as.integer(length(optimpars))
-    this$optimcontrol$ndeps <- tail(this$optimcontrol$ndeps,this@nr.pars)
-    this$optimcontrol$parscale <- tail(this$optimcontrol$parscale,this@nr.pars)
-  }
-
-  # Now call optim:
+  ## --- Now call optim(.loglik.tv.univar) --- ##
   tmp <- NULL
   try(tmp <- optim(optimpars,.loglik.tv.univar,gr=NULL,e,this,garchObj,method="BFGS",control=this$optimcontrol))
 
   ## --- Attach results of estimation to the object --- ##
 
-  # An unhandled error could result in a NULL being returned by optim()
-  if (is.null(tmp)) {
-    this$Estimated$value <- NA
-    this$Estimated$error <- TRUE
-    warning("estimateTV() - optim failed and returned NULL. Check the optim controls & starting params")
-    return(this)
-  }
-  if (tmp$convergence != 0) {
-    this$Estimated$value <- NA
-    this$Estimated$error <- TRUE
-    this$Estimated$optimoutput <- tmp
-    warning("estimateTV() - failed to converge. Check the optim controls & starting params")
-    return(this)
-  }
+  # Add the optim output to the estimated model
+  this$Estimated$optimoutput <- tmp
 
-  this$Estimated$value <- tmp$value
-  this$Estimated$error <- FALSE
-
-  #Update the TV object parameters using optimised pars:
-  if (isTRUE(this@delta0free)){
-    this$Estimated$delta0 <- as.numeric(tmp$par[1])
-    this <- .estimatedParsToMatrix(this,tail(tmp$par,-1))
-  } else{
-    # delta0 is not an estimated param, use first round estimate.
-    if(is.null(this$Estimated$delta0)) this$Estimated$delta0 <- this$delta0    #Use the starting param if no estimated value exists
-    this <- .estimatedParsToMatrix(this,tmp$par)
-  }
-  colnames(this$Estimated$pars) <- paste("st" ,1:this@nr.transitions,sep = "")
+  # Add the final results from optim() back into the estimated model
+  this <- .setEstimatedPars_TV(this,tmp)
 
   # Get the conditional variances
   this@g <- .calculate_g(this)
 
-  # Calc the std errors
-  if (isTRUE(estimationControl$calcSE)){
-
-    cat("\nCalculating TV standard errors...\n")
-    this$Estimated$hessian <- NULL
-    this$Estimated$se <- NULL
-    stdErrors <- NULL
-
-    try(this$Estimated$hessian <- optimHess(tmp$par,.loglik.tv.univar,gr=NULL,e,this,garchObj,control=this$optimcontrol))
-    # Handle optimHess errors
-    try(stdErrors <- sqrt(-diag(invertHess(this$Estimated$hessian))))
-    if(!is.null(stdErrors)){
-      parsVec <-  as.vector(this$pars)
-
-      if (isTRUE(this@delta0free)){
-        this$Estimated$delta0_se <- stdErrors[1]
-        stdErrors <- tail(stdErrors,-1)
-      } else {
-        this$Estimated$delta0_se <- NaN
-        stdErrors <- tail(stdErrors)
-      }
-
-      seIndex <- 1
-      for(n in seq_along(parsVec)){
-        if(!is.na(parsVec[n])) {
-          this$Estimated$se[n] <- stdErrors[seIndex]
-          seIndex <- seIndex + 1
-        } else this$Estimated$se[n] <- NaN
-      }
-      this$Estimated$se <- matrix(this$Estimated$se,nrow = 4)
-      colnames(this$Estimated$se) <- paste("se" ,1:this@nr.transitions,sep = "")
-    }
-  }
-  if (isTRUE(estimationControl$verbose)) this$Estimated$optimoutput <- tmp
+  # Calculate the parameter standard errors, if requested
+  if (isTRUE(estimationControl$calcSE)) { this <- .setStdErrors_TV(this,tmp,garchObj) }
 
   return(this)
 }
@@ -1089,7 +1230,7 @@ setMethod("estimateTV",
 setMethod("estimateTV",
           signature = c(e="numeric", tvObj="tv_class",estimationControl="list",garchObj="missing"),
           function(e,tvObj,estimationControl){
-            garchObj <- garch(garchtype$noGarch)
+            garchObj <- garch(garchtype$general)
             .estimateTV(e,tvObj,estimationControl,garchObj)
           }
 )
@@ -1097,7 +1238,7 @@ setMethod("estimateTV",
 setMethod("estimateTV",
           signature = c(e="numeric", tvObj="tv_class",estimationControl="missing",garchObj="missing"),
           function(e,tvObj){
-            garchObj <- garch(garchtype$noGarch)
+            garchObj <- garch(garchtype$general)
             estimationControl <- list(calcSE=TRUE,verbose=TRUE)
             .estimateTV(e,tvObj,estimationControl,garchObj)
           }
@@ -1282,16 +1423,19 @@ setGeneric(name="getTestStats",
 
 ## --- PRIVATE TV METHODS --- ####
 
-## ..estimatedParsToMatrix(tvObj,optimpars)   ####
+## .estimatedParsToMatrix(tvObj,optimpars)   ####
 setGeneric(name=".estimatedParsToMatrix",
-           valueClass = "tv_class",
+           valueClass = "matrix",
            signature = c("tvObj","optimpars"),
            def = function(tvObj,optimpars){
+
              this <- tvObj
 
+             # TODO: Do we want a hard 'stop' here?  Or a warning and soft return, e.g. pars=NULL?
              if(this@nr.transitions == 0) stop("There are no parameters on this tv object")
 
-             # Add NA's for all missing locn.2 pars:
+             # The optimpars passed-in had all NA's stripped out, so to make our TV Object whole again we need to
+             # Add NA's for all missing loc2 pars:
              naPars <- NULL
              for (i in seq_along(this$shape)) {
                if (this$shape[i] == tvshape$double) {
@@ -1302,10 +1446,9 @@ setGeneric(name=".estimatedParsToMatrix",
                  optimpars <- optimpars[-(1:3)]
                }
              }
-             this$Estimated$pars <- matrix(naPars,nrow=4,ncol=NROW(this$shape),dimnames=list(c("deltaN","speedN","locN1","locN2"),NULL))
+             # RETURN:
+             matrix(naPars,nrow=4,ncol=NROW(this$shape),dimnames=list(c("deltaN","speedN","locN1","locN2"),NULL))
 
-             # Return
-             this
            }
 )
 
@@ -1501,7 +1644,7 @@ setMethod("testStatDist",signature = c("matrix","tv_class","list","missing"),
           })
 
 
-## Set the initial parameters ####
+## .setInitialPars(tv) ####
 setGeneric(name=".setInitialPars",
            valueClass = "tv_class",
            signature = c("tvObj"),
@@ -1625,7 +1768,7 @@ setGeneric(name=".calculate_g",
            def = function(tvObj){
              this <- tvObj
              # 1. Initialise g to a constant variance = delta0
-             if(is.null(this$Estimated$delta0)){
+             if(!("delta0" %in% this$Estimated)){
                # Set defaults if the TV object has not been estimated yet
                g <- rep(this$delta0,this@Tobs)
                this$Estimated$pars <- this$pars
@@ -1695,10 +1838,10 @@ setGeneric(name=".loglik.tv.univar",
              # Copy the optimpars into a local tv_object
              if (isTRUE(this@delta0free)) {
                this$Estimated$delta0 <- optimpars[1]
-               this <- .estimatedParsToMatrix(this,tail(optimpars,-1))
+               this$Estimated$pars <- .estimatedParsToMatrix(this,tail(optimpars,-1))
              } else{
-               if(is.null(this$Estimated$delta0)) this$Estimated$delta0 <- this$delta0
-               this <- .estimatedParsToMatrix(this,optimpars)
+               if(!("delta0" %in% this$Estimated)) this$Estimated$delta0 <- this$delta0
+               this$Estimated$pars <- .estimatedParsToMatrix(this,optimpars)
              }
 
              # Do paramater boundary checks:
@@ -1748,8 +1891,7 @@ setGeneric(name=".loglik.tv.univar",
              g <- .calculate_g(this)
              if (min(g,na.rm = TRUE) <= 0) return(error)
 
-             h <- .calculate_h(garchObj,e/sqrt(g))
-             if (min(h,na.rm = TRUE) <= 0) return(error)
+             h <- garchObj@h
 
              #Return the LogLiklihood value:
              ll <- loglik.tvgarch.univar(e,g,h)
@@ -1891,6 +2033,29 @@ setGeneric(name="loglik.tvgarch.univar",
 )
 
 
+.updateEstimatedDetails <- function(tvgarchObj,TV,GARCH){
+
+  this <- tvgarchObj
+
+  # Put this valid model into the Estimated list:
+  this$Estimated$tv <- TV$Estimated
+  this$Estimated$tv$g <- TV@g
+
+  this$Estimated$garch <- GARCH$Estimated
+  this$Estimated$garch$h <- GARCH@h
+
+  # Populate the convenience attributes:
+  this$Estimated$g <- TV@g
+  this$Estimated$h <- GARCH@h
+
+  return(this)
+
+}
+
+
+
+
+
 # -- estimateTVGARCH_2Step -- ####
 #' @title
 #' Estimates a tv model
@@ -1922,23 +2087,13 @@ estimateTVGARCH_2Step <- function(e,tvgarchObj,estimationControl){0}
 .estimateTVGARCH_2Step <- function(e,tvgarchObj,estimationControl){
 
   this <- tvgarchObj
-  TV <- this@tvObj        # Note: 'this@tvObj' is the estimated TV object used in the constructor
-  GARCH <- this@garchObj
 
-  GARCH$type <- this$type
-  GARCH$pars <- this$garchpars
-  GARCH$optimcontrol <- this$garchOptimcontrol
-  #
+  TV <- tvgarchObj@tvObj        # Note: 'this@tvObj' is the estimated TV object used in the constructor
 
- # Overwrite the starting values & optim-controls before estimating
-  # Note: The constructor will inherit the TV pars & optimcontrol from the passed-in TV object
-  #       But this allows the user to overwrite those values to fine-tune the estimation
-  TV$shape <- this$shape
-  TV$speedopt <- this$speedopt
-  TV$delta0 <- this$delta0
-  TV$pars <- this$tvpars
-  TV$optimcontrol <- this$tvOptimcontrol
-  #
+  # Estimate TV, assuming h(t)=1
+  # Check we have a garchObj, if not create one (so optim() doesn't complain):
+  if(is.null(garchObj)){ garchObj <- garch(garchtype$general)}
+  GARCH <- garchpObj
 
   # Configure variance targetting
   if(isTRUE(this$varTarget)){
@@ -1951,64 +2106,67 @@ estimateTVGARCH_2Step <- function(e,tvgarchObj,estimationControl){0}
 
   cat("\nStarting 2-Step TVGARCH Estimation...\n")
 
-  #==  First time being estimated ==#
-  if(is.null(this$Estimated)){
+  # If there is no existing estimated this$Estimated$delta0, then use the starting param
+  if(!("Estimated" %in% names(this))) { this$Estimated <- list() }
 
-    # Cache the data, to identify future re-estimations:
-    this@e <- e
-    this$Estimated <- list()
-    # Assume worst case when initialising"
-    this$Estimated$converged <- FALSE
-    this$Estimated$error <- TRUE
+  # Cache the data, to identify future re-estimations:
+  this@e <- e
+  # Assume worst case when initialising"
+  this$Estimated$converged <- FALSE
+  this$Estimated$error <- TRUE
 
-    # Estimate TV, assuming h(t)=1
-    garchObj <- garch(garchtype$noGarch)
-    TV <- estimateTV(e,TV,estimationControl,garchObj)
-    #TODO: Wrap estimator call in Try..Catch -> exit gracefully
+  TV <- estimateTV(e,TV,estimationControl,garchObj)
+  #TODO: Wrap estimator call in Try..Catch -> exit gracefully
 
-    if(isTRUE(estimationControl$verbose)){
-      cat("\nTV estimation complete, with assumption that h(t)=1\n")
-    }
-    cat(".")
+  if(isTRUE(estimationControl$verbose)){ cat("\nTV estimation complete, with assumption that h(t)=1\n") }
+  cat(".")
 
-    # Now estimate the specified GARCH, using the estimated TV above
-    GARCH <- estimateGARCH(e,GARCH,estimationControl,TV)
-    #TODO: Wrap estimator call in Try..Catch -> exit gracefully
+  # Now estimate the specified GARCH, using the estimated TV above
+  GARCH <- estimateGARCH(e,GARCH,estimationControl,TV)
+  #TODO: Wrap estimator call in Try..Catch -> exit gracefully
 
-    cat(".")
-    if(isTRUE(estimationControl$verbose)){
-      cat("\nGARCH estimation complete, using data filtered by g(t), which was estimated with h(t)=1\n")
-    }
-
-    # Put the final model into the Estimated list
-    this$Estimated$value <- loglik.tvgarch.univar(e,TV@g,GARCH@h)
-    this$Estimated$g <- TV@g                   # Populate the super-convenience attribute
-    this$Estimated$h <- GARCH@h                # Populate the super-convenience attribute
-    this$Estimated$tv <- TV$Estimated          # Cache the Estimated List into the object
-    this$Estimated$garch <- GARCH$Estimated    # Cache the Estimated List into the object
-    this@iterations <- as.integer(2)
-
-    cat("\nTVGARCH Estimation Completed\n")
-
-    # TODO:  Confirm how we do the continue-running...  Suggest: keep using starting pars {User has option to tweak these between runs!!}
-    # TODO:  Need to explain here: How to keep iterating manully.
-    if(isTRUE(estimationControl$verbose)){
-      cat("\n")
-      cat("\n2Step Estimation complete.  Re-run this estimation to see if the model can be improved!!")
-      cat("\nThis estimator is designed to be run iteratively, until fully converged.")
-      cat("\n")
-    }
-
-    # Update the internal objects with the Estimated objects.  These slots maintain the state between estimation runs
-    this@tvObj <- TV
-    this@garchObj <- GARCH
-
-    return(this)
-
+  cat(".")
+  if(isTRUE(estimationControl$verbose)){
+    cat("\nGARCH estimation complete, using data filtered by g(t), which was estimated with h(t)=1\n")
   }
+
+  this@iterations <- as.integer(2)
+  this$Estimated$value <- loglik.tvgarch.univar(e,TV@g,GARCH@h)
+  this$Estimated$error <- FALSE
+  this$Estimated$converged <- TRUE
+
+  # Update the internal objects with the Estimated objects.  These slots maintain the state between estimation runs
+  # this <- .updateEstimatedDetails(this,TV,GARCH)  # This seems to be having issues when running in parallel, so...
+
+  # Put this valid model into the Estimated list:
+  this$Estimated$tv <- TV$Estimated
+  this$Estimated$tv$g <- TV@g
+
+  this$Estimated$garch <- GARCH$Estimated
+  this$Estimated$garch$h <- GARCH@h
+
+  # Populate the convenience attributes:
+  this$Estimated$g <- TV@g
+  this$Estimated$h <- GARCH@h
+
+  this@tvObj <- TV
+  this@garchObj <- GARCH
+
+
+  # TODO:  Confirm how we do the continue-running...  Suggest: keep using starting pars {User has option to tweak these between runs!!}
+  # TODO:  Need to explain here: How to keep iterating manually.
+  if(isTRUE(estimationControl$verbose)){
+    cat("\n")
+    cat("\n2Step Estimation complete.  Re-run this estimation to see if the model can be improved!!")
+    cat("\nThis estimator is designed to be run iteratively, until fully converged.")
+    cat("\nFor example, if you use the estimated model as the model specification, the estimator will continue to iterate:")
+    cat("\n    :: mod_2s <- estimateTVGARCH_2Step(e,mod_2S,estCtrl) ::")
+    cat("\n")
+  }
+
+  return(this)
+
   #==  END: 2-Step Estimation  ==#
-
-
 
 }
 
@@ -2068,152 +2226,137 @@ setMethod("estimateTVGARCH_2Step",
 estimateTVGARCH_Iterate <- function(e,tvgarchObj,estimationControl){0}
 .estimateTVGARCH_Iterate <- function(e,tvgarchObj,estimationControl){
 
-     this <- tvgarchObj
-
-     # Initialise ####
-     if(TRUE){
-       ## First time being estimated? ####
-       if(is.null(this$Estimated)){
-         # Create the Estimated List & Cache the data, to identify future re-estimations:
-         this@e <- e
-         this$Estimated <- list()
-         # Assume worst case when initialising"
-         this$Estimated$converged <- FALSE
-         this$Estimated$error <- TRUE
-         # Set the starting value for convergence comparasion:
-         this$Estimated$value <- -Inf
-
-       }
-       # Set the iteration threshold:
-       maxIterations <- if(!is.integer(this$maxIterations)){100}else{this$maxIterations}
-
-       # Copy parameters to object internals ####
-       # Overwrite the starting values & optim-controls before estimating
-       # Note: The constructor will inherit the TV pars & optimcontrol from the passed-in TV object
-       #       But this allows the user to overwrite those values to fine-tune the estimation
-
-       TV <- this@tvObj  # Note: 'this@tvObj' is the estimated TV object used in the constructor
-       TV$shape <- this$shape
-       TV$speedopt <- this$speedopt
-       TV$delta0 <- this$delta0
-       TV$pars <- this$tvpars
-       TV$optimcontrol <- this$tvOptimcontrol
-       #
-       GARCH <- this@garchObj
-       GARCH$pars <- this$garchpars
-       GARCH$optimcontrol <- this$garchOptimcontrol
-
-       # Configure variance targetting ####
-       if(isTRUE(this$varTarget)){
-         TV@delta0free <- TRUE
-         GARCH@omegafree <- FALSE
-         #
-
-       }else{
-         TV@delta0free <- FALSE
-         GARCH@omegafree <- TRUE
-         #
-       }
-
-     }
-
-     # Start Iterative TVGARCH Estimation ####
-     cat("\nStarting Iterative TVGARCH Estimation...\n")
-
-     keepEstimating <- TRUE
-     # While..Loop => Ensures we always run at least once.
-     # Update keepEstimating at end of the loop (checking for Convergence or MaxIterations)
-     # If an estimation FAILS inside the loop: Set the Result = 'Failed' and Exit immediately using return(this)
-
-     while(isTRUE(keepEstimating)){
-
-       TV <- estimateTV(e,TV,estimationControl,GARCH)
-       if(isTRUE(estimationControl$verbose)){cat(".")}  # Single line comment
-
-       if(isTRUE(TV$Estimated$error)){
-         # TV estimated FAIL:
-         this$Estimated$error <- TRUE
-         this$Estimated$converged <- FALSE
-         if(isTRUE(estimationControl$verbose)){ cat("\nTV Estimate generated an Error\n") }
-         # RETURN:
-         return(this)
-
-       } else{
-         # TV estimation SUCCESS:
-         # 1. Calculate Loglik:
-         tvg.value <- loglik.tvgarch.univar(e,TV@g,GARCH@h)
-
-         # 2. Check convergence threshold:
-         if( (tvg.value - this$Estimated$value) < this$iterationReltol ){
-           this$Estimated$converged <- TRUE
-           # No improvement, so Stop here and return the last good estimated Params
-           return(this)
-         }else{
-           # Improvement, so continue to estimate GARCH, but Save the estimated model, so we can refer to it later
-           TV <- this@tvObj
-           # TODO: could printout TV$Estimated$pars here
-         }
-
-       } # End of: # TV estimation SUCCESS
+  this <- tvgarchObj
+  # debug:
+  #this <- mod
+  #estimationControl <- estCtrl
 
 
-       # The following GARCH estimation is only done if the prior TV improved the Loglik value with no errors
-       GARCH <- estimateGARCH(e,GARCH,estimationControl,TV)
-       if(isTRUE(estimationControl$verbose)){cat(".")}  # Single line comment
+  TV <- tvgarchObj@tvObj        # Note: 'this@tvObj' is the estimated TV object used in the constructor
+  GARCH <- tvgarchObj@garchObj
 
-       if(isTRUE(GARCH$Estimated$error)){
-         # GARCH estimated FAIL:
-         this$Estimated$error <- TRUE
-         this$Estimated$converged <- FALSE
-         if(isTRUE(estimationControl$verbose)){ cat("\nGARCH Estimate generated an Error\n") }
-         # RETURN:
-         return(this)
-       }else{
-         # GARCH estimation SUCCESS:
-         # 1. Calculate Loglik:
-         tvg.value <- loglik.tvgarch.univar(e,TV@g,GARCH@h)
+  # Configure variance targetting
+  if(isTRUE(this$varTarget)){
+    TV@delta0free <- TRUE
+    GARCH@omegafree <- FALSE
+  }else{
+    TV@delta0free <- FALSE
+    GARCH@omegafree <- TRUE
+  }
+  # We need to have an initial estimate for GARCH, so
+  GARCH <- estimateGARCH(e,GARCH,list(calcSE=FALSE, verbose=FALSE),TV)
+  # The 2-Step is now complete (TV passed in was estimated, now GARCH)
+  this@iterations <- as.integer(2)
 
-         # 2. Check convergence threshold:
-         if( (tvg.value - this$Estimated$value) < this$iterationReltol ){
-           this$Estimated$converged <- TRUE
-           # No improvement, so Stop here and return the last good estimated Params
-           return(this)
-         }else{
-           # Improvement, so continue to estimate GARCH, but Save the estimated model, so we can refer to it later
-           GARCH <- this@garchObj
-           # TODO: could printout GARCH$Estimated$pars here
-         }
 
-        }  # End of: # GARCH estimation SUCCESS
+  # Set the iteration threshold:
+  maxIterations <- if(!is.numeric(this$maxIterations)){100}else{this$maxIterations}
 
-       # At this point, we have completed a successful Iteration of TV/h(t) and GARCH/g(t), so:
+  # Start Iterative TVGARCH Estimation ####
+  cat("\nStarting Iterative TVGARCH Estimation...\n")
 
-       # Update the internal objects with the Estimated objects:
-       this@tvObj <- TV
-       this@garchObj <- GARCH
-       #Note: The above should only be done once - not every iteration
+  # Set starting value low to ensure we do at least 1 loop:
+  this$Estimated$value <- -Inf
 
-       # Put this valid model into the Estimated list:
-       this$Estimated$value <- tvg.value
-       this$Estimated$tv <- TV$Estimated
-       this$Estimated$tv$g <- TV@g
-       this$Estimated$garch <- GARCH$Estimated
-       this$Estimated$garch$h <- GARCH@h
+  # While..Loop => Ensures we always run at least once.
+  # Update this@iterations after Estimates (checking for Convergence or MaxIterations)
+  # If an estimation FAILS inside the loop: Set the Result = 'Failed' and Exit immediately using return(this)
 
-       # Populate the convenience attributes:
-       this$Estimated$g <- TV@g
-       this$Estimated$h <- GARCH@h
-       this$Estimated$converged <- FALSE
+  while(isTRUE(this@iterations <= maxIterations)){
 
-       # Increment the iteration counter
-       this@iterations <- this@iterations + as.integer(1)
+    TV <- estimateTV(e,TV,estimationControl,GARCH)
 
-    }  # End: While(keepEstimating)
-
+    if(isTRUE(TV$Estimated$error)){
+     # TV estimated FAIL:
+     this$Estimated$error <- TRUE
+     this$Estimated$converged <- FALSE
+     if(isTRUE(estimationControl$verbose)){ cat("\nTV Estimate generated an Error\n") }
      return(this)
+    }
+
+
+   # TV estimation SUCCESS:
+
+   # 1. Calculate Loglik:
+   tvg.value <- loglik.tvgarch.univar(e,TV@g,GARCH@h)
+
+   # 2. Check convergence threshold:
+   if( (tvg.value - this$Estimated$value) < this$iterationReltol ){
+     # No improvement, so Stop here and return the last good estimated Params
+     this$Estimated$error <- FALSE
+     this$Estimated$converged <- TRUE
+     return(this)
+   }else{
+     # Improvement, so continue to estimate GARCH, but Save the estimated model, so we can refer to it later
+     # Note: we do not update the estimated TV on the model, until GARCH has successfully been estimated.
+     this$Estimated$converged <- FALSE
+     # TODO: could printout TV$Estimated$pars here
+   }
+
+   # End of: # TV estimation SUCCESS
+   #
+   if(isTRUE(estimationControl$verbose)){cat(".")}  # Single line comment
+
+   # The following GARCH estimation is only done if the prior TV improved the Loglik value with no errors
+   GARCH <- estimateGARCH(e,GARCH,estimationControl,TV)
+   # Increment the iteration counter
+   this@iterations <- this@iterations + as.integer(1)
+
+   if(isTRUE(GARCH$Estimated$error)){
+     # GARCH estimated FAIL:
+     this$Estimated$error <- TRUE
+     this$Estimated$converged <- FALSE
+     if(isTRUE(estimationControl$verbose)){ cat("\nGARCH Estimate generated an Error\n") }
+     return(this)
+   }
+
+   # GARCH estimation SUCCESS:
+
+   # 1. Calculate Loglik:
+   tvg.value <- loglik.tvgarch.univar(e,TV@g,GARCH@h)
+
+   # 2. Check convergence threshold:
+   if( (tvg.value - this$Estimated$value) < this$iterationReltol ){
+     # No improvement, so Stop here and return the last good estimated Params
+     this$Estimated$error <- FALSE
+     this$Estimated$converged <- TRUE
+     return(this)
+   }else{
+     # Improvement, so continue to estimate GARCH, but Save the estimated model, so we can refer to it later
+     this@garchObj <- GARCH
+     this@tvObj <- TV
+     this$Estimated$converged <- FALSE
+     # TODO: could printout GARCH$Estimated$pars here
+   }
+   # End of: # GARCH estimation SUCCESS
+   #
+   if(isTRUE(estimationControl$verbose)){cat(".")}  # Single line comment
+
+   # Update the internal objects with the Estimated objects:
+   #this <- .updateEstimatedDetails(this,TV,GARCH)
+
+   # At this point, we have completed a successful Iteration of TV/h(t) and GARCH/g(t), so:
+   this$Estimated$value <- tvg.value
+
+
+
+   # Put this valid model into the Estimated list:
+   this$Estimated$tv <- TV$Estimated
+   this$Estimated$tv$g <- TV@g
+
+   this$Estimated$garch <- GARCH$Estimated
+   this$Estimated$garch$h <- GARCH@h
+
+   # Populate the convenience attributes:
+   this$Estimated$g <- TV@g
+   this$Estimated$h <- GARCH@h
+
+  }  # End: While(this@iterations <= maxIterations)
+
+
+
+   return(this)
 }
-
-
 
 setGeneric("estimateTVGARCH_Iterate", valueClass = "tvgarch_class")
 

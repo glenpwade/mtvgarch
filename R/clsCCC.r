@@ -105,7 +105,7 @@ setGeneric(name=".loglik.ccc",
            signature = c("optimpars","z"),
            def = function(optimpars,z){
 
-             err_output <- -1e10
+             err_output <- -Inf
 
              vP <- optimpars
              mP <- unVecL(vP)
