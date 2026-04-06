@@ -44,7 +44,6 @@
 # #TV@delta0free <- FALSE
 #
 #
-<<<<<<< HEAD
 # GARCHspec <- garch(garchtype$general)
 # GARCHspec$pars["omega",1] = runif(1,0.04,0.06)           # 0.50
 # GARCHspec$pars["alpha",1] = runif(1,0.04,0.06)           # 0.50
@@ -57,15 +56,7 @@
 # estCtrl <- list(calcSE=FALSE, verbose=TRUE, maxIter=2, fixStartPars=FALSE, startParAdjust=50)
 # #
 # TV <- estimateTV(e,TVspec)
-=======
-# e <- simData[,20]
-# # Create the TV Specification - to be estimated later:
-# st = (1:Tobs)/Tobs
-# shape = tvshape$single
-# # Create the TV Specification and set starting params to match the loaded Dataset
-# TVspec <- tv(st,shape)
-# TV <- estimateTV(e,TVspec,estCtrl)
->>>>>>> 027c7c8befcece792f52a9841d148799cea2657b
+
 # summary(TV)
 #
 # GARCH <- estimateGARCH(e,GARCHspec)
