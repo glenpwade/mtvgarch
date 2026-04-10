@@ -1678,6 +1678,29 @@ get_h = function(garchObj,e){
             })
 }
 
+{## setVarianceTargetting ----
+  setVarianceTargetting <- function(tvgarchObj,On_Off){
+
+    this <- tvgarchObj
+
+    if(On_Off==1){
+      # Variance Targetting ON:
+      this$varTarget <- TRUE
+      this@tvObj@delta0free <- TRUE
+      this@garchObj@omegafree <- FALSE
+
+    }else{
+      # OFF:
+      this$varTarget <- FALSE
+      this@tvObj@delta0free <- FALSE
+      this@garchObj@omegafree <- TRUE
+
+    }
+    return(this)
+  }
+
+}
+
 {## Constructor: tvgarch()  ----
   setGeneric(name="tvgarch",
              valueClass = "tvgarch_class",
@@ -1693,8 +1716,8 @@ get_h = function(garchObj,e){
                this <- new("tvgarch_class")
                this@tvObj <- tvObj
                this@garchObj <- garchObj
-
                this@Tobs <- tvObj@Tobs
+
                # TV
                this$tvshape <- tvObj$shape
                this$tvspeedopt <- tvObj$speedopt
@@ -1707,12 +1730,17 @@ get_h = function(garchObj,e){
                this$garchpars <- this@garchObj$pars
                this$garchOptimcontrol <- this@garchObj$optimcontrol
 
+               # VarTargetting
+               this <- setVarianceTargetting(this,1)  # Default = ON
+
                cat("\ntvgarch object created successfully!\n")
 
                return(this)
              }
   )
 }
+
+
 
 {## plot(tvgarch override ----
   setMethod("plot",signature = c(x="tvgarch_class",y="missing"),
@@ -1813,7 +1841,7 @@ get_h = function(garchObj,e){
 
     # NOte: the fixStartPars and startParAdjust parameters will be passed down to the underlying Estimators
 
-    # Configure variance targetting
+    # Configure variance targetting:  TODO: Test estimators with var Target OFF!
     if(isTRUE(this$varTarget)){
       TV@delta0free <- TRUE
       GARCH@omegafree <- FALSE
