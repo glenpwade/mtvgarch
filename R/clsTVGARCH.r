@@ -1128,7 +1128,7 @@ setMethod("summary",signature="garch_class",
 
   # Check for iterative-estimator controls, Set defaults if not exists:
   if(!("fixStartPars" %in% names(estCtrl))) { estCtrl$fixStartPars <- FALSE }
-  if(!("startParAdjust" %in% names(estCtrl))) { estCtrl$startParAdjust <- 50 }
+  if(!("startParAdjust" %in% names(estCtrl))) { estCtrl$startParAdjust <- 10 }
 
   # Step1. Get the starting pars (parsVec):
   if(isTRUE(estCtrl$fixStartPars)  || (!("pars" %in% names(this$Estimated))) ){
