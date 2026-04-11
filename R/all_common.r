@@ -217,6 +217,8 @@ setGeneric(name="invertHess",
 })
 
 ## -- vector.insert -- ####
+#
+# Used in clsSTCC - might belog there...  TODO
 setGeneric(name="vector.insert",
            valueClass = "vector",
            signature = c("x","ins.pos","val"),
@@ -284,13 +286,5 @@ setGeneric(name="vector.insert",
 #             }
 #           }
 # )
-
-
-# Git Merge Method ####
-# # overwrite master with contents of Dev branch (Dev > master)
-# git checkout Dev      # source name
-# git merge -s ours master  # target name
-# git checkout master       # target name
-# git merge Dev         # source name
 
 
