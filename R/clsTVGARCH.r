@@ -245,9 +245,9 @@ setMethod("initialize","tv_class",
 
     this <- tvObj
     # debug:
-    #this <- TVspec
-    #garchObj <- GARCH
-    #estimationControl <- estCtrl
+    # this <- TVspec
+    # garchObj <- GARCHspec
+    # estimationControl <- estCtrl
 
     # If there is no existing this$Estimated$, then create one
     if(!("Estimated" %in% names(this))) { this$Estimated <- list() }
@@ -476,7 +476,7 @@ setMethod("initialize","tv_class",
 
   # Step1. Check for iterative-estimator controls, Set defaults if not exists:
   if(!("fixStartPars" %in% names(estCtrl))) { estCtrl$fixStartPars <- FALSE }
-  if(!("startParAdjust" %in% names(estCtrl))) { estCtrl$startParAdjust <- 50 }
+  if(!("startParAdjust" %in% names(estCtrl))) { estCtrl$startParAdjust <- 10 }
 
   # Get the starting pars (parsVec):
   if(isTRUE(estCtrl$fixStartPars) || (!("pars" %in% names(this$Estimated))) ){
@@ -509,20 +509,17 @@ setMethod("initialize","tv_class",
   # Shake the starting pars (parsVec):
   if(isFALSE(estCtrl$fixStartPars) ){
     # "shake": Move a few steps away:
-    boundSize <- estCtrl$startParAdjust *  this$optimcontrol$ndeps    # Should be in range 10 - 100
-    boundLo <- parsVec - boundSize
-    boundHi <- parsVec + boundSize
+    # boundSize <- estCtrl$startParAdjust * this$optimcontrol$ndeps    # startParAdjust Should be in range 1 - 10
+    # boundLo <- parsVec - boundSize
+    # boundHi <- parsVec + boundSize
 
-    # # Anna's method
-    # boundSize <- estCtrl$startParAdjust  # Should be small, in the order of 1e-2
-    # boundLo <- parsVec/this$optimcontrol$parscale - boundSize
-    # boundHi <- parsVec/this$optimcontrol$parscale + boundSize
-    # boundLo <- boundLo * this$optimcontrol$parscale
-    # boundHi <- boundHi * this$optimcontrol$parscale
+    # # Anna's method - apply 'shake' to par-scaled param, the re-scale:    # startParAdjust Should be in range 1 - 100, default=50
+    scaled_parsVec <- parsVec/this$optimcontrol$parscale
+    bound <- estCtrl$startParAdjust * this$optimcontrol$ndeps
+    scaled_parsVec <- runif(this@nr.pars,(scaled_parsVec - bound),(scaled_parsVec + bound))
+    parsVec <- scaled_parsVec * this$optimcontrol$parscale
 
-    parsVec <- runif(this@nr.pars,boundLo,boundHi)
   }
-
 
   #RETURN:
   rtnList <- list()
@@ -1164,18 +1161,15 @@ setMethod("summary",signature="garch_class",
   }
 
   # Shake the starting pars (parsVec):
-  boundSize <- estCtrl$startParAdjust *  this$optimcontrol$ndeps    # Should be in range 10 - 100
-  boundLo <- parsVec - boundSize
-  boundHi <- parsVec + boundSize
+  # boundSize <- estCtrl$startParAdjust *  this$optimcontrol$ndeps    # Should be in range 10 - 100
+  # boundLo <- parsVec - boundSize
+  # boundHi <- parsVec + boundSize
 
-  # # Anna's method
-  # boundSize <- estCtrl$startParAdjust  # Should be small, in the order of 1e-2
-  # boundLo <- parsVec/this$optimcontrol$parscale - boundSize
-  # boundHi <- parsVec/this$optimcontrol$parscale + boundSize
-  # boundLo <- boundLo * this$optimcontrol$parscale
-  # boundHi <- boundHi * this$optimcontrol$parscale
-
-  parsVec <- runif(this@nr.pars,boundLo,boundHi)
+  # # Anna's method - apply 'shake' to par-scaled param, the re-scale:    # startParAdjust Should be in range 1 - 100, default=50
+  scaled_parsVec <- parsVec/this$optimcontrol$parscale
+  bound <- estCtrl$startParAdjust * this$optimcontrol$ndeps
+  scaled_parsVec <- runif(this@nr.pars,(scaled_parsVec - bound),(scaled_parsVec + bound))
+  parsVec <- scaled_parsVec * this$optimcontrol$parscale
 
   #RETURN:
   rtnList <- list()
@@ -1869,10 +1863,7 @@ get_h = function(garchObj,e){
       # 1. Copy current to last:
       last.tvg.loglik <- tvg.loglik
 
-      # 2. Increment the iteration counter
-      this@iterations <- this@iterations + as.integer(1)
-
-      # 3. Run estimations and calculate a new tvg.loglik
+      # 2. Run estimations and calculate a new tvg.loglik
       TV <- tryCatch({
         estimateTV(e,TV,GARCH,estimationControl)
       }, warning = function(w){
@@ -1917,20 +1908,23 @@ get_h = function(garchObj,e){
         break
       },finally = {
 
-        # 4. Calc the loglik value ONLY when TV AND GARCH have successfully estimated
+        # 3. Calc the loglik value ONLY when TV AND GARCH have successfully estimated
         if(class(TV)=="tv_class" && class(GARCH)=="garch_class"){
           # Confirm the classes are valid
           tvg.loglik <- loglik.tvgarch.univar(e,g=TV@g,h=GARCH@h)
         }else{
           # What should we do if one of the estimator failed - but we got this far??
         }
+        #
+        if(isTRUE(estimationControl$verbose)){cat(".")}  # Single line comment, Garch done
 
       })
 
       # Calculate the initial/starting Loglik.Value (Use to determine convergence/divergence)
       if(this@iterations == as.integer(1)){ startLoglik <- loglik.tvgarch.univar(e,g=TV@g,h=GARCH@h) }
-      #
-      if(isTRUE(estimationControl$verbose)){cat(".")}  # Single line comment, Garch done
+
+      # 4. Increment the iteration counter
+      this@iterations <- this@iterations + as.integer(1)
 
     }  # End: While() Loop
 
