@@ -1,2 +1,2 @@
 Feature:
-Update the "Shake" logic for the Starting Params, when doing iterative tvgarch Estimations
+Update the summary() responses for TV, GARCH & TVGARCH, using [knitr]
