@@ -146,16 +146,16 @@ setMethod("initialize","tv_class",
 
               # Tabulate the model parameters, with 3 rows: (Spec|Estimated|StdError)
               #  The first col is always delta0 (even if it is not an estimated par)
-              tabTV <- matrix(NaN, nrow=3, ncol=1+(4*this@nr.transitions) )
+              tabSummary <- matrix(NaN, nrow=3, ncol=1+(4*this@nr.transitions) )
 
-              rownames(tabTV) <- c("StartPar","Est.Par","StdErr")
+              rownames(tabSummary) <- c("StartPar","Est.Par","StdErr")
               colNames <- "delta0"
               if(this@nr.transitions > 0){
                 for( n in 1:this@nr.transitions){
                   nextTrans <- c(paste0("d",n), paste0("spd",n), paste0("loc1.",n), paste0("loc2.",n))
                   colNames <- c(colNames, nextTrans )
                 }
-                colnames(tabTV) <- colNames
+                colnames(tabSummary) <- colNames
               }
 
               # Check if this object has been estimated - if not, return the specification & start pars:
@@ -163,12 +163,12 @@ setMethod("initialize","tv_class",
                 loglikValue <- NA
 
                 # Populate the table with specification only:
-                tabTV[1,1] <- this$delta0
+                tabSummary[1,1] <- this$delta0
                 # Transpose the pars matrix to display in row-format
                 if(this@nr.transitions > 0){
                   for(n in 1:this@nr.transitions){
                     var <- 4*n
-                    tabTV[1,(var-2):(var+1)] <- this$pars[,n]
+                    tabSummary[1,(var-2):(var+1)] <- this$pars[,n]
                   }
                 }
 
@@ -177,19 +177,19 @@ setMethod("initialize","tv_class",
                 loglikValue <- this$Estimated$value
 
                 # Populate the table:
-                tabTV[1,1] <- this$delta0
-                tabTV[2,1] <- this$Estimated$delta0
+                tabSummary[1,1] <- this$delta0
+                tabSummary[2,1] <- this$Estimated$delta0
                 # Check is StdErr was calculated:
-                if("se" %in% names(this$Estimated) ) tabTV[3,1] <- this$Estimated$delta0_se
+                if("se" %in% names(this$Estimated) ) tabSummary[3,1] <- this$Estimated$delta0_se
 
                 # Transpose the pars matrix to display in row-format
                 if(this@nr.transitions > 0){
                   for(n in 1:this@nr.transitions){
                     var <- 4*n
-                    tabTV[1,(var-2):(var+1)] <- this$pars[,n]
-                    tabTV[2,(var-2):(var+1)] <- this$Estimated$pars[,n]
+                    tabSummary[1,(var-2):(var+1)] <- this$pars[,n]
+                    tabSummary[2,(var-2):(var+1)] <- this$Estimated$pars[,n]
                     # Check is StdErr was calculated:
-                    if("se" %in% names(this$Estimated) ) tabTV[3,(var-2):(var+1)] <- this$Estimated$se[,n]
+                    if("se" %in% names(this$Estimated) ) tabSummary[3,(var-2):(var+1)] <- this$Estimated$se[,n]
                   }
                 }
 
@@ -197,28 +197,28 @@ setMethod("initialize","tv_class",
                   # StdErr was calculated:
 
                   # Add a significance indicator:
-                  sigStars <- rep("",NCOL(tabTV))  #Initialise the sigStars vector
+                  sigStars <- rep("",NCOL(tabSummary))  #Initialise the sigStars vector
 
-                  for(n in 1:NCOL(tabTV)){
+                  for(n in 1:NCOL(tabSummary)){
                     # Calculate significance from estimated value & std.Err
-                    if(  isTRUE((tabTV[3,n]*2.576) < abs(tabTV[2,n])) ) {
+                    if(  isTRUE((tabSummary[3,n]*2.576) < abs(tabSummary[2,n])) ) {
                       sigStars[n] <- "***"
                     }else{
-                      if( isTRUE((tabTV[3,n]*1.960) < abs(tabTV[2,n])) ) {
+                      if( isTRUE((tabSummary[3,n]*1.960) < abs(tabSummary[2,n])) ) {
                         sigStars[n] <- "**"
                       }else{
-                        if( isTRUE((tabTV[3,n]*1.645) < abs(tabTV[2,n])) ) {sigStars[n] <- "*"}
+                        if( isTRUE((tabSummary[3,n]*1.645) < abs(tabSummary[2,n])) ) {sigStars[n] <- "*"}
                       }
                     }
                   }
 
                   # Round to default dp:
-                  tabTV <- round(tabTV,getOption("digits"))
+                  tabSummary <- round(tabSummary,getOption("digits"))
 
                   # Add significance Stars & braces to table:
-                  for(n in 1:NCOL(tabTV)){
-                    tabTV[2,n] <- paste0(tabTV[2,n],sigStars[n])
-                    tabTV[3,n] <- paste0("(",tabTV[3,n],")")
+                  for(n in 1:NCOL(tabSummary)){
+                    tabSummary[2,n] <- paste0(tabSummary[2,n],sigStars[n])
+                    tabSummary[3,n] <- paste0("(",tabSummary[3,n],")")
                   }
 
 
@@ -229,7 +229,7 @@ setMethod("initialize","tv_class",
 
               # FINALLY: Print the Est Results as a Table
               cat("\n| TV Estimation |  Loglik:",loglikValue)
-              print(kable(tabTV))
+              print(kable(tabSummary))
               cat("\nDelta0Free: ",this@delta0free,"\n")
 
 
@@ -947,53 +947,123 @@ setMethod("summary",signature="garch_class",
           function(object,...){
             this <- object
 
-            parsSummary <- NULL
-            TypeNames <- c("No Garch","General","GJR Garch")
+            # Tabulate the model parameters, with 3 rows: (Spec|Estimated|StdError)
+            tabSummary <- matrix(NaN, nrow=3, ncol=3)
 
-            if(!is.null(this$Estimated)){
+            rownames(tabSummary) <- c("StartPar","Est.Par","StdErr")
+            colnames(tabSummary) <- c("omega","alpha","beta")
 
-              parsVec <-  round(as.vector(this$Estimated$pars),6)
-              parsRows <- NROW(this$Estimated$pars)
 
-              if(!is.null(this$Estimated$se) ){
-                seVec <- round(as.vector(this$Estimated$se),6)
-                seVecSig <- vector("character", length(seVec))
+            # Check if this object has been estimated - if not, return the specification & start pars:
+            if(!("Estimated" %in% names(this)) ){
+              loglikValue <- NA
+              # Populate the table with specification only:
+              # Transpose the pars matrix to display in row-format
+              tabSummary[1,] <- this$pars[,1]
 
-                for(n in seq_along(parsVec)){
-                  if(is.na(seVec[n])) {
-                    seVecSig[n] <- "   "
-                  } else {
-                    # Calculate a significance indicator
-                    if(seVec[n]*2.576 < abs(parsVec[n]) ) { (seVecSig[n] <- "***") }
-                    else if(seVec[n]*1.96 < abs(parsVec[n]) ) { (seVecSig[n] <- "** ") }
-                    else if(seVec[n]*1.645 < abs(parsVec[n]) ) { (seVecSig[n] <- "*  ") }
+            }else{
+              # Object has been estimated:
+              loglikValue <- this$Estimated$value
+
+              # Populate the table:
+
+              # Transpose the pars matrix to display in row-format
+              tabSummary[1,] <- this$pars[,1]
+              tabSummary[2,] <- this$Estimated$pars[,1]
+
+              # Check is StdErr was calculated:
+              if("se" %in% names(this$Estimated) ) {
+                # StdErr was calculated:
+
+                tabSummary[3,] <- this$Estimated$se[,1]
+
+                # Add a significance indicator:
+                sigStars <- rep("",NCOL(tabSummary))  #Initialise the sigStars vector
+
+                for(n in 1:NCOL(tabSummary)){
+                  # Calculate significance from estimated value & std.Err
+                  if(  isTRUE((tabSummary[3,n]*2.576) < abs(tabSummary[2,n])) ) {
+                    sigStars[n] <- "***"
+                  }else{
+                    if( isTRUE((tabSummary[3,n]*1.960) < abs(tabSummary[2,n])) ) {
+                      sigStars[n] <- "**"
+                    }else{
+                      if( isTRUE((tabSummary[3,n]*1.645) < abs(tabSummary[2,n])) ) {sigStars[n] <- "*"}
+                    }
                   }
                 }
-              } else {
-                seVec <- rep(NaN,length(this$pars))
-                seVecSig <- rep("   ", length(seVec))
-              }
 
-              seMat <- matrix(seVec,nrow=parsRows)
-              colnames(seMat) <- paste("se" ,1:max(this@order),sep = "")
-              # Build parsSummary table and insert the significance indicators
-              parsSummary <- data.frame(NA,stringsAsFactors = FALSE)
-              for (n in 1:NCOL(this$Estimated$pars)){
-                sig <- matrix(seVecSig[1:parsRows],nrow=parsRows)
-                parsSummary <- cbind(parsSummary,round(this$Estimated$pars[,n,drop=F],6),seMat[,n,drop=F],sig)
-                seVecSig <- tail(seVecSig,-parsRows)
-              }
-            }
+                # Round to default dp:
+                tabSummary <- round(tabSummary,getOption("digits"))
 
-            cat("\nGARCH OBJECT\n")
-            cat("\nType: ",TypeNames[this$type+1])
-            cat("\nOrder: (",this@order[1],",",this@order[2],")")
-            if(!is.null(this$Estimated)){
-              cat("\nEstimation Results:\n")
-              cat("\nMethod: ",this$Estimated$method,"\n")
-              print(parsSummary[,-1])
-              cat("\nLog-likelihood value(GARCH): ",this$Estimated$value)
-            }
+                # Add significance Stars & braces to table:
+                for(n in 1:NCOL(tabSummary)){
+                  tabSummary[2,n] <- paste0(tabSummary[2,n],sigStars[n])
+                  tabSummary[3,n] <- paste0("(",tabSummary[3,n],")")
+                }
+
+              }  # End: StdErr was calculated:
+
+            }  # End: # Object has been estimated:
+
+            # FINALLY: Print the Est Results as a Table
+            cat("\n| GARCH Estimation |  Loglik:",loglikValue)
+            print(kable(tabSummary))
+            cat("\nOmegaFree: ",this@omegafree,"\n")
+
+
+
+
+
+
+
+            # parsSummary <- NULL
+            # TypeNames <- c("No Garch","General","GJR Garch")
+            #
+            # if(!is.null(this$Estimated)){
+            #
+            #   parsVec <-  round(as.vector(this$Estimated$pars),6)
+            #   parsRows <- NROW(this$Estimated$pars)
+            #
+            #   if(!is.null(this$Estimated$se) ){
+            #     seVec <- round(as.vector(this$Estimated$se),6)
+            #     seVecSig <- vector("character", length(seVec))
+            #
+            #     for(n in seq_along(parsVec)){
+            #       if(is.na(seVec[n])) {
+            #         seVecSig[n] <- "   "
+            #       } else {
+            #         # Calculate a significance indicator
+            #         if(seVec[n]*2.576 < abs(parsVec[n]) ) { (seVecSig[n] <- "***") }
+            #         else if(seVec[n]*1.96 < abs(parsVec[n]) ) { (seVecSig[n] <- "** ") }
+            #         else if(seVec[n]*1.645 < abs(parsVec[n]) ) { (seVecSig[n] <- "*  ") }
+            #       }
+            #     }
+            #   } else {
+            #     seVec <- rep(NaN,length(this$pars))
+            #     seVecSig <- rep("   ", length(seVec))
+            #   }
+            #
+            #   seMat <- matrix(seVec,nrow=parsRows)
+            #   colnames(seMat) <- paste("se" ,1:max(this@order),sep = "")
+            #   # Build parsSummary table and insert the significance indicators
+            #   parsSummary <- data.frame(NA,stringsAsFactors = FALSE)
+            #   for (n in 1:NCOL(this$Estimated$pars)){
+            #     sig <- matrix(seVecSig[1:parsRows],nrow=parsRows)
+            #     parsSummary <- cbind(parsSummary,round(this$Estimated$pars[,n,drop=F],6),seMat[,n,drop=F],sig)
+            #     seVecSig <- tail(seVecSig,-parsRows)
+            #   }
+            # }
+            #
+            # cat("\nGARCH OBJECT\n")
+            # cat("\nType: ",TypeNames[this$type+1])
+            # cat("\nOrder: (",this@order[1],",",this@order[2],")")
+            # if(!is.null(this$Estimated)){
+            #   cat("\nEstimation Results:\n")
+            #   cat("\nMethod: ",this$Estimated$method,"\n")
+            #   print(parsSummary[,-1])
+            #   cat("\nLog-likelihood value(GARCH): ",this$Estimated$value)
+            # }
 
           }
   )
