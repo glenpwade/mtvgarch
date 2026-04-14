@@ -44,10 +44,6 @@
 # #
 # #
 #
-<<<<<<< HEAD
-#
-=======
->>>>>>> 28430a2dcc854cbc4d3841e3e84fc06e427b1850
 # GARCHspec <- garch(garchtype$general)
 # GARCHspec$pars["omega",1] = runif(1,0.04,0.06)           #0.50
 # GARCHspec$pars["alpha",1] = runif(1,0.04,0.06)           #0.50
@@ -59,10 +55,7 @@
 # estCtrl <- list(calcSE=FALSE, verbose=TRUE, maxIter=2, fixStartPars=FALSE, startParAdjust=10)
 # #
 # TV <- estimateTV(e,TVspec)
-<<<<<<< HEAD
 
-# summary(TV)
-=======
 #
 # e <- simData[,20]
 # #bCreate the TV Specification - to be estimated later:
@@ -71,7 +64,6 @@
 # # Create the TV Specification and set starting params to match the loaded Dataset
 # TVspec <- tv(st,shape)
 # TV <- estimateTV(e,TVspec,estCtrl)
->>>>>>> 28430a2dcc854cbc4d3841e3e84fc06e427b1850
 #
 # summary(TV)
 # #
@@ -132,4 +124,4 @@
 # ##
 # #
 # fileName = ".\\SimResults\\result_T2000_LSS_paper.RDS"
-# #
+

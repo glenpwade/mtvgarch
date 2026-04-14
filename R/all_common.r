@@ -23,7 +23,7 @@ corrspeedopt <- list(gamma=1,gamma_std=2,eta=3)
 # startParAdjust = The number of ndeps to add to the Last Estimated pars, to keep optim() happy.  (Range= 1-10, Default = 5)
 
 
-## -- vecl -- ####
+{# vecl ----
 setGeneric(name="vecL",
            valueClass = "numeric",
            signature = c("sqrMatrix"),
@@ -42,7 +42,10 @@ setGeneric(name="vecL",
              return(as.vector(vM))
            }
 )
-## -- unVecl -- ####
+}
+
+
+{# unVecl ----
 setGeneric(name="unVecL",
            valueClass = "matrix",
            signature = c("lowerTri"),
@@ -57,7 +60,8 @@ setGeneric(name="unVecL",
            }
 
 )
-## -- eigVec.EC -- ####
+}
+## -- eigVec.EC ----
 setGeneric(name=".eigVec.EC",
            valueClass = "matrix",
            signature = c("N"),
@@ -81,7 +85,7 @@ setGeneric(name=".eigVec.EC",
              return(Q) # NxN matrix
            }
 )
-## -- eigVal.EC -- ####
+## -- eigVal.EC ----
 setGeneric(name=".eigVal.EC",
            valueClass = "numeric",
            signature = c("N","rho"),
@@ -94,7 +98,7 @@ setGeneric(name=".eigVal.EC",
              return(L) # Nx1
            }
 )
-## -- ar1.Filter -- ####
+## -- ar1.Filter ----
 setGeneric(name=".ar1.Filter",
            valueClass = "matrix",
            signature = c("mX","vB"),
@@ -115,7 +119,7 @@ setGeneric(name=".ar1.Filter",
              return(mY)
            }
 )
-## -- vec -- ####
+## -- vec ----
 setGeneric(name=".vec",
            valueClass = "matrix",
            signature = c("mat"),
@@ -125,7 +129,7 @@ setGeneric(name=".vec",
            }
 )
 
-## -- lag0 -- ####
+## -- lag0 ----
 setGeneric(name="lag0",
            valueClass = "matrix",
            signature = c("vX","lagRange"),
@@ -139,7 +143,7 @@ setGeneric(name="lag0",
            }
 )
 
-## -- sqrt_mat1 -- ####
+## -- sqrt_mat1 ----
 setGeneric(name="sqrt_mat1",
            valueClass = "matrix",
            signature = c("m"),
@@ -171,7 +175,7 @@ setGeneric(name="sqrt_mat1",
            }
 )
 
-## -- sqrt_mat2 -- ####
+## -- sqrt_mat2 ----
 setGeneric(name="sqrt_mat2",
            valueClass = "list",
            signature = c("mat"),
@@ -216,7 +220,7 @@ setGeneric(name="invertHess",
 
 })
 
-## -- vector.insert -- ####
+## -- vector.insert ----
 #
 # Used in clsSTCC - might belog there...  TODO
 setGeneric(name="vector.insert",
@@ -267,24 +271,5 @@ setGeneric(name="vector.insert",
              return(rtnVec)
            }
 )
-
-
-
-
-# setGeneric(name=".updateEstimatedwithOptimpars",
-#            valueClass = "list",
-#            signature = c("optimpars","estList"),
-#            def = function(optimpars,estList){0}
-# )
-#
-# setMethod(".updateEstimatedwithOptimpars",signature="numeric","stcc2_class",
-#           function(optimpars,stcc2Obj){
-#             this <- object
-#             if(is.null(this$Estimated)){
-#               #cat("\n\nPlease estimate the TVGARCH Model first")
-#               return("Please estimate the TVGARCH Model first")
-#             }
-#           }
-# )
 
 
