@@ -62,30 +62,32 @@ setMethod("initialize","tv_class",
           })
 }
 
-.setInitialPars = function(tvObj){
-  this <- tvObj
+{## .setInitTVPars  ----
+  .setInitTVPars = function(tvObj){
+    this <- tvObj
 
-  nrLoc <- this@nr.transitions + length(this$shape[this$shape==tvshape$double])
-  locNum <- 1
-  locDen <- nrLoc + 1
-  pars <- NULL
-  parNames <- NULL
-  for(n in 1:this@nr.transitions){
+    nrLoc <- this@nr.transitions + length(this$shape[this$shape==tvshape$double])
+    locNum <- 1
+    locDen <- nrLoc + 1
+    pars <- NULL
+    parNames <- NULL
+    for(n in 1:this@nr.transitions){
 
-    loc1 <- round(locNum/locDen,4)
+      loc1 <- round(locNum/locDen,4)
 
-    if(this$shape[n] == tvshape$double) {
-      loc2 <- round((locNum+1)/locDen,4)
-      locNum <- locNum + 2
-    } else {
-      loc2 <- NA
-      locNum <- locNum + 1
+      if(this$shape[n] == tvshape$double) {
+        loc2 <- round((locNum+1)/locDen,4)
+        locNum <- locNum + 2
+      } else {
+        loc2 <- NA
+        locNum <- locNum + 1
+      }
+      pars <- c(pars,1,3,loc1,loc2)
+
     }
-    pars <- c(pars,1,3,loc1,loc2)
-
+    this$pars <- matrix(pars,nrow=4)
+    return(this)
   }
-  this$pars <- matrix(pars,nrow=4)
-  return(this)
 }
 
 {## Constructor: tv() ----
@@ -113,7 +115,7 @@ setMethod("initialize","tv_class",
                  this$speedopt <- speedopt$eta
                  this@nr.transitions <- as.integer(length(shape))
                  # Create the starting Pars matrix
-                 this  <- .setInitialPars(this)
+                 this  <- .setInitTVPars(this)
                  rownames(this$pars) <- c("deltaN","speedN","locN1","locN2")
                  this@nr.pars <- as.integer(length(this$pars[!is.na(this$pars)]) + 1)  # +1 for delta0
                  this$optimcontrol$ndeps <- rep(1e-3,this@nr.pars)
@@ -846,6 +848,64 @@ setMethod("initialize","garch_class",
           })
 }
 
+{## .setInitGARCHPars ----
+
+  .setInitGARCHPars = function(garchObj){
+    this <- garchObj
+
+    if(this$type == garchtype$noGarch) {
+      message("Cannot create Garch$pars for type: NoGarch")
+      return(this)
+    }
+
+    maxLag <- max(this@order)
+
+    # Set the row names:
+    GarchparsRownames <- c("omega","alpha","beta","gamma")  #TODO: Remove or fix GJR (gamma)
+
+    if(this$type == garchtype$general) {
+      this@nr.pars <- as.integer(3)
+      pars <- matrix(nrow = this@nr.pars,ncol = maxLag)
+      rownames(pars) <- GarchparsRownames[1:this@nr.pars]
+      for(n in 1:maxLag){
+        pars["omega",n] <- 0.05
+        pars["alpha",n] <- 0.05
+        pars["beta",n] <- 0.90
+      }
+      this$pars <- pars
+    }
+
+    ## TODO: Implement in future release
+    # if(this$type == garchtype$gjr) {
+    #   this@nr.pars <- as.integer(4)
+    #   pars <- matrix(nrow = this@nr.pars,ncol = maxLag)
+    #   rownames(pars) <- GarchparsRownames[1:this@nr.pars]
+    #   for(n in 1:maxLag){
+    #     pars["omega",n] <- 0.005
+    #     pars["alpha",n] <- 0.095
+    #     pars["beta",n] <- 0.80
+    #     pars["gamma",n] <- 0.10
+    #   }
+    #   this$pars <- pars
+    # }
+    ## TODO: Implement in future release
+    # if(this$type == garchtype$gjr_alpha0) {
+    #   this@nr.pars <- as.integer(3)
+    #   pars <- matrix(nrow = this@nr.pars,ncol = maxLag)
+    #   rownames(pars) <- GarchparsRownames[1:(this@nr.pars + 1)]
+    #   for(n in 1:maxLag){
+    #     pars["omega",n] <- 0.05
+    #     pars["alpha",n] <- 0.0
+    #     pars["beta",n] <- 0.85
+    #     pars["gamma",n] <- 0.05
+    #   }
+    #   this$pars <- pars
+    # }
+
+    return(this)
+  }
+}
+
 {## Constructor: garch() ----
   setGeneric(name="garch",
              valueClass = "garch_class",
@@ -859,10 +919,10 @@ setMethod("initialize","garch_class",
                if(type == garchtype$noGarch) return(this)
 
                this@order <- order
-               this <- .setInitPars(this)
+               this <- .setInitGARCHPars(this)
                this$optimcontrol$ndeps <- rep(1e-3,this@nr.pars)
                if(type == garchtype$general) this$optimcontrol$parscale <- c(0.05,0.05,0.90)
-               if(type == garchtype$gjr) this$optimcontrol$parscale <- c(0.005, 0.095, 0.8, 0.1) # Maximiser with default tolerance
+               #if(type == garchtype$gjr) this$optimcontrol$parscale <- c(0.005, 0.095, 0.8, 0.1)
                return(this)
              }
   )
@@ -886,74 +946,74 @@ setMethod("plot",signature = c(x="garch_class",y="missing"),
 
 {## summary(garch) override ----
 setMethod("summary",signature="garch_class",
-          function(object,...){
-            this <- object
+      function(object,...){
+        this <- object
 
-            # Tabulate the model parameters, with 3 rows: (Spec|Estimated|StdError)
-            tabSummary <- matrix(NaN, nrow=3, ncol=3)
+        # Tabulate the model parameters, with 3 rows: (Spec|Estimated|StdError)
+        tabSummary <- matrix(NaN, nrow=3, ncol=3)
 
-            rownames(tabSummary) <- c("StartPar","Est.Par","StdErr")
-            colnames(tabSummary) <- c("omega","alpha","beta")
+        rownames(tabSummary) <- c("StartPar","Est.Par","StdErr")
+        colnames(tabSummary) <- c("omega","alpha","beta")
 
 
-            # Check if this object has been estimated - if not, return the specification & start pars:
-            if(!("Estimated" %in% names(this)) ){
-              loglikValue <- NA
-              # Populate the table with specification only:
-              # Transpose the pars matrix to display in row-format
-              tabSummary[1,] <- this$pars[,1]
+        # Check if this object has been estimated - if not, return the specification & start pars:
+        if(!("Estimated" %in% names(this)) ){
+          loglikValue <- NA
+          # Populate the table with specification only:
+          # Transpose the pars matrix to display in row-format
+          tabSummary[1,] <- this$pars[,1]
 
-            }else{
-              # Object has been estimated:
-              loglikValue <- this$Estimated$value
+        }else{
+          # Object has been estimated:
+          loglikValue <- this$Estimated$value
 
-              # Populate the table:
+          # Populate the table:
 
-              # Transpose the pars matrix to display in row-format
-              tabSummary[1,] <- this$pars[,1]
-              tabSummary[2,] <- this$Estimated$pars[,1]
+          # Transpose the pars matrix to display in row-format
+          tabSummary[1,] <- this$pars[,1]
+          tabSummary[2,] <- this$Estimated$pars[,1]
 
-              # Check is StdErr was calculated:
-              if("se" %in% names(this$Estimated) ) {
-                # StdErr was calculated:
+          # Check is StdErr was calculated:
+          if("se" %in% names(this$Estimated) ) {
+            # StdErr was calculated:
 
-                tabSummary[3,] <- this$Estimated$se[,1]
+            tabSummary[3,] <- this$Estimated$se[,1]
 
-                # Add a significance indicator:
-                sigStars <- rep("",NCOL(tabSummary))  #Initialise the sigStars vector
+            # Add a significance indicator:
+            sigStars <- rep("",NCOL(tabSummary))  #Initialise the sigStars vector
 
-                for(n in 1:NCOL(tabSummary)){
-                  # Calculate significance from estimated value & std.Err
-                  if(  isTRUE((tabSummary[3,n]*2.576) < abs(tabSummary[2,n])) ) {
-                    sigStars[n] <- "***"
-                  }else{
-                    if( isTRUE((tabSummary[3,n]*1.960) < abs(tabSummary[2,n])) ) {
-                      sigStars[n] <- "**"
-                    }else{
-                      if( isTRUE((tabSummary[3,n]*1.645) < abs(tabSummary[2,n])) ) {sigStars[n] <- "*"}
-                    }
-                  }
+            for(n in 1:NCOL(tabSummary)){
+              # Calculate significance from estimated value & std.Err
+              if(  isTRUE((tabSummary[3,n]*2.576) < abs(tabSummary[2,n])) ) {
+                sigStars[n] <- "***"
+              }else{
+                if( isTRUE((tabSummary[3,n]*1.960) < abs(tabSummary[2,n])) ) {
+                  sigStars[n] <- "**"
+                }else{
+                  if( isTRUE((tabSummary[3,n]*1.645) < abs(tabSummary[2,n])) ) {sigStars[n] <- "*"}
                 }
+              }
+            }
 
-                # Round to default dp:
-                tabSummary <- round(tabSummary,getOption("digits"))
+            # Round to default dp:
+            tabSummary <- round(tabSummary,getOption("digits"))
 
-                # Add significance Stars & braces to table:
-                for(n in 1:NCOL(tabSummary)){
-                  tabSummary[2,n] <- paste0(tabSummary[2,n],sigStars[n])
-                  tabSummary[3,n] <- paste0("(",tabSummary[3,n],")")
-                }
+            # Add significance Stars & braces to table:
+            for(n in 1:NCOL(tabSummary)){
+              tabSummary[2,n] <- paste0(tabSummary[2,n],sigStars[n])
+              tabSummary[3,n] <- paste0("(",tabSummary[3,n],")")
+            }
 
-              }  # End: StdErr was calculated:
+          }  # End: StdErr was calculated:
 
-            }  # End: # Object has been estimated:
+        }  # End: # Object has been estimated:
 
-            # FINALLY: Print the Est Results as a Table
-            cat("\n| GARCH Estimation |  Loglik:",loglikValue)
-            print(kable(tabSummary))
-            cat("\nOmegaFree: ",this@omegafree,"\n")
+        # FINALLY: Print the Est Results as a Table
+        cat("\n| GARCH Estimation |  Loglik:",loglikValue)
+        print(kable(tabSummary))
+        cat("\nOmegaFree: ",this@omegafree,"\n")
 
-          }
+      }
   )
 }
 
@@ -1047,6 +1107,7 @@ setMethod("summary",signature="garch_class",
       # optim() returned NULL.  What to do?
       # Return the object passed in with the Error = TRUE
       this$Estimated$error <- TRUE
+      this$Estimated$value <- NA
       warning("estimateGARCH() generated a NULL return from optim()")
     }
 
@@ -1058,18 +1119,14 @@ setMethod("summary",signature="garch_class",
 {##  loglik.garch.univar ----
   .loglik.garch.univar =  function(optimpars,e,garchObj,tvObj){
 
-
     error <- -1e6
-
     this <- garchObj
 
     ## ======== constraint checks ======== ##
     # Check if any parameter is negative:
     if(min(optimpars,na.rm = TRUE) <= 0) return(error)
 
-
     ## ======== calculate loglikelihood ======== ##
-
 
     if (isTRUE(this$omegafree)){
       # All pars are estimated
@@ -1083,8 +1140,6 @@ setMethod("summary",signature="garch_class",
       this$Estimated$pars <- .parsVecToMatrix(this,c(omega,optimpars))
       names(this$Estimated$pars) <- rownames(this$pars)
     }
-
-
 
     ll <- tryCatch({
       # Get the g(t) vector
@@ -1102,7 +1157,6 @@ setMethod("summary",signature="garch_class",
     },finally = {
       # Any cleanup reqd.?
     })
-
 
     return(ll)
 
@@ -1223,23 +1277,40 @@ setMethod("summary",signature="garch_class",
 
 }
 
+.parsVecToMatrix <-function(garchObj,pars){
+  this <- garchObj
+
+  # convert the passed-in 'pars' vector to the Garch$$=pars matrix:
+
+  if(this$type == garchtype$noGarch) {
+    message("Cannot create Garch Params for type: NoGarch")
+    return(this)
+  }
+  #maxLag <- max(this@order)
+  maxLag <- 1
+
+  # Set the row names:
+  # TODO: remove GJR capability from package
+  #garchparsRownames <- c("omega","alpha","beta","gamma")
+  garchparsRownames <- c("omega","alpha","beta")
+
+  # pars contains all Garch paramaters - the estimateGARCH() does this
+  # Return the formatted matrix
+  #matrix(pars,nrow = this@nr.pars ,ncol = maxLag,dimnames = list(garchparsRownames[1:this@nr.pars],"Est"))
+  matrix(pars, nrow=3 ,ncol=1, dimnames = list(garchparsRownames,"Est"))
+
+}
+
 .setEstimatedPars_GARCH <- function(garchObj,optimTmp){
 
   this <- garchObj
   tmp <- optimTmp
 
-  # An unhandled error could result in a NULL being returned by optim()
-  if (is.null(tmp)) {
-    this$Estimated$value <- NA
-    this$Estimated$error <- TRUE
-    warning("estimateGARCH() - optim failed unexpectedly and returned NULL. Check the optim controls & starting params")
-    return(this)
-  }
-  if (tmp$convergence!=0) {
+  if(tmp$convergence!=0) {
     this$Estimated$value <- NA
     this$Estimated$error <- TRUE
     this$Estimated$optimoutput <- tmp
-    warning("estimateGARCH() - failed to converge. Check the optim controls & starting params")
+    warning("estimateGARCH() - optim failed to converge. Check the optim controls & starting params")
     return(this)
   }
 
@@ -1280,6 +1351,7 @@ setMethod("summary",signature="garch_class",
 
   # Get the hessian from the optimiser:
   try(this$Estimated$hessian <- optimHess(tmp$par,.loglik.garch.univar,gr=NULL,e,this,tvObj,control=this$optimcontrol))
+  # TODO: Implement a better try-catch
 
   # Attempt to invert it
   try(StdErrors <- sqrt(-diag(invertHess(this$Estimated$hessian))))
@@ -1304,82 +1376,6 @@ setMethod("summary",signature="garch_class",
   return(this)
 }
 
-.setInitPars = function(garchObj){
-  this <- garchObj
-
-  if(this$type == garchtype$noGarch) {
-    message("Cannot create Garch$pars for type: NoGarch")
-    return(this)
-  }
-
-  maxLag <- max(this@order)
-
-  # Set the row names:
-  GarchparsRownames <- c("omega","alpha","beta","gamma")
-
-  if(this$type == garchtype$general) {
-    this@nr.pars <- as.integer(3)
-    pars <- matrix(nrow = this@nr.pars,ncol = maxLag)
-    rownames(pars) <- GarchparsRownames[1:this@nr.pars]
-    for(n in 1:maxLag){
-      pars["omega",n] <- 0.05
-      pars["alpha",n] <- 0.05
-      pars["beta",n] <- 0.90
-    }
-    this$pars <- pars
-  }
-  if(this$type == garchtype$gjr) {
-    this@nr.pars <- as.integer(4)
-    pars <- matrix(nrow = this@nr.pars,ncol = maxLag)
-    rownames(pars) <- GarchparsRownames[1:this@nr.pars]
-    for(n in 1:maxLag){
-      pars["omega",n] <- 0.005
-      pars["alpha",n] <- 0.095
-      pars["beta",n] <- 0.80
-      pars["gamma",n] <- 0.10
-    }
-    this$pars <- pars
-  }
-  ## TODO: Implement in future release
-  # if(this$type == garchtype$gjr_alpha0) {
-  #   this@nr.pars <- as.integer(3)
-  #   pars <- matrix(nrow = this@nr.pars,ncol = maxLag)
-  #   rownames(pars) <- GarchparsRownames[1:(this@nr.pars + 1)]
-  #   for(n in 1:maxLag){
-  #     pars["omega",n] <- 0.05
-  #     pars["alpha",n] <- 0.0
-  #     pars["beta",n] <- 0.85
-  #     pars["gamma",n] <- 0.05
-  #   }
-  #   this$pars <- pars
-  # }
-
-  return(this)
-}
-
-.parsVecToMatrix <-function(garchObj,pars){
-  this <- garchObj
-
-  # convert the passed-in 'pars' vector to the Garch$$=pars matrix:
-
-  if(this$type == garchtype$noGarch) {
-    message("Cannot create Garch Params for type: NoGarch")
-    return(this)
-  }
-  #maxLag <- max(this@order)
-  maxLag <- 1
-
-  # Set the row names:
-  # TODO: remove GJR capability from package
-  #garchparsRownames <- c("omega","alpha","beta","gamma")
-  garchparsRownames <- c("omega","alpha","beta")
-
-  # pars contains all Garch paramaters - the estimateGARCH() does this
-  # Return the formatted matrix
-  #matrix(pars,nrow = this@nr.pars ,ncol = maxLag,dimnames = list(garchparsRownames[1:this@nr.pars],"Est"))
-  matrix(pars, nrow=3 ,ncol=1, dimnames = list(garchparsRownames,"Est"))
-
-}
 
 calculate_h <- function(e,garchObj){
   this <- garchObj
