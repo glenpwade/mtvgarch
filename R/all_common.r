@@ -8,7 +8,7 @@ tvshape <- list(delta0only=0,single=1,double=2,double1loc=3)
 speedopt <- list(none=0,gamma=1,gamma_std=2,eta=3,lamda2_inv=4)
 ## GARCH
 garchtype <- list(noGarch=0,general=1,gjr=2)
-## COR
+## CORR
 corrshape <- list(single=1,double1loc=2)
 corrspeedopt <- list(gamma=1,gamma_std=2,eta=3)
 
@@ -47,7 +47,6 @@ setGeneric(name="vecL",
 )
 }
 
-
 {# unVecl ----
 setGeneric(name="unVecL",
            valueClass = "matrix",
@@ -64,7 +63,8 @@ setGeneric(name="unVecL",
 
 )
 }
-## -- eigVec.EC ----
+
+{# -- eigVec.EC ----
 setGeneric(name=".eigVec.EC",
            valueClass = "matrix",
            signature = c("N"),
@@ -87,8 +87,10 @@ setGeneric(name=".eigVec.EC",
              }
              return(Q) # NxN matrix
            }
-)
-## -- eigVal.EC ----
+  )
+}
+
+{# -- eigVal.EC ----
 setGeneric(name=".eigVal.EC",
            valueClass = "numeric",
            signature = c("N","rho"),
@@ -100,8 +102,10 @@ setGeneric(name=".eigVal.EC",
              L[1] <- L[1]+rho*N
              return(L) # Nx1
            }
-)
-## -- ar1.Filter ----
+  )
+}
+
+{# -- ar1.Filter ----
 setGeneric(name=".ar1.Filter",
            valueClass = "matrix",
            signature = c("mX","vB"),
@@ -121,8 +125,10 @@ setGeneric(name=".ar1.Filter",
              }
              return(mY)
            }
-)
-## -- vec ----
+  )
+}
+
+{# -- vec ----
 setGeneric(name=".vec",
            valueClass = "matrix",
            signature = c("mat"),
@@ -130,9 +136,10 @@ setGeneric(name=".vec",
              # Convert a matrix to a single-column matrix
              return(matrix(as.vector(mat),ncol=1))
            }
-)
+  )
+}
 
-## -- lag0 ----
+{# -- lag0 ----
 setGeneric(name="lag0",
            valueClass = "matrix",
            signature = c("vX","lagRange"),
@@ -144,9 +151,10 @@ setGeneric(name="lag0",
              }
              return(lags)
            }
-)
+    )
+}
 
-## -- sqrt_mat1 ----
+{# -- sqrt_mat1 ----
 setGeneric(name="sqrt_mat1",
            valueClass = "matrix",
            signature = c("m"),
@@ -176,9 +184,10 @@ setGeneric(name="sqrt_mat1",
              }
              return(m.sqrt)
            }
-)
+    )
+}
 
-## -- sqrt_mat2 ----
+{# -- sqrt_mat2 ----
 setGeneric(name="sqrt_mat2",
            valueClass = "list",
            signature = c("mat"),
@@ -196,9 +205,10 @@ setGeneric(name="sqrt_mat2",
              }
              return(list(sqrt=y,sqrt.inv=z))
            }
-)
+    )
+}
 
-# invertHess ####
+{# -- invertHess ----
 setGeneric(name="invertHess",
            valueClass = "matrix",
            signature = c("mat"),
@@ -221,10 +231,11 @@ setGeneric(name="invertHess",
               } else return(matrix())
           }
 
-})
+        }
+    )
+}
 
-## -- vector.insert ----
-#
+{# -- vector.insert ----
 # Used in clsSTCC - might belog there...  TODO
 setGeneric(name="vector.insert",
            valueClass = "vector",
@@ -273,6 +284,7 @@ setGeneric(name="vector.insert",
 
              return(rtnVec)
            }
-)
+    )
+}
 
 

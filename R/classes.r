@@ -1,8 +1,6 @@
 # *************************************************************************************************************** #
-#                   Class definitions for the garch_class, tv_class and tvgarch_class                          ####
+#                   Class definitions for the tv_class, garch_class and tvgarch_class                          ####
 # *************************************************************************************************************** #
-
-# ---  TV --- SECTION  ####
 
 {## Help doco: tv() ####
   #' @noRd
