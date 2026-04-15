@@ -166,8 +166,7 @@ loglik.tvgarch.univar = function(e,g,h){
     # Get maxIterations from the control list
     # Note if the user didn't set estimation controls the following defaults are provided by an overload method:
     #estimationControl <- (calcSE=FALSE, verbose=FALSE, maxIter=100, fixStartPars=FALSE, startParAdjust=10)
-
-    maxIterations <- estimationControl$maxIter
+    if("maxIter" %in% names(estimationControl)) maxIterations <- estimationControl$maxIter else maxIterations <- 100
     if(!(is.numeric(this$iterationReltol) )) {this$iterationReltol <- 1e-5}
 
     # NOte: the fixStartPars and startParAdjust parameters will be passed down to the underlying Estimators
@@ -192,8 +191,6 @@ loglik.tvgarch.univar = function(e,g,h){
     last.tvg.loglik <- -1e6
     tvg.loglik <- 1
     this@iterations <- as.integer(0)
-
-
 
     while(isTRUE(this@iterations <= maxIterations) && abs(tvg.loglik - last.tvg.loglik) > this$iterationReltol ){
 
