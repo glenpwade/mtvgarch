@@ -33,11 +33,12 @@
   setMethod("plot",signature = c(x="tvgarch_class",y="missing"),
             function(x, y,...){
               #TODO: Allow override of main/title by user
-              if (is.na(x$e_desc)) title = "" else title = x$e_desc
-              g <- x$Estimated$g
-              h <- x$Estimated$h
-              plot.default(x=sqrt(g), type='l', ylab = "sqrt(g)", main=title, ...)
-              plot.default(x=sqrt(h), type='l', ylab = "sqrt(h)", main=title, ...)
+              this <- x
+              # Calculate a unified Y-range for scaling
+              y_limit <- range(c(sqrt(this$Estimated$g), sqrt(this$Estimated$h)), na.rm = TRUE)
+              plot(sqrt(this$Estimated$g),type='l',ylim=y_limit,lwd=2,col="blue",main="mtvgarch plot")
+              lines(sqrt(this$Estimated$h),col="grey",lwd=1)
+
             })
 }
 
@@ -51,7 +52,7 @@
               }
 
               cat("\n -- TVGARCH Model Specification --\n")
-              cat("\nMultiplicative Model Log-Likelihood Value: ", this$Estimated$value)
+              cat("\nMultiplicative model - Converged in: ", this@iterations, " iterations.")
               cat("\n\nTVGARCH Model Parameters:")
               ## TODO:  Fix the Summary - it stopped working  :(   Changing to 'call' didn't help
               print(summary(this@tvObj))
