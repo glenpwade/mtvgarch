@@ -1,15 +1,24 @@
 Package: MTVGARCH
 Type: Package
 Title: Smooth Transition Modelling of GARCH Processes with Time-Varying Variance
-Version: 0.9.9.7
+Version: 0.9.9.8
 Author: Glen Wade
 Maintainer: The package maintainer <glenpwade@gmail.com>
 Description: MTVGARCH is multiplicative object describing both the Garch process and a time-varying variance (tv) component.
     Support is provided for univariate and multivariate models.  Methods for estimation and testing are included.
 License: file LICENSE
 Encoding: UTF-8
-LazyData: True
-Depends: methods,Matrix,doParallel,foreach,knitr
+Depends: methods,Matrix,doParallel,foreach,knitr,testthat
 Imports: stats
+LazyData: True
+Collate: 
+    'all_common.r'
+    'classes.r'
+    'generics.r'
+    'tv-methods.r'
+    'garch-methods.r'
+    'specTest-methods.r'
+    'tvgarch-methods.r'
+    'dataGenProcess.r'
 RoxygenNote: 7.3.1
 Roxygen: list(markdown = TRUE)

@@ -1,7 +1,7 @@
 
-##--- All the general, common functions that don't belong to any one specific class in the MTVGARCH Package ---##
+##--- All the ENUM's & CommonFunctions that don't belong to any one specific class in the MTVGARCH Package ---##
 
-## ---  Enums:
+##  Enums:  ----
 
 ## TV
 tvshape <- list(delta0only=0,single=1,double=2,double1loc=3)
@@ -16,12 +16,15 @@ corrspeedopt <- list(gamma=1,gamma_std=2,eta=3)
 # For TV & GARCH:
 # estCtrl <- list(calcSE = FALSE, verbose = FALSE)
 # For TVGARCH:
-# estCtrl <- list(calcSE = FALSE, verbose = FALSE, fixStartPars = FALSE, startParAdjust = 5)
+# estCtrl <- list(calcSE = FALSE, verbose = FALSE, fixStartPars = FALSE, startParAdjust = 10)
 # Used when estimator iterates, and needs to decide where to get starting pars:
 # fixStartPars = TRUE:Always use the initial set of start pars, FALSE: (Default) Use the last good estimated pars as Start pars
 #                Note: the optim() function has a numerical issue when Start Pars == Last Estimated, so..
-# startParAdjust = The number of ndeps to add to the Last Estimated pars, to keep optim() happy.  (Range= 1-10, Default = 5)
+# startParAdjust = The number of ndeps to add to the Last Estimated pars, to keep optim() happy.  (Range= 1-100, Default = 10)
 
+
+
+##  Common FUNCTIONS  ----
 
 {# vecl ----
 setGeneric(name="vecL",
