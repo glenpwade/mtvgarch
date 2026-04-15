@@ -1,4 +1,5 @@
 exportPattern("^[[:alpha:]]+")
+exportMethods("summary","plot")
 importFrom("graphics", "plot.default")
 importFrom("methods", ".valueClassTest", "callNextMethod", "new")
 importFrom("stats", "na.omit", "optim", "optimHess", "pnorm", "sd","var","runif","rnorm","rt","pchisq")

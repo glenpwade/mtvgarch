@@ -2,8 +2,11 @@
 #                   Class generics for the garch_class, tv_class and tvgarch_class                ####
 # *************************************************************************************************************** #
 
-# ---  TV --- SECTION  ####
+# --- GENERAL ---
+setGeneric("summary")
+setGeneric("plot")
 
+# ---  TV --- SECTION  ####
 {## Constructor: tv() ----
   setGeneric(name="tv",
              valueClass = "tv_class",

@@ -45,17 +45,17 @@
   setMethod("summary",signature="tvgarch_class",
             function(object,...){
               this <- object
-              if(is.null(this$Estimated)){
-                #cat("\n\nPlease estimate the TVGARCH Model first")
-                return("Please estimate the TVGARCH Model first")
+              if(!("Estimated" %in% names(this))){
+                warning("\n\nPlease estimate the TVGARCH Model first")
+                return(this)
               }
 
               cat("\n -- TVGARCH Model Specification --\n")
               cat("\nMultiplicative Model Log-Likelihood Value: ", this$Estimated$value)
               cat("\n\nTVGARCH Model Parameters:")
               ## TODO:  Fix the Summary - it stopped working  :(   Changing to 'call' didn't help
-              call("summary",this@garchObj)
-              call("summary",this@tvObj)
+              print(summary(this@tvObj))
+              print(summary(this@garchObj))
               cat("\n\n -- End of TVGARCH Model Specification --")
 
             }
@@ -262,7 +262,7 @@ loglik.tvgarch.univar = function(e,g,h){
 
     }  # End: While() Loop
 
-    # TODO: Tidy up the wrap-up logic below
+    # TODO: Tidy up the wrap-up logic below!!!
     if(isTRUE(this$Estimated$error)) return(this)
 
 
@@ -289,6 +289,11 @@ loglik.tvgarch.univar = function(e,g,h){
 
     # Always Update the internal objects with the Estimated objects:
     this <- .updateEstimatedDetails(this,TV,GARCH)
+
+    # Finally:
+    # Set the TV & GARCH specifications/models from the estimation result
+    this@tvObj <- TV
+    this@garchObj <- GARCH
 
     return(this)
   }
