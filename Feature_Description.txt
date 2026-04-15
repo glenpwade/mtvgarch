@@ -1,2 +1,2 @@
 Feature:
-Update the summary() responses for TV, GARCH & TVGARCH, using [knitr]
+Refactor source files to prevent build warnings
