@@ -528,11 +528,11 @@ setMethod("summary",signature="garch_class",
             signature = c(e="numeric",tvObj="tv_class",garchObj="garch_class",estimationControl="list"),
             function(e,tvObj,garchObj,estimationControl){
               # Ensure estimationControl has all elements:
-              if(!("calcSE" %in% names(estimationControl)) ) estimationControl$calcSE <- FALSE
-              if(!("verbose" %in% names(estimationControl)) ) estimationControl$verbose <- FALSE
-              if(!("maxIter" %in% names(estimationControl)) ) estimationControl$verbose <- 1
-              if(!("fixStartPars" %in% names(estimationControl)) ) estimationControl$fixStartPars <- FALSE
-              if(!("startParAdjust" %in% names(estimationControl)) ) estimationControl$startParAdjust <- 10
+              if (!("calcSE" %in% names(estimationControl))) {estimationControl$calcSE <- FALSE}
+              if (!("verbose" %in% names(estimationControl))) {estimationControl$verbose <- FALSE}
+              if (!("maxIter" %in% names(estimationControl))) {estimationControl$maxIter <- 1 }
+              if (!("fixStartPars" %in% names(estimationControl))) {estimationControl$fixStartPars <- FALSE}
+              if (!("startParAdjust" %in% names(estimationControl))) {estimationControl$startParAdjust <- 10}
               .estimateGARCH(e,tvObj,garchObj,estimationControl)
             }
   )
@@ -541,16 +541,26 @@ setMethod("summary",signature="garch_class",
   setMethod("estimateGARCH",
             signature = c(e="numeric",tvObj="garch_class",garchObj="list",estimationControl="missing"),
             function(e,tvObj,garchObj){
-              st = (1:NROW(e))/NROW(e)
-              tvMissing <- tv(1,tvshape$single)
-              garchObj <- tvObj
-              estimationControl <- garchObj
-              if(!("calcSE" %in% names(estimationControl)) ) estimationControl$calcSE <- FALSE
-              if(!("verbose" %in% names(estimationControl)) ) estimationControl$verbose <- FALSE
-              if(!("maxIter" %in% names(estimationControl)) ) estimationControl$verbose <- 1
-              if(!("fixStartPars" %in% names(estimationControl)) ) estimationControl$fixStartPars <- FALSE
-              if(!("startParAdjust" %in% names(estimationControl)) ) estimationControl$startParAdjust <- 10
-              .estimateGARCH(e,tvMissing,garchObj,estimationControl)
+              # 1. Map inputs to unique local variables to avoid shadowing
+              # In this signature: tvObj = GARCH Model, garchObj = Control List
+              actualGarchObj <- tvObj
+              actualEstCtrl <- garchObj
+
+              # 2. Create a dummy TV object for the internal engine
+              Tobs <- NROW(e)
+              st <- (1:Tobs) / Tobs
+              tvMissing <- tv(st, shape = tvshape$single)
+
+              # 3. Ensure estimationControl has all elements:
+              if (!("calcSE" %in% names(actualEstCtrl))) {actualEstCtrl$calcSE <- FALSE}
+              if (!("verbose" %in% names(actualEstCtrl))) {actualEstCtrl$verbose <- FALSE}
+              if (!("maxIter" %in% names(actualEstCtrl))) {actualEstCtrl$maxIter <- 1 }
+              if (!("fixStartPars" %in% names(actualEstCtrl))) {actualEstCtrl$fixStartPars <- FALSE}
+              if (!("startParAdjust" %in% names(actualEstCtrl))) {actualEstCtrl$startParAdjust <- 10}
+
+              # 4. Call the internal estimator with the corrected mappings
+              .estimateGARCH(e, tvMissing, actualGarchObj, actualEstCtrl)
+
             }
   )
 
@@ -562,7 +572,6 @@ setMethod("summary",signature="garch_class",
               .estimateGARCH(e,tvObj,garchObj,estimationControl)
             }
   )
-
 
   # GARCH <- estimateGARCH(e,GARCH)
   setMethod("estimateGARCH",
@@ -612,7 +621,7 @@ setMethod("summary",signature="garch_class",
 
   .loglik.garch.rollingWin =  function(optimpars,e,garchObj,vartargetWindow){
 
-    error <- -Inf
+    error <- -1e6
     this <- garchObj
 
     ## ======== constraint checks ======== ##
@@ -705,13 +714,13 @@ setMethod("summary",signature="garch_class",
 
     # An unhandled error could result in a NULL being returned by optim()
     if (is.null(tmp)) {
-      this$Estimated$value <- -Inf
+      this$Estimated$value <- -1e6
       this$Estimated$error <- TRUE
       warning("estimateGARCH() - optim failed and returned NULL. Check the optim controls & starting params")
       return(this)
     }
     if (tmp$convergence!=0) {
-      this$Estimated$value <- -Inf
+      this$Estimated$value <- -1e6
       this$Estimated$error <- TRUE
       this$Estimated$optimoutput <- tmp
       warning("estimateGARCH() - failed to converge. Check the optim controls & starting params")

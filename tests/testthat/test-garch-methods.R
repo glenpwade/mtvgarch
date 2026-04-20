@@ -22,7 +22,6 @@ test_that("estimateGARCH correctly handles: (e,tvObj_single,garObj,estCtrl)", {
 
   # . Test 'single shape
   obj_single <- tv(st, shape = tvshape$single)
-  #obj_single$pars
 
   # . Test all pars provided:
   garObj <- garch(garchtype$general)
