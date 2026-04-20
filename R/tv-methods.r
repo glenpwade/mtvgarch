@@ -582,6 +582,12 @@
   setMethod("estimateTV",
             signature = c(e="numeric",tvObj="tv_class",garchObj="garch_class",estimationControl="list"), #note: All lower case
             function(e,tvObj,garchObj,estimationControl){
+              # Ensure estimationControl has all elements:
+              if(!("calcSE" %in% names(estimationControl)) ) estimationControl$calcSE <- FALSE
+              if(!("verbose" %in% names(estimationControl)) ) estimationControl$verbose <- FALSE
+              if(!("maxIter" %in% names(estimationControl)) ) estimationControl$verbose <- 1
+              if(!("fixStartPars" %in% names(estimationControl)) ) estimationControl$fixStartPars <- FALSE
+              if(!("startParAdjust" %in% names(estimationControl)) ) estimationControl$startParAdjust <- 10
               .estimateTV(e,tvObj,garchObj,estimationControl)
             }
   )

@@ -196,8 +196,8 @@ setMethod("summary",signature="garch_class",
     #this <- GARCH
 
     # Check for iterative-estimator controls, Set defaults if not exists:
-    if(!("fixStartPars" %in% names(estCtrl))) { estCtrl$fixStartPars <- FALSE }
-    if(!("startParAdjust" %in% names(estCtrl))) { estCtrl$startParAdjust <- 10 }
+    #if(!("fixStartPars" %in% names(estCtrl))) { estCtrl$fixStartPars <- FALSE }
+    #f(!("startParAdjust" %in% names(estCtrl))) { estCtrl$startParAdjust <- 10 }
 
     # Step1. Get the starting pars (parsVec):
     if(isTRUE(estCtrl$fixStartPars)  || (!("pars" %in% names(this$Estimated))) ){
@@ -257,18 +257,18 @@ setMethod("summary",signature="garch_class",
       message("Cannot create Garch Params for type: NoGarch")
       return(this)
     }
-    #maxLag <- max(this@order)
-    maxLag <- 1
 
     # Set the row names:
     # TODO: remove GJR capability from package
     #garchparsRownames <- c("omega","alpha","beta","gamma")
-    garchparsRownames <- c("omega","alpha","beta")
 
     # pars contains all Garch paramaters - the estimateGARCH() does this
     # Return the formatted matrix
-    #matrix(pars,nrow = this@nr.pars ,ncol = maxLag,dimnames = list(garchparsRownames[1:this@nr.pars],"Est"))
-    matrix(pars, nrow=3 ,ncol=1, dimnames = list(garchparsRownames,"Est"))
+    rtn <- matrix(pars, nrow=3 ,ncol=1)
+    rownames(rtn) <- c("omega","alpha","beta")
+    colnames(rtn) <- "Est"
+    # Return
+    return(rtn)
 
   }
 
@@ -421,13 +421,13 @@ setMethod("summary",signature="garch_class",
 
       ## ======== calculate loglikelihood ======== ##
 
-      if (isTRUE(this$omegafree)){
+      if (isTRUE(this@omegafree)){
         # All pars are estimated
-        if (optimpars[2] + optimpars[3] >= 0.9999) return(error)    #  constraint check: alpha & beta in [2,3]
+        if (optimpars[2] + optimpars[3] >= 0.99999999) return(error)    #  constraint check: alpha & beta in [2,3]
         this$Estimated$pars <- .parsVecToMatrix(this,optimpars)
-        names(this$Estimated$pars) <- rownames(this$pars)
+        #names(this$Estimated$pars) <- rownames(this$pars)
       }else{
-        if (optimpars[1] + optimpars[2] >= 0.9999) return(error)    #  constraint check: alpha & beta in [1,2]
+        if (optimpars[1] + optimpars[2] >= 0.99999999) return(error)    #  constraint check: alpha & beta in [1,2]
         # omega must be calculated - and inserted back into the pars matrix.
         omega <- (1 - optimpars[1] - optimpars[2])
         this$Estimated$pars <- .parsVecToMatrix(this,c(omega,optimpars))
@@ -527,14 +527,12 @@ setMethod("summary",signature="garch_class",
   setMethod("estimateGARCH",
             signature = c(e="numeric",tvObj="tv_class",garchObj="garch_class",estimationControl="list"),
             function(e,tvObj,garchObj,estimationControl){
-              .estimateGARCH(e,tvObj,garchObj,estimationControl)
-            }
-  )
-  # GARCH <- estimateGARCH(e,TV,GARCH)
-  setMethod("estimateGARCH",
-            signature = c(e="numeric",tvObj="tv_class",garchObj="garch_class",estimationControl="missing"),
-            function(e,tvObj,garchObj){
-              estimationControl <- list(calcSE=FALSE, verbose=FALSE, maxIter=100, fixStartPars=FALSE, startParAdjust=10)
+              # Ensure estimationControl has all elements:
+              if(!("calcSE" %in% names(estimationControl)) ) estimationControl$calcSE <- FALSE
+              if(!("verbose" %in% names(estimationControl)) ) estimationControl$verbose <- FALSE
+              if(!("maxIter" %in% names(estimationControl)) ) estimationControl$verbose <- 1
+              if(!("fixStartPars" %in% names(estimationControl)) ) estimationControl$fixStartPars <- FALSE
+              if(!("startParAdjust" %in% names(estimationControl)) ) estimationControl$startParAdjust <- 10
               .estimateGARCH(e,tvObj,garchObj,estimationControl)
             }
   )
@@ -547,9 +545,25 @@ setMethod("summary",signature="garch_class",
               tvMissing <- tv(1,tvshape$single)
               garchObj <- tvObj
               estimationControl <- garchObj
+              if(!("calcSE" %in% names(estimationControl)) ) estimationControl$calcSE <- FALSE
+              if(!("verbose" %in% names(estimationControl)) ) estimationControl$verbose <- FALSE
+              if(!("maxIter" %in% names(estimationControl)) ) estimationControl$verbose <- 1
+              if(!("fixStartPars" %in% names(estimationControl)) ) estimationControl$fixStartPars <- FALSE
+              if(!("startParAdjust" %in% names(estimationControl)) ) estimationControl$startParAdjust <- 10
               .estimateGARCH(e,tvMissing,garchObj,estimationControl)
             }
   )
+
+  # GARCH <- estimateGARCH(e,TV,GARCH)
+  setMethod("estimateGARCH",
+            signature = c(e="numeric",tvObj="tv_class",garchObj="garch_class",estimationControl="missing"),
+            function(e,tvObj,garchObj){
+              estimationControl <- list(calcSE=FALSE, verbose=FALSE, maxIter=1, fixStartPars=FALSE, startParAdjust=10)
+              .estimateGARCH(e,tvObj,garchObj,estimationControl)
+            }
+  )
+
+
   # GARCH <- estimateGARCH(e,GARCH)
   setMethod("estimateGARCH",
             signature = c(e="numeric",tvObj="garch_class",garchObj="missing",estimationControl="missing"),
@@ -557,7 +571,7 @@ setMethod("summary",signature="garch_class",
               st = (1:NROW(e))/NROW(e)
               tvMissing <- tv(1,tvshape$single)
               garchObj <- tvObj
-              estimationControl <- list(calcSE=FALSE, verbose=FALSE, maxIter=100, fixStartPars=FALSE, startParAdjust=10)
+              estimationControl <- list(calcSE=FALSE, verbose=FALSE, maxIter=1, fixStartPars=FALSE, startParAdjust=10)
               .estimateGARCH(e,tvMissing,garchObj,estimationControl)
             }
   )
