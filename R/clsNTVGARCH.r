@@ -1,20 +1,3 @@
-## --- Multivariate N-TV-GARCH List Class --- ####
-##
-
-
-## --- ntvgarch_class Definition --- ####
-ntvgarch <- setClass(Class = "ntvgarch_class",
-               contains = c("namedList")
-               )
-
-## === Initialise  ===####
-setMethod("initialize","ntvgarch_class",
-          function(.Object,...){
-            .Object <- callNextMethod(.Object,...)
-
-            # Return:
-            .Object
-          })
 
 ## === Constructor: ntvgarch  ===####
 #' @noRd

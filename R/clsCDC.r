@@ -1,27 +1,3 @@
-## -- The MTVGARCH package supports a number of Correlation objects
-## -- This class file maintains the structure for CDC (Constant Distance Correlation)
-
-## Note:  The CDC model uses distance as a proxy for correlation
-
-cdc <- setClass(Class = "cdc_class",
-                  slots = c(distData="data.frame",droppedObs="numeric",g="matrix",h="matrix",z="matrix"),
-                  contains = c("namedList")
-)
-
-## --- Initialise --- ####
-setMethod("initialize","cdc_class",
-          function(.Object,...){
-            .Object <- callNextMethod(.Object,...)
-
-            # Default initial values
-            .Object@distData <- data.frame()
-            .Object$optimcontrol <- list(fnscale = -1, reltol = 1e-9)
-            .Object$pars <- c(1)
-
-            # Return:
-            .Object
-          }
-)
 
 ## -- .calc.distCorr -- ####
 setGeneric(name=".calc.distCorr",

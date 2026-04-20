@@ -1,33 +1,3 @@
-## -- The MTVGARCH package supports a number of Correlation objects
-## -- This class file maintains the structure for DCC (Dynamic Conditional Correlation)
-
-
-dcctype <- list(General=1,Dynamic=2)
-
-## --- dcc_class Definition --- ####
-dcc <- setClass(Class = "dcc_class",
-               slots = c(st="numeric",nr.corPars="integer",nr.trPars="integer",Tobs="integer",N="integer",e="matrix"),
-               contains = c("namedList")
-               )
-
-## --- Initialise --- ####
-setMethod("initialize","dcc_class",
-          function(.Object,...){
-            .Object <- callNextMethod(.Object,...)
-
-            # Default initial values
-            .Object@N <- as.integer(0)
-            .Object@Tobs <- as.integer(0)
-            .Object@e <- matrix("numeric")
-            .Object$ntvgarch <- list()
-            .Object$speedopt <- corrspeedopt$eta
-            .Object$optimcontrol <- list(fnscale = -1, reltol = 1e-5)
-            .Object$pars <- c(0.05,0.80)
-            names(.Object$pars) <- c("alpha","beta")
-
-            # Return:
-            .Object
-          })
 
 ## -- Constructor:dcc -- ####
 setGeneric(name="dcc",

@@ -1,29 +1,4 @@
-## -- The MTVGARCH package supports a number of Correlation objects
-## -- This class file maintains the structure for CCC (Constant Conditional Correlation)
 
-## Note:  The CTC (Constant Touplitz-Correlation)
-##        Model can also be implemented using this class.
-
-ccc <- setClass(Class = "ccc_class",
-                  slots = c(ntvg="ntvgarch_class",z="matrix"),
-                  contains = c("namedList")
-)
-
-## --- Initialise --- ####
-setMethod("initialize","ccc_class",
-          function(.Object,...){
-            .Object <- callNextMethod(.Object,...)
-
-            # Default initial values
-            .Object$N <- 0
-            .Object$e <- matrix("numeric")
-            .Object$Tobs <- 0
-            .Object$nr.covPars <- 0
-            # CCC$e will hold the data to be used by the model.
-            .Object$P <- matrix()
-            # Return:
-            .Object
-          })
 
 ## -- Constructor:ccc -- ####
 #' @noRd

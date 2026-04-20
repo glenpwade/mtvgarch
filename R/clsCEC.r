@@ -1,29 +1,4 @@
-## -- The MTVGARCH package supports a number of Correlation objects
-## -- This class file maintains the structure for CEC (Constant Equi-Correlation)
 
-cec <- setClass(Class = "cec_class",
-                slots = c(N="integer",Tobs="integer",nr.covPars="integer"),
-                contains = c("namedList")
-)
-
-## --- Initialise --- ####
-setMethod("initialize","cec_class",
-          function(.Object,...){
-            .Object <- callNextMethod(.Object,...)
-
-            # Default initial values
-            .Object@N <- as.integer(0)
-            .Object@Tobs <- as.integer(0)
-            .Object@nr.covPars <- as.integer(0)
-            .Object$optimcontrol <- list(fnscale = -1, reltol = 1e-5)
-            .Object$P <- matrix()
-
-            .Object$pars <- c(1) #rho
-
-            # Return:
-            .Object
-          }
-)
 
 ## -- Constructor:cec -- ####
 setGeneric(name="cec",

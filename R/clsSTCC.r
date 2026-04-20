@@ -1,37 +1,4 @@
-## -- The MTVGARCH package supports a number of Correlation objects
-## -- This class file maintains the structure for STCC1 (STCC with One Transition) & STCC2 (STCC with Two Transitions)
-## -- Both classes only support single transitions at this time
 
-
-# --- stcc1_class Definition --- ####
-stcc1 <- setClass(Class = "stcc1_class",
-               slots = c(ntvg="ntvgarch_class",nr.corPars="integer",z="matrix"),
-               contains = c("namedList")
-               )
-
-## --- Initialise --- ####
-setMethod("initialize","stcc1_class",
-          function(.Object,...){
-            .Object <- callNextMethod(.Object,...)
-
-            # Default initial values
-            .Object$N <- 0
-            .Object$e <- matrix("numeric")
-            .Object$Tobs <- 0
-
-            .Object$shape <- corrshape$single
-            .Object$speedopt <- corrspeedopt$eta
-            .Object$optimcontrol <- list(fnscale = -1, reltol = 1e-5, trace = 10)
-
-            .Object$P1 <- matrix("numeric")
-            .Object$P2 <- matrix("numeric")
-            .Object$pars <- c(2.5,0.5)
-            names(.Object$pars) <- c("speed","loc")
-
-
-            # Return:
-            .Object
-          })
 
 ## -- Constructor:stcc1 -- ####
 #' @noRd

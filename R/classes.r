@@ -177,5 +177,184 @@ tv <- setClass(Class = "tv_class",
 
 }
 
+# *************************************************************************************************************** #
+#                   Correlation Model classes                        ####
+# *************************************************************************************************************** #
+
+{## Multi-variate (N) model class ----
+  ## --- Multivariate N-TV-GARCH List Class --- ##
+
+  ## --- ntvgarch_class Definition --- ##
+  ntvgarch <- setClass(Class = "ntvgarch_class",
+                       contains = c("namedList")
+  )
+
+  ## === Initialise  ===####
+  setMethod("initialize","ntvgarch_class",
+            function(.Object,...){
+              .Object <- callNextMethod(.Object,...)
+
+              # Return:
+              .Object
+            })
+
+}
 
 
+{## CCC class ----
+  ## -- The MTVGARCH package supports a number of Correlation objects
+  ## -- This class file maintains the structure for CCC (Constant Conditional Correlation)
+
+  ## Note:  The CTC (Constant Touplitz-Correlation)
+  ##        Model can also be implemented using this class.
+
+  ccc <- setClass(Class = "ccc_class",
+                  slots = c(ntvg="ntvgarch_class",z="matrix"),
+                  contains = c("namedList")
+  )
+
+  ## --- Initialise --- ##
+  setMethod("initialize","ccc_class",
+            function(.Object,...){
+              .Object <- callNextMethod(.Object,...)
+
+              # Default initial values
+              .Object$N <- 0
+              .Object$e <- matrix("numeric")
+              .Object$Tobs <- 0
+              .Object$nr.covPars <- 0
+              # CCC$e will hold the data to be used by the model.
+              .Object$P <- matrix()
+              # Return:
+              .Object
+            })
+
+}
+
+{## STCC class ----
+  ## -- The MTVGARCH package supports a number of Correlation objects
+  ## -- This class file maintains the structure for STCC1 (STCC with One Transition) & STCC2 (STCC with Two Transitions)
+  ## -- Both classes only support single transitions at this time
+
+
+  # --- stcc1_class Definition --- #
+  stcc1 <- setClass(Class = "stcc1_class",
+                    slots = c(ntvg="ntvgarch_class",nr.corPars="integer",z="matrix"),
+                    contains = c("namedList")
+  )
+
+  ## --- Initialise --- ##
+  setMethod("initialize","stcc1_class",
+            function(.Object,...){
+              .Object <- callNextMethod(.Object,...)
+
+              # Default initial values
+              .Object$N <- 0
+              .Object$e <- matrix("numeric")
+              .Object$Tobs <- 0
+
+              .Object$shape <- corrshape$single
+              .Object$speedopt <- corrspeedopt$eta
+              .Object$optimcontrol <- list(fnscale = -1, reltol = 1e-5, trace = 10)
+
+              .Object$P1 <- matrix("numeric")
+              .Object$P2 <- matrix("numeric")
+              .Object$pars <- c(2.5,0.5)
+              names(.Object$pars) <- c("speed","loc")
+
+
+              # Return:
+              .Object
+            })
+
+}
+
+{## CDC class ----
+  ## -- The MTVGARCH package supports a number of Correlation objects
+  ## -- This class file maintains the structure for CDC (Constant Distance Correlation)
+
+  ## Note:  The CDC model uses distance as a proxy for correlation
+
+  cdc <- setClass(Class = "cdc_class",
+                  slots = c(distData="data.frame",droppedObs="numeric",g="matrix",h="matrix",z="matrix"),
+                  contains = c("namedList")
+  )
+
+  ## --- Initialise --- ##
+  setMethod("initialize","cdc_class",
+            function(.Object,...){
+              .Object <- callNextMethod(.Object,...)
+
+              # Default initial values
+              .Object@distData <- data.frame()
+              .Object$optimcontrol <- list(fnscale = -1, reltol = 1e-9)
+              .Object$pars <- c(1)
+
+              # Return:
+              .Object
+            }
+  )
+
+
+}
+
+{## CEC class ----
+  ## -- The MTVGARCH package supports a number of Correlation objects
+  ## -- This class file maintains the structure for CEC (Constant Equi-Correlation)
+
+  cec <- setClass(Class = "cec_class",
+                  slots = c(N="integer",Tobs="integer",nr.covPars="integer"),
+                  contains = c("namedList")
+  )
+
+  ## --- Initialise --- ##
+  setMethod("initialize","cec_class",
+            function(.Object,...){
+              .Object <- callNextMethod(.Object,...)
+
+              # Default initial values
+              .Object@N <- as.integer(0)
+              .Object@Tobs <- as.integer(0)
+              .Object@nr.covPars <- as.integer(0)
+              .Object$optimcontrol <- list(fnscale = -1, reltol = 1e-5)
+              .Object$P <- matrix()
+
+              .Object$pars <- c(1) #rho
+
+              # Return:
+              .Object
+            }
+  )
+}
+
+{## DCC class ----
+  ## -- The MTVGARCH package supports a number of Correlation objects
+  ## -- This class file maintains the structure for DCC (Dynamic Conditional Correlation)
+
+  dcctype <- list(General=1,Dynamic=2)
+
+  ## --- dcc_class Definition --- ##
+  dcc <- setClass(Class = "dcc_class",
+                  slots = c(st="numeric",nr.corPars="integer",nr.trPars="integer",Tobs="integer",N="integer",e="matrix"),
+                  contains = c("namedList")
+  )
+
+  ## --- Initialise --- ##
+  setMethod("initialize","dcc_class",
+            function(.Object,...){
+              .Object <- callNextMethod(.Object,...)
+
+              # Default initial values
+              .Object@N <- as.integer(0)
+              .Object@Tobs <- as.integer(0)
+              .Object@e <- matrix("numeric")
+              .Object$ntvgarch <- list()
+              .Object$speedopt <- corrspeedopt$eta
+              .Object$optimcontrol <- list(fnscale = -1, reltol = 1e-5)
+              .Object$pars <- c(0.05,0.80)
+              names(.Object$pars) <- c("alpha","beta")
+
+              # Return:
+              .Object
+            })
+}
