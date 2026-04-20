@@ -5,11 +5,5 @@
 ^.*\.RData$
 ^.*\.Rhistory$
 ^.*\.gitignore$
-^R/clsCCC\.r$
-^R/clsCDC\.r$
-^R/clsCEC\.r$
-^R/clsDCC\.r$
-^R/clsNTVGARCH\.r$
-^R/clsTVGARCH\.r$
-^R/clsSTCC\.r$
+^R/wip$
 ^R/delMe_test\.R$
