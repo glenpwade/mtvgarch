@@ -1,14 +1,13 @@
-#  usethis::use_test("estimateTV")
-#
 
 {#  Local setup for console execution ####
   help("equality-expectations")
 
   setwd("C:/Source/Repos/mtvgarch/tests/testthat")
   source("setup-data.R")
-  library("devtools")
 }
 devtools::load_all()
+
+## Test the constructor(s)  ####
 
 test_that("tv() constructor correctly handles all possible shapes", {
   # Setup a standard transition variable [9]
@@ -52,7 +51,7 @@ test_that("tv() constructor initializes default slots correctly", {
 })
 
 
-
+## Test the estimator(s)  ####
 
 test_that("estimateTV correctly handles: (e,tvObj_single,garObj,estCtrl)", {
 
@@ -79,30 +78,6 @@ test_that("estimateTV correctly handles: (e,tvObj_single,garObj,estCtrl)", {
 
 })
 
-
-test_that("estimateTV correctly handles: (e,tvObj_single)", {
-
-  # estCtrl <- list(calcSE=FALSE, verbose=FALSE, maxIter=1, fixStartPar=FALSE, startParAdjust=10)
-
-  # Setup a standard tv object, with 1 transition
-  Tobs <- NROW(e)
-  st <- (1:Tobs) / Tobs
-
-  # . Test 'single shape
-  obj_single <- tv(st, shape = tvshape$single)
-
-  # Estimate object:
-  set.seed(42)
-  obj_single <- estimateTV(e,obj_single)
-
-  # Known pars for this data are:
-  pars <- c(4.5396464, 2.2763090, 0.4989851, NA)
-  expect_equal(as.vector(obj_single$Estimated$pars), pars, tolerance = 1e-6)
-  #all.equal(as.vector(obj_single$Estimated$pars), pars, tolerance = 1e-6)
-
-})
-
-
 test_that("estimateTV correctly handles: (e,tvObj_single,estCtrl)", {
 
   estCtrl <- list(calcSE=FALSE, verbose=FALSE, maxIter=1, fixStartPar=FALSE, startParAdjust=10)
@@ -125,8 +100,31 @@ test_that("estimateTV correctly handles: (e,tvObj_single,estCtrl)", {
 
 })
 
+test_that("estimateTV correctly handles: (e,tvObj_single)", {
+
+  if(exists("estCtrl", inherits = FALSE)) { rm(estCtrl) }
+
+  # Setup a standard tv object, with 1 transition
+  Tobs <- NROW(e)
+  st <- (1:Tobs) / Tobs
+
+  # . Test 'single shape
+  obj_single <- tv(st, shape = tvshape$single)
+
+  # Estimate object:
+  set.seed(42)
+  obj_single <- estimateTV(e,obj_single)
+
+  # Known pars for this data are:
+  pars <- c(4.5396464, 2.2763090, 0.4989851, NA)
+  expect_equal(as.vector(obj_single$Estimated$pars), pars, tolerance = 1e-6)
+  #all.equal(as.vector(obj_single$Estimated$pars), pars, tolerance = 1e-6)
+
+})
 
 test_that("estimateTV correctly handles: (e,tvObj_single,garObj)", {
+
+  if(exists("estCtrl", inherits = FALSE)) { rm(estCtrl) }
 
   # Setup a standard tv object, with 1 transition
   Tobs <- NROW(e)
@@ -146,3 +144,4 @@ test_that("estimateTV correctly handles: (e,tvObj_single,garObj)", {
   #all.equal(as.vector(obj_single$Estimated$pars), pars, tolerance = 1e-6)
 
 })
+

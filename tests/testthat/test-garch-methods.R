@@ -1,19 +1,30 @@
-#  usethis::use_test("estimateGARCH")
-#
 
 {#  Local setup for console execution ####
 help("equality-expectations")
 
 setwd("C:/Source/Repos/mtvgarch/tests/testthat")
 source("setup-data.R")
-library("devtools")
 }
 
 devtools::load_all()
 
+## Test the constructor(s)  ####
+
+test_that("garch constructor: (type)", {
+
+  # . Construct object:
+  garObj <- garch(garchtype$general)
+
+  expect_equal(class(garObj)[1], "garch_class")
+  #all.equal(class(garObj)[1], "garch_class")
+
+})
+
+
+## Test the estimator(s)  ####
+
 test_that("estimateGARCH correctly handles: (e,tvObj_single,garObj,estCtrl)", {
 
-  #plot(e,type='l')
   estCtrl <- list(calcSE=FALSE, verbose=FALSE, maxIter=1, fixStartPar=FALSE, startParAdjust=10)
 
   # Setup a standard tv object, with 1 transition
@@ -38,11 +49,9 @@ test_that("estimateGARCH correctly handles: (e,tvObj_single,garObj,estCtrl)", {
 
 })
 
-
 test_that("estimateGARCH correctly handles: (e,garObj)", {
 
-  #plot(e,type='l')
-  # estCtrl <- list(calcSE=FALSE, verbose=FALSE, maxIter=1, fixStartPar=FALSE, startParAdjust=10)
+  if(exists("estCtrl", inherits = FALSE)) { rm(estCtrl) }
 
   # Estimate object:
   garObj <- garch(garchtype$general)
@@ -57,7 +66,6 @@ test_that("estimateGARCH correctly handles: (e,garObj)", {
   expect_equal(garObj$Estimated$error, FALSE)
 
 })
-
 
 test_that("estimateGARCH correctly handles: (e,garObj,estCtrl)", {
 
@@ -78,11 +86,9 @@ test_that("estimateGARCH correctly handles: (e,garObj,estCtrl)", {
 
 })
 
-
 test_that("estimateGARCH correctly handles: (e,tvObj_single,garObj)", {
 
-  #plot(e,type='l')
-  #estCtrl <- list(calcSE=FALSE, verbose=FALSE, maxIter=1, fixStartPar=FALSE, startParAdjust=10)
+  if(exists("estCtrl", inherits = FALSE)) { rm(estCtrl) }
 
   # Setup a standard tv object, with 1 transition
   Tobs <- NROW(e)
@@ -135,4 +141,3 @@ test_that("estimateGARCH correctly returns Standard Errors", {
 
 })
 
-testthat_tolerance()

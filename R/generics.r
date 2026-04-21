@@ -118,13 +118,14 @@ setGeneric("plot")
              signature = c("tvObj","garchObj"),
              def = function(tvObj,garchObj){
 
+               this <- new("tvgarch_class")
+
                # Validate: Spit dummy if TV or GARCH are estimated
-               if(("Estimated" %in% names(tvObj)) || ("Estimated" %in% names(tvObj)) ) {
-                 message("tvgarch-class objects require the tv & garch parameters to be specified, but NOT estimated.")
+               if(("Estimated" %in% names(tvObj)) || ("Estimated" %in% names(garchObj)) ) {
+                 message("tvgarch-class creation failed. tv & garch parameters must be specified, but NOT estimated.")
                  return(this)
                }
 
-               this <- new("tvgarch_class")
                this@tvObj <- tvObj
                this@garchObj <- garchObj
                this@Tobs <- tvObj@Tobs
