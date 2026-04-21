@@ -530,7 +530,7 @@ setMethod("summary",signature="garch_class",
               # Ensure estimationControl has all elements:
               if (!("calcSE" %in% names(estimationControl))) {estimationControl$calcSE <- FALSE}
               if (!("verbose" %in% names(estimationControl))) {estimationControl$verbose <- FALSE}
-              if (!("maxIter" %in% names(estimationControl))) {estimationControl$maxIter <- 1 }
+              if (!("maxIter" %in% names(estimationControl))) {estimationControl$maxIter <- 10 }
               if (!("fixStartPars" %in% names(estimationControl))) {estimationControl$fixStartPars <- FALSE}
               if (!("startParAdjust" %in% names(estimationControl))) {estimationControl$startParAdjust <- 10}
               .estimateGARCH(e,tvObj,garchObj,estimationControl)
@@ -554,7 +554,7 @@ setMethod("summary",signature="garch_class",
               # 3. Ensure estimationControl has all elements:
               if (!("calcSE" %in% names(actualEstCtrl))) {actualEstCtrl$calcSE <- FALSE}
               if (!("verbose" %in% names(actualEstCtrl))) {actualEstCtrl$verbose <- FALSE}
-              if (!("maxIter" %in% names(actualEstCtrl))) {actualEstCtrl$maxIter <- 1 }
+              if (!("maxIter" %in% names(actualEstCtrl))) {actualEstCtrl$maxIter <- 10 }
               if (!("fixStartPars" %in% names(actualEstCtrl))) {actualEstCtrl$fixStartPars <- FALSE}
               if (!("startParAdjust" %in% names(actualEstCtrl))) {actualEstCtrl$startParAdjust <- 10}
 
@@ -568,7 +568,7 @@ setMethod("summary",signature="garch_class",
   setMethod("estimateGARCH",
             signature = c(e="numeric",tvObj="tv_class",garchObj="garch_class",estimationControl="missing"),
             function(e,tvObj,garchObj){
-              estimationControl <- list(calcSE=FALSE, verbose=FALSE, maxIter=1, fixStartPars=FALSE, startParAdjust=10)
+              estimationControl <- list(calcSE=FALSE, verbose=FALSE, maxIter=10, fixStartPars=FALSE, startParAdjust=10)
               .estimateGARCH(e,tvObj,garchObj,estimationControl)
             }
   )
@@ -580,7 +580,7 @@ setMethod("summary",signature="garch_class",
               st = (1:NROW(e))/NROW(e)
               tvMissing <- tv(1,tvshape$single)
               garchObj <- tvObj
-              estimationControl <- list(calcSE=FALSE, verbose=FALSE, maxIter=1, fixStartPars=FALSE, startParAdjust=10)
+              estimationControl <- list(calcSE=FALSE, verbose=FALSE, maxIter=10, fixStartPars=FALSE, startParAdjust=10)
               .estimateGARCH(e,tvMissing,garchObj,estimationControl)
             }
   )

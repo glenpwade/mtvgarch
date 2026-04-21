@@ -583,11 +583,11 @@
             signature = c(e="numeric",tvObj="tv_class",garchObj="garch_class",estimationControl="list"), #note: All lower case
             function(e,tvObj,garchObj,estimationControl){
               # Ensure estimationControl has all elements:
-              if(!("calcSE" %in% names(estimationControl)) ) estimationControl$calcSE <- FALSE
-              if(!("verbose" %in% names(estimationControl)) ) estimationControl$verbose <- FALSE
-              if(!("maxIter" %in% names(estimationControl)) ) estimationControl$verbose <- 1
-              if(!("fixStartPars" %in% names(estimationControl)) ) estimationControl$fixStartPars <- FALSE
-              if(!("startParAdjust" %in% names(estimationControl)) ) estimationControl$startParAdjust <- 10
+              if(!("calcSE" %in% names(estimationControl)) ) {estimationControl$calcSE <- FALSE}
+              if(!("verbose" %in% names(estimationControl)) ) {estimationControl$verbose <- FALSE}
+              if(!("maxIter" %in% names(estimationControl)) ) {estimationControl$verbose <- 10}
+              if(!("fixStartPars" %in% names(estimationControl)) ) {estimationControl$fixStartPars <- FALSE}
+              if(!("startParAdjust" %in% names(estimationControl)) ) {estimationControl$startParAdjust <- 10}
               .estimateTV(e,tvObj,garchObj,estimationControl)
             }
   )
@@ -598,7 +598,7 @@
             signature = c(e="numeric",tvObj="tv_class",garchObj="missing",estimationControl="missing"),
             function(e,tvObj){
               garchObj <- garch(garchtype$general)
-              estimationControl <- list(calcSE=FALSE, verbose=FALSE, maxIter=100, fixStartPars=FALSE, startparAdjust=10)
+              estimationControl <- list(calcSE=FALSE, verbose=FALSE, maxIter=10, fixStartPars=FALSE, startparAdjust=10)
               .estimateTV(e,tvObj,garchObj,estimationControl)
             }
   )
@@ -609,7 +609,7 @@
             function(e,tvObj,garchObj){
               estimationControl <- garchObj
               garchMissing <- garch(garchtype$general)  # Was not provided by user, they put estControl in this position
-              estimationControl <- list(calcSE=FALSE, verbose=FALSE, maxIter=100, fixStartPars=FALSE, startparAdjust=10)
+              estimationControl <- list(calcSE=FALSE, verbose=FALSE, maxIter=10, fixStartPars=FALSE, startparAdjust=10)
               .estimateTV(e,tvObj,garchMissing,estimationControl)
             }
   )
@@ -618,7 +618,7 @@
   setMethod("estimateTV",
             signature = c(e="numeric",tvObj="tv_class",garchObj="garch_class",estimationControl="missing"),  #note: We need to switch the garchObj to accept the estCtrl list()
             function(e,tvObj,garchObj){
-              estimationControl <- list(calcSE=FALSE, verbose=FALSE, maxIter=100, fixStartPars=FALSE, startparAdjust=10)
+              estimationControl <- list(calcSE=FALSE, verbose=FALSE, maxIter=10, fixStartPars=FALSE, startparAdjust=10)
               .estimateTV(e,tvObj,garchObj,estimationControl)
             }
   )

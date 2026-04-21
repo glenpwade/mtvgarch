@@ -105,11 +105,10 @@ loglik.tvgarch.univar = function(e,g,h){
     message("loglik.tvgarch.univar() warning: ", w$message)
   },error = function(err){
     message("loglik.tvgarch.univar() error: ", err$message)
-    ll <- -1e6  #TODO: Is this a good idea???  (Trying to allow the Iterative estimator to continue)
+    ll <- -1e6
   },finally = {
     #
   })
-
 
   #ll <- sum( -0.5*log(2*pi) - 0.5*log(g) - 0.5*log(h) - 0.5*(e^2/(g*h) ) )
   #names(ll) <- "Loglik.Value"
@@ -165,12 +164,8 @@ loglik.tvgarch.univar = function(e,g,h){
     this@e <- e
 
     # Get maxIterations from the control list
-    # Note if the user didn't set estimation controls the following defaults are provided by an overload method:
-    #estimationControl <- (calcSE=FALSE, verbose=FALSE, maxIter=100, fixStartPars=FALSE, startParAdjust=10)
-    if("maxIter" %in% names(estimationControl)) maxIterations <- estimationControl$maxIter else maxIterations <- 100
+    if("maxIter" %in% names(estimationControl)) maxIterations <- estimationControl$maxIter else maxIterations <- 10
     if(!(is.numeric(this$iterationReltol) )) {this$iterationReltol <- 1e-5}
-
-    # NOte: the fixStartPars and startParAdjust parameters will be passed down to the underlying Estimators
 
     # Configure variance targetting:  TODO: Test estimators with var Target OFF!
     if(isTRUE(this$varTarget)){
@@ -181,8 +176,8 @@ loglik.tvgarch.univar = function(e,g,h){
       GARCH@omegafree <- TRUE
     }
 
-    # Start Iterative TVGARCH Estimation ####
-    cat("\nStarting Iterative TVGARCH Estimation...\n")
+    # Start TVGARCH Estimation ##
+    cat("\nStarting TVGARCH Estimation...\n")
 
     # While..Loop => Ensures we always run at least once.
     # Update this@iterations after Estimates (checking for Convergence or MaxIterations)
@@ -193,7 +188,7 @@ loglik.tvgarch.univar = function(e,g,h){
     tvg.loglik <- 1
     this@iterations <- as.integer(0)
 
-    while(isTRUE(this@iterations <= maxIterations) && abs(tvg.loglik - last.tvg.loglik) > this$iterationReltol ){
+    while(isTRUE(this@iterations < maxIterations) && abs(tvg.loglik - last.tvg.loglik) > this$iterationReltol ){
 
       # 1. Copy current to last:
       last.tvg.loglik <- tvg.loglik
@@ -308,6 +303,12 @@ loglik.tvgarch.univar = function(e,g,h){
   setMethod("estimateTVGARCH",
             signature = c(e="numeric",tvgarchObj="tvgarch_class",estimationControl="list"),
             function(e,tvgarchObj,estimationControl){
+              # Provide defaults for missing controls:
+              if (!("calcSE" %in% names(estimationControl))) {estimationControl$calcSE <- FALSE}
+              if (!("verbose" %in% names(estimationControl))) {estimationControl$verbose <- FALSE}
+              if (!("maxIter" %in% names(estimationControl))) {estimationControl$maxIter <- 10 }
+              if (!("fixStartPars" %in% names(estimationControl))) {estimationControl$fixStartPars <- FALSE}
+              if (!("startParAdjust" %in% names(estimationControl))) {estimationControl$startParAdjust <- 10}
               .estimateTVGARCH(e,tvgarchObj,estimationControl)
             }
   )
@@ -315,7 +316,7 @@ loglik.tvgarch.univar = function(e,g,h){
   setMethod("estimateTVGARCH",
             signature = c(e="numeric",tvgarchObj="tvgarch_class",estimationControl="missing"),
             function(e,tvgarchObj){
-              estimationControl <- list(calcSE=FALSE, verbose=FALSE, maxIter=100, fixStartPars=FALSE, startParAdjust=10)
+              estimationControl <- list(calcSE=FALSE, verbose=FALSE, maxIter=10, fixStartPars=FALSE, startParAdjust=10)
               .estimateTVGARCH(e,tvgarchObj,estimationControl)
             }
   )
