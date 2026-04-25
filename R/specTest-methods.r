@@ -44,6 +44,11 @@ getTestStats = function(e,tvObj,testOrder){
 }
 
 test.LM.TR2=function(e,tvObj,testOrder){
+
+  # debug:
+  # this <- obj_single
+  # testOrder = 1
+
   this <- tvObj
 
   if(testOrder <= 0){
@@ -261,6 +266,7 @@ testStatDist = function(refdata,tvObj,reftests,simcontrol){
     simControl$saveAs <- paste("TestStatDist-",strftime(Sys.time(),format="%Y%m%d-%H%M%S",usetz = FALSE))
     simControl$numLoops <- 1100
     simControl$numCores <- parallel::detectCores() - 1
+    simcontrol$maxTestorder <- 3
   }
 
   # Validate SimControl:
@@ -380,10 +386,6 @@ testStatDist = function(refdata,tvObj,reftests,simcontrol){
   return(Results)
 
 }
-
-
-# TODO: Rename to setInitTVPars and change param to list()
-
 
 .dg_dt =  function(tvObj){
   this <- tvObj

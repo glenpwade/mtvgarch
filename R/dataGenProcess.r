@@ -252,9 +252,7 @@ generateDCCRefData=function(nr.series,nr.obs,Qbar,a,b)
  ## -- generateDynDCCRefData -- ####
 
  generateDynDCCRefData=function(nr.series,nr.obs,Q1,Q2,speed,loc,a,b)
-
  {
-
    # Step1: Generate iid Data & create Correlation
    # u = un-correlated data
    u <- matrix(rnorm(nr.obs * nr.series),nrow=nr.obs, ncol=nr.series)

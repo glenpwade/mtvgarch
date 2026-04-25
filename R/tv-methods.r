@@ -165,7 +165,7 @@
 }
 
 {## estimateTV() - helpers ----
-  .estimateTV_noPars <- function(e,tvObj){
+  .estimateTV_noPars <- function(e,tvObj,estimationControl){
 
     this <- tvObj
 
@@ -532,7 +532,7 @@
     } else this$optimcontrol$trace <- 0
 
     # Check for the simple case of just delta0 provided, no TV$pars
-    if(this@nr.transitions == 0){ return( .estimateTV_noPars(e,this) ) }
+    if(this@nr.transitions == 0){ return( .estimateTV_noPars(e,this,estimationControl) ) }
 
     # Get the Optimpars from the tvObj (and update the tvObj as needed)
     tvOptimpars <- .getOptimpars_FromTV(this,estimationControl)
