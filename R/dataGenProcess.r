@@ -34,7 +34,7 @@
 setGeneric(name="generateRefData",
            valueClass = "matrix",
            signature = c("nr.series","nr.obs","tvObj","garchObj","corrObj","noiseDist"),
-           def =  function(nr.series,nr.obs,tvObj,garchObj,corrObj,noiseDist)
+           def =  function(nr.series,nr.obs,tvObj,garchObj,corrObj = NULL,noiseDist = list(name='Normal', mean=0, sd=1))
            {
              ## TODO: 1. Override function to handle TV & GARCH as optional params
 

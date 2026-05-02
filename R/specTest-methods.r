@@ -271,19 +271,17 @@ testStatDist = function(refdata,tvObj,reftests,simcontrol){
 
   # Validate SimControl:
   if(is.null(simcontrol$maxTestorder)){
-    warning("Maximum Test Order must be a valid number between 1 - 4")
+    warning("\nMaximum Test Order must be a valid number between 1 - 4")
     return(list())
   }else if((simcontrol$maxTestorder < 1) || (simcontrol$maxTestorder > 4) ){
-    warning("Maximum Test Order must be a valid number between 1 - 4")
+    warning("\nMaximum Test Order must be a valid number between 1 - 4")
     return(list())
   }else if(length(reftests) != simcontrol$maxTestorder) {
-    warning("Maximum Test Order is mis-matched with the number of Reference Tests provided")
+    warning("\nMaximum Test Order is mis-matched with the number of Reference Tests provided")
     return(list())
   }
 
   # 1. Setup the default params
-
-
   if(!is.null(simcontrol$numLoops)) numLoops <- simcontrol$numLoops else numLoops <- 1100
   if(!is.null(simcontrol$numCores)) numCores <- simcontrol$numCores else numCores <- detectCores() - 1
 
@@ -300,15 +298,15 @@ testStatDist = function(refdata,tvObj,reftests,simcontrol){
 
   # 5. Setup the timer to provide duration feedback
   tmr <- proc.time()
-  timestamp(prefix = "Starting to build Test Stat Distribution - ",suffix = "\nPlease be patient as this may take a while...\n")
+  timestamp(prefix = "\nStarting to build Test Stat Distribution - ",suffix = "\nPlease be patient as this may take a while...\n")
 
   # 6. Calculate Results for all test orders required (optimised for parallel processing)
 
   # First estimate all TV objects in parallel
 
   noGarch <- garch(garchtype$noGarch,1)  # Prevent the estimateTV method from creating a Garch object every time
-  listTV <- foreach(a = 1:numLoops, .inorder=FALSE, .verbose = FALSE) %dopar%{
-    estimateTV(refdata[,a],this,estCtrl,noGarch)    # Note: The tv params don't change, only the data changes
+  listTV <- foreach(a = 1:numLoops, .inorder=FALSE, .packages = "MTVGARCH", .verbose = FALSE) %dopar%{
+    estimateTV(refdata[,a],this,noGarch,estCtrl)    # Note: The tv params don't change, only the data changes
   }
 
   testStats <- foreach(b = 1:numLoops, .inorder=FALSE, .combine=rbind, .verbose = FALSE) %dopar% {
@@ -320,7 +318,7 @@ testStatDist = function(refdata,tvObj,reftests,simcontrol){
         c(b,reftests[[testOrder]]$TR2,simTEST1,as.integer(simTEST1 > reftests[[testOrder]]$TR2),reftests[[testOrder]]$Robust,simTEST2,as.integer(simTEST2 > reftests[[testOrder]]$Robust),listTV[[b]]$Estimated$value)
         #runSimrow <- c(runSimrow,b,reftests[[testOrder]]$TR2,simTEST1,as.integer(simTEST1 > reftests[[testOrder]]$TR2),reftests[[testOrder]]$Robust,simTEST2,as.integer(simTEST2 > reftests[[testOrder]]$Robust),listTV[[b]]$Estimated$value)
       }
-
+      #gc()  # Release memory locked by tests
     }
   }
 
